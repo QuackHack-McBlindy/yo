@@ -37,8 +37,8 @@ rand = "0.8"
 toml = "0.8"
 
 [[bin]]
-name = "yo"
-path = "src/yo.rs"
+name = "yo-builder"
+path = "src/yo-builder.rs"
 
 [[bin]]
 name = "yo-client"
