@@ -1,0 +1,26 @@
+[[scripts]]
+name = "do"
+description = "do is the run-time interpreter"
+category = "🗣️ Voice"
+log_level = "INFO"
+code = '''
+YO_INTENT_DATA=$XDG_CACHE_HOME/yo/intent-data.json YO_FUZZY_INDEX=$XDG_CACHE_HOME/yo/fuzzy-index.json yo-do
+
+'''
+
+[[scripts.parameters]]
+name = "input"
+description = "Text to translate"
+optional = true
+
+[[scripts.parameters]]
+name = "fuzzy"
+type = "int"
+description = "Minimum percentage for considering fuzzy matching successful. (1-100)"
+default = 60
+
+[[scripts.parameters]]
+name = "room"
+type = "string"
+description = "Optional client area (used for context)"
+optional = true

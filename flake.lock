@@ -1,0 +1,62 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1773122722,
+        "narHash": "sha256-FIqHByVqxCprNjor1NqF80F2QQoiiyqanNNefdlvOg4=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "62dc67aa6a52b4364dd75994ec00b51fbf474e50",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1773122722,
+        "narHash": "sha256-FIqHByVqxCprNjor1NqF80F2QQoiiyqanNNefdlvOg4=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "62dc67aa6a52b4364dd75994ec00b51fbf474e50",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "tinyFlake": "tinyFlake"
+      }
+    },
+    "tinyFlake": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_2"
+      },
+      "locked": {
+        "lastModified": 1772995996,
+        "narHash": "sha256-yS9OMTB/3qW66hFyXYM2IhyOJ2Sm6hpFrfRNesfWNbA=",
+        "owner": "quackhack-mcblindy",
+        "repo": "tinyFlake",
+        "rev": "6920eee7597ff072d5272a9bdf4911b303dc7cd3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "quackhack-mcblindy",
+        "repo": "tinyFlake",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

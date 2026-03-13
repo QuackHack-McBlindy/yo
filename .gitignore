@@ -1,0 +1,67 @@
+
+*.bak
+modules/dump
+/home/Public/dump
+bin/dump
+bin/voice/dump
+devShells/dump
+packages/dump
+lib/dump
+home/dump
+home/.config/ha
+home/.config/home-assistant
+result/
+epg.xml
+home/.config/Yubico
+home/sketchbook/dump
+home/.local/share/piper
+overlays/dump
+modules/networking/caddy.nix.save
+borg_settings.txt
+packages/yo-rs/models/stt
+baseurl
+key/
+**/keys.txt
+**/key.txt
+*_DECRYPTED
+**/passwd
+**/log
+**/.env
+.DS_Store          # macOS file system metadata
+Thumbs.db          # Windows thumbnail cache
+__pycache__/       # Python bytecode cache folder
+env/               # Virtual environment directory
+venv/              # Virtual environment directory
+node_modules/      # Node.js dependencies
+*.log              # General log files
+package-lock.json  # npm lock file
+yarn.lock          # Yarn lock file
+pnpm-lock.yaml     # pnpm lock file
+/dist/             # Build artifacts
+/build/            # Build output
+*.bundle.js        # Bundled JavaScript files
+*.map               # Source map files
+*.class            # Java bytecode files
+*.o                # Object files
+*.a                # Static libraries
+*~                 # Temporary files (emacs, vi, etc.)
+*.bak              # Backup files
+*.tmp              # Temporary files
+.env               # Environment variables
+*.env              # Any .env file containing secrets
+.dockerignore      # Docker ignore file
+Dockerfile         # Dockerfile (if you don’t want it tracked)
+docker-compose.yml # Docker compose config
+/test-output/      # Output of test frameworks (e.g., pytest, Mocha)
+*.iml              # IntelliJ IDEA module files
+target/            # Rust target folder
+build/             # Build output for C++ projects
+result/            # Nix build output
+**/result/
+**/result
+*.pid
+*.sock
+**/.direnv
+**/*.typed
+played_news.txt
+speedtest_speeds.txt

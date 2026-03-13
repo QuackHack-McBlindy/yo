@@ -1,0 +1,45 @@
+services:
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["client", "all"]
+    command: >
+      --uri "192.168.1.111:12345"
+      --room "livingroom"
+      --silence-threshold 0.03
+      --silence-timeout 1.5
+      --debug
+    devices:
+      - "/dev/snd:/dev/snd"
+    environment:
+      - DT_LOG_LEVEL=INFO
+    #   - AUDIO_GID=29
+    # PulseAudio
+    #   - PULSE_SERVER=unix:/run/user/1000/pulse/native
+    restart: unless-stopped
+    network_mode: host
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: ["server", "all"]
+    entrypoint: ["/usr/local/bin/yo-server"]
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./models:/app/models
+      - ./examples:/etc/yo
+    # PulseAudio socket
+    #   - /run/user/1000/pulse:/run/user/1000/pulse
+    environment:
+      - DT_LOG_LEVEL=INFO
+    #   - AUDIO_GID=29
+    # PulseAudio
+    #   - PULSE_SERVER=unix:/run/user/1000/pulse/native
+    # grant access to the host's sound card (ALSA)
+    devices:
+      - "/dev/snd:/dev/snd"
+    restart: unless-stopped
+    # network_mode: host

@@ -1,0 +1,273 @@
+# **Yo!**
+
+
+`yo` is:  
+- a **compile-time grammar compiler** *(default Nix)*  
+- a **run-time interpreter with some fuzziness on top** *(default Rust)*  
+
+    
+It turns declarative voice patterns into executable shell commands.    <br><br>
+  
+
+`yo` is a **full-stack voice assistant** that's:  
+- **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
+- **Simple** - Everything neatly packaged and runs on one port.  
+- **Safe** - Rule based, user defines the rules.  
+- **Offline** - No internet required after setup.  
+- **Easy to deploy** - Using the NixOS module or containerized clients via Docker.  
+- **Plug & Play** - Using the `examples/` scripts. 
+
+<br>
+
+`yo` is **NOT**:    
+- **❌ An LLM with shell access**  
+
+<br>
+  
+## **Installation**
+
+<details><summary><strong>
+❄️ Using flakes (recommended)
+</strong></summary>
+
+Use `yo` as voice assistant in 4 steps:  
+  
+
+#### **1: Add yo as an input in your flake.nix**
+
+```nix
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    yo.url = "github:quackhack-mcblindy/yo";
+  };
+```
+
+
+#### **2: Import the yo module into your configuration**  
+  
+
+```nix
+  imports = [ yo.nixosModules.yo ];
+```
+
+<br>
+
+
+#### **3: Enable the services**  
+
+```nix
+services.yo-rs = {
+  # Handles Wake-word detection/Transcription/Shell execution/Text-to-speech generation
+  server = {
+    enable         = true;
+    shellTranslate = true;
+    demo           = true;   # imports /examples/*.nix
+
+    # Optional settings:
+    # host                  = "0.0.0.0:12345";
+    # wakeWordPath          = "/path/to/custom/model.onnx";
+    # threshold             = 0.8;
+    # awakeSound            = "/path/to/custom/awake.wav";
+    # doneSound             = "/path/to/custom/done.wav";
+    # failSound             = "/path/to/custom/fail.wav";
+    # whisperModelPath      = "/path/to/custom/ggml-model.bin";
+    # textToSpeechModelPath = "/path/to/custom/tts/model.onnx";
+    # language              = "sv";
+    # beamSize              = 5;
+    # temperature           = 0.2;
+    # threads               = 4;
+    # debug                 = true;
+    # logFile               = "/path/to/custom/log/path/yo-rs-server.log";
+
+    # You can use Home Assistant's intent handler instead:
+    # execCommand = ''
+    #   curl -X POST "http://HOME_ASSISTANT_IP:8123/api/conversation/process" \
+    #   -H "Authorization: Bearer YOUR_LONG_LIVED_ACCESS_TOKEN" \
+    #   -H "Content-Type: application/json" \
+    #   -d "{\"text\":\"$1\",\"language\":\"sv\"}"
+    # '';
+  };
+
+  # Microphone client (streams audio - RMS based VAD)
+  client = {
+    enable = true;   # starts the microphone client
+
+    # Optional settings:
+    # uri                = "192.168.1.111:12345";
+    # awakeSound         = "/path/to/custom/awake.wav";
+    # doneSound          = "/path/to/custom/done.wav";
+    # failSound          = "/path/to/custom/fail.wav";
+    # awakeCmd           = "notify-send 'Wake word detected'";
+    # doneCmd            = "mpg123 /path/to/success.mp3";
+    # silenceThreshold   = 0.03;
+    # silenceTimeout     = 1.5;
+    # debug              = true;
+    # logFile            = "/path/to/custom/log/path/yo-rs-client.log";
+  };
+};
+```
+
+
+<br>
+
+
+#### **4: Rebuild your system**  
+
+```nix
+$ sudo nixos-rebuild switch --flake /path/to/flake ...
+```
+
+**Done!**  
+  
+Now you can speak your wake word *(default: `"yo bitch"`)*  
+& ask what time it is.  
+*or if you prefer CLI:*  
+
+```bash
+$ yo do "whats the time"
+```
+
+
+*If you don't like Rust, or have a basic setup you can use Bash instead by setting:*  
+
+```nix
+yo.legacy = true;
+```
+
+ 
+Which only relies on `pkgs.jq` and `pkgs.coreutils`.
+
+</details>
+
+
+
+<details><summary><strong>
+📦 Building from source
+</strong></summary>
+
+If your not on a NixOS system you can choose to compile the grammar using `yo-toml` *(Rust)* instead of Nix.  <br>
+This involves creating your voice sentences and commands using `.toml` files and using `yo-toml --config-dir` to generated the required JSOn files.  
+
+**Example**
+
+```bash
+$ git clone git@github.com:QuackHack-McBlindy/yo.git
+$ cd yo/packages/yo-rs
+# Build the package
+$ cargo build --release
+# Compile the examples/ voice patterns using Rust
+$ ./target/release/yo-toml --config-dir ./../../examples --output $XDG_CACHE_HOME/yo
+# Build the wrappers
+$ ./target/release/yo ./../../examples ./../../output
+```
+
+<br>
+  
+Now you should be able to start the server/client.  
+
+Server:  
+
+```bash
+$ ./target/release/yo-rs \
+  --host 0.0.0.0:12345 \
+  --translate-to-shell \
+  # Optional:
+  # --wake-word ./models/wake.onnx \
+  # --threshold 0.5 \
+  # --model ./models/ggml-small.bin \
+  # --beam-size 5 \
+  # --temperature 0.2 \
+  # --threads 4 \
+  # --language en \
+  # --awake-sound ./sounds/ding.wav \
+  # --done-sound ./sounds/done.wav \
+  # --exec-command "echo" \
+  # --tts-model ./models/en_US-amy-medium.onnx \
+  # --debug
+```
+
+Client:
+
+```bash
+./target/release/yo-client \
+  --uri 127.0.0.1:12345 \
+  # Optional:
+  # --room desktop \
+  # --awake-sound ./sounds/ding.wav \
+  # --done-sound ./sounds/done.wav \
+  # --awake-cmd "notify-send Listening" \
+  # --done-cmd "notify-send Done" \
+  # --silence-threshold 0.005 \
+  # --silence-timeout 1.0 \
+  # --max-duration 5.0 \
+  # --debug
+```
+
+<br>
+
+
+**Done!**  
+  
+If both started without issues - you can now:    
+speak your wake word *(default: `"yo bitch"`)*  
+& ask what time it is or what weather it is or whatever.  
+*or if you prefer CLI:*  
+
+```bash
+$ yo do "whats the time"
+# legacy: (slower - but cooler)
+$ yo legacy "is it warm outside"
+```
+
+<br>
+
+</details>
+
+
+
+
+<details><summary><strong>
+🐋 Docker (may require priveledged)
+</strong></summary>
+
+<br>
+
+Use the provided Dockerfile to build your container with either client, server or both.  
+Optional configuration can be made in the `docker-compose.yaml` file then run:  
+
+```bash
+$ docker compose build
+```
+
+To build the image.  
+To start client + server run:  
+
+```bash
+$ docker compose --profile all up
+``` 
+
+To only start a clien:  
+
+```bash
+$ docker compose --profile client up
+```
+
+<br>
+
+</details>
+
+<br>
+
+## **Further reading**
+
+Read about how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  
+
+Read about the fuzzy matching logic in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FUZZ.md)  
+
+<br>
+
+## **Lisence**
+
+**MIT**  
+Contributions are welcomed.
+

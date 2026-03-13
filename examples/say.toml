@@ -1,0 +1,27 @@
+[[scripts]]
+name = "say"
+description = "Text to speech with built in language detection and automatic model downloading"
+binary = "yo-say"
+category = "🗣️ Voice"
+log_level = "WARNING"
+
+[[scripts.parameters]]
+name = "text"
+description = "Input text that should be spoken"
+optional = false
+
+[[scripts.parameters]]
+name = "model"
+description = "File name of the model"
+default = "~/models/tts/en_US-amy-medium.onnx"
+
+[[scripts.parameters]]
+name = "blocking"
+type = "bool"
+description = "Wait for TTS playback to finish"
+default = false
+
+[[scripts.parameters]]
+name = "path"
+description = "Specify a file path where wav will be saved to disk"
+optional = true
