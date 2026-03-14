@@ -23,8 +23,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 
-COPY --from=builder /app/target/release/yo-client /usr/local/bin/yo-client
-COPY --from=builder /app/target/release/yo-server /usr/local/bin/yo-server
+COPY --from=builder /app/packages/yo-rs/target/release/yo-client /usr/local/bin/yo-client
+COPY --from=builder /app/packages/yo-rs/target/release/yo-server /usr/local/bin/yo-server
 
 
 ENTRYPOINT ["/usr/local/bin/yo-client"]

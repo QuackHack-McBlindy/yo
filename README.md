@@ -152,13 +152,12 @@ This involves creating your voice sentences and commands using `.toml` files and
 
 ```bash
 $ git clone git@github.com:QuackHack-McBlindy/yo.git
-$ cd yo/packages/yo-rs
-# Build the package
-$ cargo build --release
-# Compile the examples/ voice patterns using Rust
-$ ./target/release/yo-toml --config-dir ./../../examples --output $XDG_CACHE_HOME/yo
-# Build the wrappers
-$ ./target/release/yo ./../../examples ./../../output
+$ cd yo
+$ cargo build --release --manifest-path ./packages/yo-rs/Cargo.toml
+# Specify directory containing your toml scripts
+$ ./packages/yo-rs/target/release/yo-toml --config-dir ./examples --output $XDG_CACHE_HOME/yo
+# Build the wrappers from toml scripts
+$ ./packages/yo-rs/target/release/yo-builder ./examples $XDG_CACHE_HOME/yo/bin
 ```
 
 <br>
@@ -236,7 +235,7 @@ Use the provided Dockerfile to build your container with either client, server o
 Optional configuration can be made in the `docker-compose.yaml` file then run:  
 
 ```bash
-$ docker compose build
+$ docker compose build client # or server
 ```
 
 To build the image.  
