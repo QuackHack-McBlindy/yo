@@ -5,8 +5,10 @@
 - a **compile-time grammar compiler** *(default Nix)*  
 - a **run-time interpreter with some fuzziness on top** *(default Rust)*  
 
-    
-It turns declarative voice patterns into executable shell commands.    <br><br>
+   
+It takes declarative sentence templates with optional parameters and entity lists, expands them into all possible variants, generates optimized regular expressions. <br>
+At runtime it takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
+
   
 
 `yo` is a **full-stack voice assistant** that's:  
