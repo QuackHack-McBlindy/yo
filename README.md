@@ -126,9 +126,16 @@ Now you can speak your wake word *(default: `"yo bitch"`)*
 *or if you prefer CLI:*  
 
 ```bash
-$ yo do "whats the time"
+❄️ DOTFILES  on  main [$!+]  
+✦ 07:17:33 ❯ yo do "vad är klockan"
+   ┌─(yo-timee)
+   │🦆 qwack!? vad är klockan
+   └─🦆 says ⮞ no parameters yo
+   └─⏰ do took 183.835µs
+07:17
 ```
 
+`183.835µs` ... but - ok  
 
 *If you don't like Rust, or have a basic setup you can use Bash instead by setting:*  
 
