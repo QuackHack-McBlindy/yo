@@ -272,6 +272,7 @@ impl YoDo {
             memory_data,
             split_words,
             sorry_phrases,
+            compiled_regexes: HashMap::new(),
         }
     }
 
@@ -432,18 +433,19 @@ impl YoDo {
     }
 
     // 🦆 says ⮞ QUACK LOADER - load all the duck data!
-    fn load_intent_data(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let data = fs::read_to_string(path)?;
+    fn load_intent_data(&mut self, intent_data_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let data = fs::read_to_string(intent_data_path)?;
         self.intent_data = serde_json::from_str(&data)?;
-        for (script_name, intent) in &self.intent_data {
-            let mut script_regexes = Vec::new();
-            for sentence in &intent.sentences {
 
+        self.compiled_regexes.clear();
+        for (script_name, intent) in &self.intent_data {
+            let mut regexes = Vec::new();
+            for sentence in &intent.sentences {
                 if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, sentence) {
-                    script_regexes.push((regex, param_names));
+                     regexes.push((regex, param_names));
                 }
             }
-            self.compiled_regexes.insert(script_name.clone(), script_regexes);
+            self.compiled_regexes.insert(script_name.clone(), regexes);
         }
         dt_debug(&format!("🦆 Loaded intent data for {} scripts", self.intent_data.len()));
         Ok(())
@@ -737,7 +739,7 @@ impl YoDo {
         (resolved_text, substitutions)
     }
 
-    // 🦆 says ⮞ EXACT MATCHIN'            
+    // 🦆 says ⮞ EXACT MATCHIN'                
     fn exact_match(&self, text: &str) -> Option<MatchResult> {
         let global_start = Instant::now();
         let text = text.to_lowercase();
@@ -745,7 +747,7 @@ impl YoDo {
     
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
             let script_name = &script_priority.name;
-            dt_debug(&format!("Trying script [{}/{}]: {}", 
+            dt_debug(&format!("Trying script [{}/{}]: {}",
                 script_index + 1, self.processing_order.len(), script_name));
     
             let (resolved_text, substitutions) = self.apply_real_time_substitutions(script_name, &text);
@@ -755,7 +757,6 @@ impl YoDo {
                 for (regex, param_names) in regex_list {
                     if let Some(captures) = regex.captures(&resolved_text) {
                         let mut args = Vec::new();
-    
                         for i in 1..captures.len() {
                             if let Some(matched) = captures.get(i) {
                                 let param_index = i - 1;
@@ -766,12 +767,11 @@ impl YoDo {
                                 };
     
                                 let mut param_value = matched.as_str().to_string();
-    
                                 dt_debug(&format!("Before entity resolution: --{} {}", param_name, param_value));
     
                                 let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
                                 if entity_resolved != param_value {
-                                    dt_debug(&format!("      Entity resolution: --{} {} → {}", 
+                                    dt_debug(&format!("      Entity resolution: --{} {} → {}",
                                         param_name, param_value, entity_resolved));
                                     param_value = entity_resolved;
                                 }
@@ -800,7 +800,7 @@ impl YoDo {
         None
     }
     
-    
+
 
 
              
