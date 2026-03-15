@@ -237,6 +237,7 @@ struct YoDo {
     memory_data: MemoryData,  
     split_words: Vec<String>,
     sorry_phrases: Vec<String>,
+    compiled_regexes: HashMap<String, Vec<(Regex, Vec<String>)>>,
 }
 
 
@@ -431,9 +432,19 @@ impl YoDo {
     }
 
     // 🦆 says ⮞ QUACK LOADER - load all the duck data!
-    fn load_intent_data(&mut self, intent_data_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let data = fs::read_to_string(intent_data_path)?;
+    fn load_intent_data(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let data = fs::read_to_string(path)?;
         self.intent_data = serde_json::from_str(&data)?;
+        for (script_name, intent) in &self.intent_data {
+            let mut script_regexes = Vec::new();
+            for sentence in &intent.sentences {
+
+                if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, sentence) {
+                    script_regexes.push((regex, param_names));
+                }
+            }
+            self.compiled_regexes.insert(script_name.clone(), script_regexes);
+        }
         dt_debug(&format!("🦆 Loaded intent data for {} scripts", self.intent_data.len()));
         Ok(())
     }
@@ -726,73 +737,71 @@ impl YoDo {
         (resolved_text, substitutions)
     }
 
-    // 🦆 says ⮞ EXACT MATCHIN'        
+    // 🦆 says ⮞ EXACT MATCHIN'            
     fn exact_match(&self, text: &str) -> Option<MatchResult> {
         let global_start = Instant::now();
-        let text = text.to_lowercase();     
+        let text = text.to_lowercase();
         dt_debug(&format!("Starting EXACT match for: '{}'", text));
     
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
-            let script_name = &script_priority.name; 
+            let script_name = &script_priority.name;
             dt_debug(&format!("Trying script [{}/{}]: {}", 
                 script_index + 1, self.processing_order.len(), script_name));
-            // 🦆 says ⮞ go real-time substitutions i choose u!
+    
             let (resolved_text, substitutions) = self.apply_real_time_substitutions(script_name, &text);
             dt_debug(&format!("After substitutions: '{}'", resolved_text));
-            if let Some(intent) = self.intent_data.get(script_name) {
-                for sentence in &intent.sentences {
-                    let expanded_variants = self.expand_optional_words(sentence);
-                    
-                    for variant in expanded_variants {
-                        if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, &variant) {
-                            if let Some(captures) = regex.captures(&resolved_text) {
-                                let mut args = Vec::new();      
-                                // 🦆 says ⮞ process da param
-                                for i in 1..captures.len() {
-                                    if let Some(matched) = captures.get(i) {
-                                        let param_index = i - 1;
-                                        let param_name = if param_index < param_names.len() {
-                                            &param_names[param_index]
-                                        } else {
-                                            "param"
-                                        };
-                    
-                                        let mut param_value = matched.as_str().to_string();     
-                                        // 🦆 says ⮞ go entity resolution i choose u!
-                                        dt_debug(&format!("Before entity resolution: --{} {}", param_name, param_value));
-                                        
-                                        let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
-                                        if entity_resolved != param_value {
-                                            dt_debug(&format!("      Entity resolution: --{} {} → {}", 
-                                                param_name, param_value, entity_resolved));
-                                            param_value = entity_resolved;
-                                        }
-                                        
-                                        if let Some(sub) = substitutions.get(&param_value) {
-                                            dt_debug(&format!("      Substitution: {} → {}", param_value, sub));
-                                            param_value = sub.clone();
-                                        }
-                                        
-                                        dt_debug(&format!("      Final argument: --{} {}", param_name, param_value));
-                                        args.push(format!("--{}", param_name));
-                                        args.push(param_value);
-                                    }
+    
+            if let Some(regex_list) = self.compiled_regexes.get(script_name) {
+                for (regex, param_names) in regex_list {
+                    if let Some(captures) = regex.captures(&resolved_text) {
+                        let mut args = Vec::new();
+    
+                        for i in 1..captures.len() {
+                            if let Some(matched) = captures.get(i) {
+                                let param_index = i - 1;
+                                let param_name = if param_index < param_names.len() {
+                                    &param_names[param_index]
+                                } else {
+                                    "param"
+                                };
+    
+                                let mut param_value = matched.as_str().to_string();
+    
+                                dt_debug(&format!("Before entity resolution: --{} {}", param_name, param_value));
+    
+                                let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
+                                if entity_resolved != param_value {
+                                    dt_debug(&format!("      Entity resolution: --{} {} → {}", 
+                                        param_name, param_value, entity_resolved));
+                                    param_value = entity_resolved;
                                 }
-                                
-                                return Some(MatchResult {
-                                    script_name: script_name.clone(),
-                                    args,
-                                    matched_sentence: text.clone(),
-                                    processing_time: global_start.elapsed(),
-                                });
+    
+                                if let Some(sub) = substitutions.get(&param_value) {
+                                    dt_debug(&format!("      Substitution: {} → {}", param_value, sub));
+                                    param_value = sub.clone();
+                                }
+    
+                                dt_debug(&format!("      Final argument: --{} {}", param_name, param_value));
+                                args.push(format!("--{}", param_name));
+                                args.push(param_value);
                             }
                         }
+    
+                        return Some(MatchResult {
+                            script_name: script_name.clone(),
+                            args,
+                            matched_sentence: text.clone(),
+                            processing_time: global_start.elapsed(),
+                        });
                     }
                 }
             }
-        }          
+        }
         None
     }
+    
+    
+
 
              
     // 🦆 says ⮞ fallback yo! FUZZY MATCHIN' 2 teh moon!
