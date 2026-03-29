@@ -6,6 +6,11 @@
   fetchFromGitHub,
   ...
 } : let
+  src = ./yo-rs;
+  cargoToml = builtins.fromTOML (builtins.readFile (src + "/Cargo.toml"));
+  version = cargoToml.package.version;
+  desc = cargoToml.package.description;
+
   tinyWhisper = pkgs.fetchurl {
     url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
     sha256 = "sha256-vgfgSOHlma1GNByNKhNWRQl6U4IhZ4t6zdGxkZxuGyE=";
@@ -29,11 +34,9 @@
 in  
 rustPlatform.buildRustPackage {
   pname = "yo-rs";
-  version = "0.1.4";
-
-  src = ./yo-rs;
-
-  cargoLock = { lockFile = ./yo-rs/Cargo.lock; };
+  inherit version;
+  src = src;
+  cargoLock = { lockFile = src + "/Cargo.lock"; };
 
   nativeBuildInputs = [
     pkgs.pkg-config
@@ -63,7 +66,7 @@ rustPlatform.buildRustPackage {
   '';
 
   meta = with lib; {
-    description = "Multi-client microphone audio streaming with wake-word detection and transcription";
+    description = desc;
     license = licenses.mit;
     maintainers = [ "QuackHack-McBlindy" ];
     mainProgram = "yo-rs";

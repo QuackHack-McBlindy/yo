@@ -1,4 +1,5 @@
-
+packages/yo-rs/build.sh
+packages/yo-rs/target/
 *.bak
 modules/dump
 /home/Public/dump

@@ -1,5 +1,7 @@
 # **Yo!**
 
+[![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
+
 
 `yo` is:  
 - a **compile-time grammar compiler** *(default Nix)*  
@@ -9,7 +11,13 @@
 It takes declarative sentence templates with optional parameters and entity lists, expands them into all possible variants, generates optimized regular expressions. <br>
 At runtime it takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
 
-  
+
+`yo` can be used as:    
+- a **Custom Script Manager**  
+- a **Automation Tool**  
+- a **Systemd Service Manager**  
+    
+
 
 `yo` is a **full-stack voice assistant** that's:  
 - **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
@@ -128,16 +136,16 @@ Now you can speak your wake word *(default: `"yo bitch"`)*
 ```bash
 ❄️ DOTFILES  on  main [$!+]  
 ✦ 07:17:33 ❯ yo do "vad är klockan"
-   ┌─(yo-timee)
+   ┌─(yo-time)
    │🦆 qwack!? vad är klockan
    └─🦆 says ⮞ no parameters yo
    └─⏰ do took 183.835µs
 07:17
 ```
 
-`183.835µs` ... but - ok  
+Approx: `~0.184 ms`  
 
-*If you don't like Rust, or have a basic setup you can use Bash instead by setting:*  
+*But if you don't like Rust, or have a basic setup you can use Bash instead by setting:*  
 
 ```nix
 yo.legacy = true;
@@ -145,6 +153,7 @@ yo.legacy = true;
 
  
 Which only relies on `pkgs.jq` and `pkgs.coreutils`.
+
 
 </details>
 
@@ -268,14 +277,23 @@ $ docker compose --profile client up
 
 ## **Further reading**
 
-Read about how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  
+Learn how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  
 
 Read about the fuzzy matching logic in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FUZZ.md)  
 
+Read more about the feature set in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FEATURES.md)  
+
 <br>
+
+## **Sponsor My Work**
+
+<a href="https://www.buymeacoffee.com/quackhackmcblindy" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
+<br>
+
 
 ## **Lisence**
 
-**MIT**  
+**MIT**  <br>
 Contributions are welcomed.
 
