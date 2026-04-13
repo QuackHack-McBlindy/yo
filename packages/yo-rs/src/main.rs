@@ -41,6 +41,7 @@ struct ClientRegistry {
 }
 
 impl ClientRegistry {
+impl ClientRegistry {
     fn new() -> Self {
         let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
         let dir = PathBuf::from(&home).join(".config/yo");
@@ -48,16 +49,11 @@ impl ClientRegistry {
             dt_error!("Failed to create config dir: {}", e);
         });
         let file_path = dir.join("clients.json");
-        let entries = if file_path.exists() {
-            fs::read_to_string(&file_path)
-                .ok()
-                .and_then(|s| serde_json::from_str::<Vec<ClientEntry>>(&s).ok())
-                .map(|v| v.into_iter().map(|e| (e.id, e.ip)).collect())
-                .unwrap_or_default()
-        } else {
-            HashSet::new()
-        };
-        Self { entries, file_path }
+
+        let entries = HashSet::new();
+        let registry = Self { entries, file_path };
+        registry.save();
+        registry
     }
 
     fn add(&mut self, id: String, ip: String) {
