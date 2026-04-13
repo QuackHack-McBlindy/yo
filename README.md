@@ -14,8 +14,8 @@ At runtime it takes input, runs it through exact and fuzzy matching against the 
 
 `yo` supports usage from:      
 - **NixOS module**  
-- **Full Rust/Toml for non Nix users**    
-- **Client support for any Linux/ESP32**  
+- **Full Rust version (scripts in Toml) for non Nix users**    
+- **Client support for any Linux/ESP32 that has i2s configured**  
     
 
 
@@ -245,7 +245,7 @@ $ yo legacy "is it warm outside"
 
 
 <details><summary><strong>
-🐋 Docker (may require priveledged)
+🐋 Docker (for use outside of Nix ecosystem)
 </strong></summary>
 
 <br>

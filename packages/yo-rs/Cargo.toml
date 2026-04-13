@@ -1,7 +1,7 @@
 [package]
 name = "yo-rs"
 description = "yo-rs is a multi-client wake word detection and transcription server with shell command translation and execution. Including microphone client. All communication is over TCP with a simple binary protocol. yo-rs is a full-stack voice assistant."
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/QuackHack-McBlindy/yo"
