@@ -40,7 +40,7 @@ struct ClientRegistry {
     file_path: PathBuf,
 }
 
-impl ClientRegistry {
+
 impl ClientRegistry {
     fn new() -> Self {
         let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
