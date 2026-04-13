@@ -4,23 +4,24 @@
 
 
 `yo` is:  
-- a **compile-time grammar compiler** *(default Nix)*  
-- a **run-time interpreter with some fuzziness on top** *(default Rust)*  
+- *50%* **Nix: compile-time grammar compiler**  
+- *50%* **Rust: run-time deterministic interpreter with some fuzziness on top**    
 
    
 It takes declarative sentence templates with optional parameters and entity lists, expands them into all possible variants, generates optimized regular expressions. <br>
 At runtime it takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
 
 
-`yo` can be used as:    
-- a **Custom Script Manager**  
-- a **Automation Tool**  
-- a **Systemd Service Manager**  
+`yo` supports usage from:      
+- **NixOS module**  
+- **Full Rust/Toml for non Nix users**    
+- **Client support for any Linux/ESP32**  
     
 
 
 `yo` is a **full-stack voice assistant** that's:  
 - **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
+- **Lightweight** - Very few dependencies.  
 - **Simple** - Everything neatly packaged and runs on one port.  
 - **Safe** - Rule based, user defines the rules.  
 - **Offline** - No internet required after setup.  
@@ -30,7 +31,7 @@ At runtime it takes input, runs it through exact and fuzzy matching against the 
 <br>
 
 `yo` is **NOT**:    
-- **❌ An LLM with shell access**  
+- **❌ An LLM with shell access!**  
 
 <br>
   
@@ -135,9 +136,9 @@ Now you can speak your wake word *(default: `"yo bitch"`)*
 
 ```bash
 ❄️ DOTFILES  on  main [$!+]  
-✦ 07:17:33 ❯ yo do "vad är klockan"
+✦ 07:17:33 ❯ yo do "what time is it"
    ┌─(yo-time)
-   │🦆 qwack!? vad är klockan
+   │🦆 qwack!? what time is it 
    └─🦆 says ⮞ no parameters yo
    └─⏰ do took 183.835µs
 07:17
@@ -287,6 +288,13 @@ Read more about the feature set in the [docs/](https://github.com/QuackHack-McBl
 
 ## **Sponsor My Work**
 
+[![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
+> 🦆🧑‍🦯 says ⮞ Hi! I'm QuackHack-McBlindy!  
+> Like my work?  
+> Buy me a coffee, or become a sponsor.  
+> Thanks for supporting open source/hungry developers ♥️🦆!   
+
+♥️₿ *Wallet:* `pungkula.x`  
 <a href="https://www.buymeacoffee.com/quackhackmcblindy" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 <br>
