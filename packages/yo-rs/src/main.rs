@@ -1076,6 +1076,10 @@ fn main() -> Result<()> {
 
                 let registry_clone = client_registry.clone();
 
+                // 🦆 says ⮞ clone for the unregistration step
+                let client_id_clone = client_id.clone();
+                let peer_addr_clone = peer_addr.clone();
+
                 // 🦆 says ⮞ clone data for the thread
                 let sound_data = sound_data.clone();
                 let done_sound_data = done_sound_data.clone();
@@ -1144,7 +1148,7 @@ fn main() -> Result<()> {
                     { // unreg client
                         let mut reg = registry_clone.lock().unwrap();
                         reg.remove(&client_id_clone, &peer_addr_clone);
-                    }             
+                    }          
                     
                     if let Err(e) = result {
                         dt_error!("Error in client handler: {}", e);
