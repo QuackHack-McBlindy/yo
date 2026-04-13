@@ -37,6 +37,7 @@ rand = "0.8"
 # Compiler
 toml = "0.8"
 
+
 [[bin]]
 name = "yo-builder"
 path = "src/yo-builder.rs"
