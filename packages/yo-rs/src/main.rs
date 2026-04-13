@@ -24,7 +24,7 @@ use whisper_rs::{WhisperContext, FullParams, SamplingStrategy};
 
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::Write;
+use std::sync::Mutex;
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
@@ -1074,6 +1074,8 @@ fn main() -> Result<()> {
                     reg.add(client_id.clone(), peer_addr.clone());
                 }
 
+                let registry_clone = client_registry.clone();
+
                 // 🦆 says ⮞ clone data for the thread
                 let sound_data = sound_data.clone();
                 let done_sound_data = done_sound_data.clone();
@@ -1099,11 +1101,6 @@ fn main() -> Result<()> {
     
                 let whisper_ctx = Arc::clone(&whisper_ctx);
                 let language = language.clone();
-
-                let registry_clone = Arc::clone(&client_registry);
-                let client_id_clone = client_id.clone();
-                let peer_addr_clone = peer_addr.clone();
-
 
                 thread::spawn(move || {
                     let result = if room == "esp" {
@@ -1146,8 +1143,8 @@ fn main() -> Result<()> {
                     
                     { // unreg client
                         let mut reg = registry_clone.lock().unwrap();
-                        reg.remove(&client_id_clone, &peer_addr_clone);
-                    }                    
+                        reg.remove(&client_id, &peer_addr);
+                    }                 
                     
                     if let Err(e) = result {
                         dt_error!("Error in client handler: {}", e);
