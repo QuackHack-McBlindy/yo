@@ -1143,8 +1143,8 @@ fn main() -> Result<()> {
                     
                     { // unreg client
                         let mut reg = registry_clone.lock().unwrap();
-                        reg.remove(&client_id, &peer_addr);
-                    }                 
+                        reg.remove(&client_id_clone, &peer_addr_clone);
+                    }             
                     
                     if let Err(e) = result {
                         dt_error!("Error in client handler: {}", e);
