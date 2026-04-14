@@ -119,6 +119,27 @@ fn convert_wav(input: &str) -> io::Result<()> {
     Ok(())
 }
 
+fn convert_and_replace(path: &str) -> io::Result<()> {
+    let temp = format!("{}.tmp", path);
+    let status = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-i", path,
+            "-ar", "16000",
+            "-ac", "2",
+            "-sample_fmt", "s16",
+            &temp,
+        ])
+        .status()?;
+    if status.success() {
+        std::fs::rename(&temp, path)?;
+        dt_info!("Converted and replaced: {}", path);
+    } else {
+        eprintln!("ffmpeg conversion failed");
+    }
+    Ok(())
+}
+
 
 fn main() -> io::Result<()> {
     let args = parse_args();
@@ -144,30 +165,34 @@ fn main() -> io::Result<()> {
 
     if args.blocking {
         play_file(&path, true)?;
-
-        if !is_temp {
-            convert_wav(&path)?;
-        }
-
+        convert_and_replace(&path)?;
         if is_temp {
             std::fs::remove_file(&path)?;
             dt_info!("Removed temporary file: {}", path);
         }
     } else {
-        if is_temp {
-            let mut child = Command::new("sh")
+        let mut cmd = if is_temp {
+            Command::new("sh")
                 .arg("-c")
                 .arg(format!(
-                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}_converted.wav' && rm '{0}'",
-                    path
+                    "aplay '{}' && ffmpeg -y -i '{}' -ar 16000 -ac 2 -sample_fmt s16 '{}.tmp' && mv '{}.tmp' '{}' && rm '{}'",
+                    path, path, path, path, path, path
                 ))
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
-                .spawn()?;
-            dt_debug!("Playing in background (file: {}, will be auto‑deleted)", path);
+                .spawn()?
         } else {
-            play_file(&path, false)?;
-        }
+            Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "aplay '{}' && ffmpeg -y -i '{}' -ar 16000 -ac 2 -sample_fmt s16 '{}.tmp' && mv '{}.tmp' '{}'",
+                    path, path, path, path
+                ))
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?
+        };
+        dt_debug!("Playing and converting in background (file: {})", path);
     }
 
     Ok(())
