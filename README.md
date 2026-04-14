@@ -15,7 +15,7 @@ At runtime it takes input, runs it through exact and fuzzy matching against the 
 `yo` supports usage from:      
 - **NixOS module**  
 - **Full Rust version (scripts in Toml) for non Nix users**    
-- **Client support for any Linux/ESP32 that has i2s configured**  
+- **Client support for any Linux/**[ESP32](https://github.com/QuackHack-McBlindy/yo-esp) **that has i2s configured**  
     
 
 
@@ -280,6 +280,8 @@ $ docker compose --profile client up
 
 Learn how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  
 
+For inspiration, view my [/bin](https://github.com/QuackHack-McBlindy/dotfiles/tree/main/bin) - which has voice scripts that ranges between easy to advanced usage.  
+
 Read about the fuzzy matching logic in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FUZZ.md)  
 
 Read more about the feature set in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FEATURES.md)  
@@ -300,7 +302,7 @@ Read more about the feature set in the [docs/](https://github.com/QuackHack-McBl
 <br>
 
 
-## **Lisence**
+## **License**
 
 **MIT**  <br>
 Contributions are welcomed.

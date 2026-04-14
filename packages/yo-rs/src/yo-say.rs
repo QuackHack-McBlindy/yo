@@ -97,6 +97,29 @@ fn try_broadcast(text: &str) -> bool {
     false
 }
 
+fn convert_wav(input: &str) -> io::Result<()> {
+    let output = format!("{}_converted.wav", input);
+
+    let status = Command::new("ffmpeg")
+        .args([
+            "-y",
+            "-i", input,
+            "-ar", "16000",
+            "-ac", "2",
+            "-sample_fmt", "s16",
+            &output,
+        ])
+        .status()?;
+
+    if !status.success() {
+        eprintln!("ffmpeg conversion failed: {}", status);
+    } else {
+        dt_info!("Converted file saved as: {}", output);
+    }
+    Ok(())
+}
+
+
 fn main() -> io::Result<()> {
     let args = parse_args();
 
@@ -121,6 +144,11 @@ fn main() -> io::Result<()> {
 
     if args.blocking {
         play_file(&path, true)?;
+
+        if !is_temp {
+            convert_wav(&path)?;
+        }
+
         if is_temp {
             std::fs::remove_file(&path)?;
             dt_info!("Removed temporary file: {}", path);
@@ -129,7 +157,10 @@ fn main() -> io::Result<()> {
         if is_temp {
             let mut child = Command::new("sh")
                 .arg("-c")
-                .arg(format!("aplay '{}' && rm '{}'", path, path))
+                .arg(format!(
+                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}_converted.wav' && rm '{0}'",
+                    path
+                ))
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()?;

@@ -89,3 +89,8 @@ Once system has been rebuilt, you can test all your sentences througly by runnin
 $ yo tests
 ```
 
+<br>
+
+## **See more exampls?**
+
+For inspiration, you can view my personal [/bin](https://github.com/QuackHack-McBlindy/dotfiles/tree/main/bin) - which has voice scripts that ranges between easy to advanced usage.  
