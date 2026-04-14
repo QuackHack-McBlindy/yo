@@ -49,6 +49,7 @@ rustPlatform.buildRustPackage {
     pkgs.openssl.dev
     pkgs.alsa-lib-with-plugins
     pkgs.piper
+    pkgs.ffmpeg
   ];
 
   env.CMAKE_POLICY_VERSION_MINIMUM = "3.5";

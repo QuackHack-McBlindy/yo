@@ -175,8 +175,8 @@ fn main() -> io::Result<()> {
             Command::new("sh")
                 .arg("-c")
                 .arg(format!(
-                    "aplay '{}' && ffmpeg -y -i '{}' -ar 16000 -ac 2 -sample_fmt s16 '{}.tmp' && mv '{}.tmp' '{}' && rm '{}'",
-                    path, path, path, path, path, path
+                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}' && rm '{0}'",
+                    path
                 ))
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
@@ -185,8 +185,8 @@ fn main() -> io::Result<()> {
             Command::new("sh")
                 .arg("-c")
                 .arg(format!(
-                    "aplay '{}' && ffmpeg -y -i '{}' -ar 16000 -ac 2 -sample_fmt s16 '{}.tmp' && mv '{}.tmp' '{}'",
-                    path, path, path, path
+                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}'",
+                    path
                 ))
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
