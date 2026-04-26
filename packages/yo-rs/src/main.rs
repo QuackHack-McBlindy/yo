@@ -33,16 +33,15 @@ lazy_static::lazy_static! {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClientEntry {
-    id: String,
+    room: String,
     ip: String,
     connected_at: u64,
 }
 
 struct ClientRegistry {
-    entries: HashSet<(String, String)>,
+    entries: HashMap<(String, String), (usize, u64)>,
     file_path: PathBuf,
 }
-
 
 impl ClientRegistry {
     fn new() -> Self {
@@ -52,46 +51,62 @@ impl ClientRegistry {
             dt_error!("Failed to create config dir: {}", e);
         });
         let file_path = dir.join("clients.json");
-
-        let entries = HashSet::new();
-        let registry = Self { entries, file_path };
-        registry.save();
-        registry
+        Self {
+            entries: HashMap::new(),
+            file_path,
+        }
     }
 
-    fn add(&mut self, id: String, ip: String) {
-        self.entries.insert((id, ip));
+    fn add_connection(&mut self, room: &str, ip: &str) {
+        let key = (room.to_string(), ip.to_string());
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let (count, _) = self.entries.entry(key).or_insert((0, now));
+        *count += 1;
         self.save();
     }
 
-    fn remove(&mut self, id: &str, ip: &str) {
-        self.entries.remove(&(id.to_string(), ip.to_string()));
-        self.save();
+    fn remove_connection(&mut self, room: &str, ip: &str) {
+        let key = (room.to_string(), ip.to_string());
+        if let std::collections::hash_map::Entry::Occupied(mut entry) = self.entries.entry(key) {
+            let (count, _) = entry.get_mut();
+            if *count > 1 {
+                *count -= 1;
+            } else {
+                entry.remove();
+            }
+            self.save();
+        }
     }
 
     fn save(&self) {
         let entries: Vec<ClientEntry> = self
             .entries
             .iter()
-            .map(|(id, ip)| ClientEntry {
-                id: id.clone(),
+            .map(|((room, ip), &(_, connected_at))| ClientEntry {
+                room: room.clone(),
                 ip: ip.clone(),
-                connected_at: std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
+                connected_at,
             })
             .collect();
+
         let json = serde_json::to_string_pretty(&entries).unwrap_or_else(|e| {
             dt_error!("failed to serialize client list: {}", e);
             "[]".to_string()
         });
-        if let Err(e) = File::create(&self.file_path).and_then(|mut f| f.write_all(json.as_bytes())) {
-            dt_error!("failed to write client list to {:?}: {}", self.file_path, e);
+
+        let tmp_path = self.file_path.with_extension(".tmp");
+        if let Err(e) = std::fs::write(&tmp_path, &json) {
+            dt_error!("failed to write client list to {:?}: {}", tmp_path, e);
+            return;
+        }
+        if let Err(e) = std::fs::rename(&tmp_path, &self.file_path) {
+            dt_error!("failed to rename client list: {}", e);
         }
     }
 }
-
 
 // 🦆 says ⮞ RMS helper
 fn rms_f32(samples: &[f32]) -> f32 {
@@ -1166,10 +1181,17 @@ fn main() -> Result<()> {
  
  
                 // 🦆 says ⮞ create client id
-                let client_id = if room.is_empty() {
+                let display_id = if room.is_empty() {
                     format!("client @ {}", peer_addr)
                 } else { format!("room '{}'", room) };
-                dt_info!("📡 ☑️ 🎙️ {} Connected (IP: {})", client_id, peer_addr);
+
+                dt_info!("📡 ☑ ️ 🎙️ {} Connected [{}]", display_id, peer_addr);
+
+                if !room.is_empty() {
+                    let mut reg = client_registry.lock().unwrap();
+                    reg.add_connection(&room, &peer_ip);
+                }
+
 
                 //let audio_out_stream = if room == "esp" {
                 //    loop {
@@ -1196,28 +1218,24 @@ fn main() -> Result<()> {
                 //    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
                 //}
 
-
-                { // register client
-                    let mut reg = client_registry.lock().unwrap();
-                    reg.add(client_id.clone(), peer_addr.clone());
-                }
-
-                let registry_clone = client_registry.clone();
-
                 // 🦆 says ⮞ clone for the unregistration step
-                let client_id_clone = client_id.clone();
-                let peer_addr_clone = peer_addr.clone();
-
-                // 🦆 says ⮞ clone data for the thread
+                
+                let registry_clone = client_registry.clone();
+                let room_clone = room.clone();
+                let ip_clone = peer_ip.clone();
+                let display_id_clone = display_id.clone();
+                
                 let sound_data = sound_data.clone();
                 let done_sound_data = done_sound_data.clone();
                 let exec_command = exec_command.clone();
-    
+                let whisper_ctx = Arc::clone(&whisper_ctx);
+                let language = language.clone();
+                
                 let wake_model = if custom_wake_word_provided {
                     match OwwModel::from_path(&wake_word_path, threshold) {
                         Ok(m) => m,
                         Err(e) => {
-                            dt_error!("[{}] Failed to load wake model from {}: {}", client_id, wake_word_path, e);
+                            dt_error!("[{}] Failed to load wake model from {}: {}", display_id, wake_word_path, e);
                             continue;
                         }
                     }
@@ -1225,65 +1243,62 @@ fn main() -> Result<()> {
                     match OwwModel::from_bytes(DEFAULT_WAKE_MODEL, threshold) {
                         Ok(m) => m,
                         Err(e) => {
-                            dt_error!("[{}] Failed to load embedded wake model: {}", client_id, e);
+                            dt_error!("[{}] Failed to load embedded wake model: {}", display_id, e);
                             continue;
                         }
                     }
                 };
-    
-                let whisper_ctx = Arc::clone(&whisper_ctx);
-                let language = language.clone();
-
+                
                 thread::spawn(move || {
-                    //let room_for_cleanup = room.clone();
-
-                    let result = if room == "esp" {
-                        handle_client_esp(
-                            stream,
-                            wake_model,
-                            whisper_ctx,
-                            client_id,
-                            debug,
-                            cooldown_secs,
-                            beam_size,
-                            temperature,
-                            language,
-                            threads,
-                            sound_data,
-                            done_sound_data,
-                            exec_command,
-                            translate_to_shell,
-                            room,
-                           // audio_out_stream,
-                        )
-                    } else {
-                        handle_client(
-                            stream,
-                            wake_model,
-                            whisper_ctx,
-                            client_id,
-                            debug,
-                            cooldown_secs,
-                            beam_size,
-                            temperature,
-                            language,
-                            threads,
-                            sound_data,
-                            done_sound_data,
-                            exec_command,
-                            translate_to_shell,
-                            room,
-                        )
-                    };
-                    
-                    { // unreg client
-                        let mut reg = registry_clone.lock().unwrap();
-                        reg.remove(&client_id_clone, &peer_addr_clone);
-                        //ESP_AUDIO_STREAMS.lock().unwrap().remove(&room_for_cleanup);
-                    }          
-                    
-                    if let Err(e) = result {
-                        dt_error!("Error in client handler: {}", e);
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        if room_clone == "esp" {
+                            let _ = handle_client_esp(
+                                stream,
+                                wake_model,
+                                whisper_ctx,
+                                display_id_clone,          // use the nice display name
+                                debug,
+                                cooldown_secs,
+                                beam_size,
+                                temperature,
+                                language,
+                                threads,
+                                sound_data,
+                                done_sound_data,
+                                exec_command,
+                                translate_to_shell,
+                                room_clone,                // the room string itself
+                            );
+                        } else {
+                            let _ = handle_client(
+                                stream,
+                                wake_model,
+                                whisper_ctx,
+                                display_id_clone,
+                                debug,
+                                cooldown_secs,
+                                beam_size,
+                                temperature,
+                                language,
+                                threads,
+                                sound_data,
+                                done_sound_data,
+                                exec_command,
+                                translate_to_shell,
+                                room_clone,
+                            );
+                        }
+                    }));
+                
+                    if !room_clone.is_empty() {
+                        let mut reg = registry_clone
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        reg.remove_connection(&room_clone, &ip_clone);
+                    }
+                
+                    if let Err(panic_info) = result {
+                        dt_error!("Client {} panicked: {:?}", room_clone, panic_info);
                     }
                 });
             }
