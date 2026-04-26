@@ -1189,7 +1189,7 @@ fn load_sorry_phrases() -> Vec<String> {
 fn parse_args() -> CliArgs {
     let mut args = env::args().skip(1).peekable();
     let mut input = None;
-    let mut fuzzy = 15;
+    let mut fuzzy = 65;
     let mut room = None;
     let mut realtime = false;
 

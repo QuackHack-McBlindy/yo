@@ -547,6 +547,7 @@ fn handle_client_esp(
                 buffer.extend(samples);
 
                 // STOP RECORDING?
+                let mut stopped_by_silence = false;
                 let stop = if start.elapsed() >= duration {
                     true
                 } else {
@@ -562,7 +563,12 @@ fn handle_client_esp(
                         if rms > threshold {
                             last_speech = Instant::now();
                         }
-                        last_speech.elapsed() > timeout
+                        if last_speech.elapsed() > timeout {
+                            stopped_by_silence = true;
+                            true
+                        } else {
+                            false
+                        }
                     } else {
                         false // NOT ENOUGH DATA YET TO MAKE DECISION
                     }
@@ -585,15 +591,26 @@ fn handle_client_esp(
                         dt_error!("[{}] failed to flush notification: {}", client_id, e);
                     }
 
+
+                    
+                    // 🦆 says ⮞ TRIM TRAILING SILENCE IF STOP WAS DUE TO SILENCE TIMEOUT
+                    let mut transcription_audio = buffer;
+                    if stopped_by_silence {
+                        let trim_samples = (ESP_SILENCE_TIMEOUT_SECS * SAMPLE_RATE as f64) as usize;
+                        if transcription_audio.len() > trim_samples {
+                            transcription_audio.truncate(transcription_audio.len() - trim_samples);
+                            dt_debug!("[{}] Trimmed trailing silence ({} samples)", client_id, trim_samples);
+                        }
+                    }
+
                     // TRANSCRIBE
-                    let transcription_audio = buffer;
+                    //let transcription_audio = buffer;
                     let perf_start = if debug { Some(Instant::now()) } else { None };
 
                     let sampling_strategy = if beam_size > 0 {
                         SamplingStrategy::BeamSearch { beam_size, patience: 1.0 }
-                    } else {
-                        SamplingStrategy::Greedy { best_of: 1 }
-                    };
+                    } else { SamplingStrategy::Greedy { best_of: 1 } };
+                    
                     let mut whisper_params = FullParams::new(sampling_strategy);
                     whisper_params.set_n_threads(threads);
                     whisper_params.set_translate(false);
@@ -792,78 +809,6 @@ fn print_usage(program_name: &str) {
          --help, -h               Show this help message",
         program_name
     );
-}
-
-
-fn handle_control_command(mut ctrl: TcpStream) {
-    use std::io::{BufRead, BufReader};
-    let reader = BufReader::new(ctrl.try_clone().unwrap());
-    for line in reader.lines() {
-        let line = match line {
-            Ok(l) => l,
-            Err(_) => break,
-        };
-        let parts: Vec<&str> = line.splitn(2, ' ').collect();
-        match parts[0] {
-            "play" if parts.len() == 2 => {
-                let path = parts[1].to_string();
-                let room = "esp".to_string();
-                let streams = ESP_AUDIO_STREAMS.lock().unwrap();
-                if let Some(stream) = streams.get(&room) {
-                    let stream = Arc::clone(stream);
-                    thread::spawn(move || {
-                        stream_audio_to_esp(&path, stream);
-                    });
-                }
-            }
-            "tts" if parts.len() == 2 => {
-                // handle tts ?
-            }
-            _ => {
-                let _ = ctrl.write_all(b"unknown command\n");
-                let _ = ctrl.flush();
-            }
-        }
-    }
-}
-
-
-fn stream_audio_to_esp(path: &str, stream: Arc<Mutex<TcpStream>>) {
-    let mut child = Command::new("ffmpeg")
-        .args([
-            "-i", path,
-            "-f", "s16le",
-            "-acodec", "pcm_s16le",
-            "-ar", "16000",
-            "-ac", "2",
-            "-loglevel", "error",
-            "-",
-        ])
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .expect("failed to spawn ffmpeg");
-
-    let mut stdout = child.stdout.take().unwrap();
-    let mut buf = [0u8; 4096];
-    let mut audio = stream.lock().unwrap();
-
-    loop {
-        match stdout.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                if let Err(e) = audio.write_all(&buf[..n]) {
-                    dt_error!("failed to write to ESP: {}", e);
-                    break;
-                }
-            }
-            Err(e) => {
-                dt_error!("ffmpeg read error: {}", e);
-                break;
-            }
-        }
-    }
-
-    let _ = child.wait();
 }
 
 
