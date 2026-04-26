@@ -3,13 +3,13 @@ use std::{
     fs::{OpenOptions, File},
     io::{self, Write},
     sync::Once,
+    collections::HashMap,
+    process::{Command, exit},
     time::Instant,
 };
 use ducktrace_logger::*;
 
-use std::collections::HashMap;
 use std::fs;
-use std::process::{Command, exit};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -280,6 +280,10 @@ impl YoDo {
             split_words,
             sorry_phrases,
         }
+    }
+
+    fn normalize_input(input: &str) -> String {
+        input.replace(['?', '!', '.', ',', '&', '/'], "").to_lowercase()
     }
 
     fn is_wildcard_param(&self, script_name: &str, param_name: &str) -> bool {
@@ -1084,6 +1088,8 @@ impl YoDo {
     // 🦆 says ⮞ process command
     fn process_single_input(&self, input: &str, total_start: Instant) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
+        let normalized = Self::normalize_input(input);         
+        
         
         // 🦆 says ⮞ collect fuzzy candidates for logging
         let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
@@ -1103,7 +1109,7 @@ impl YoDo {
             .collect();
                
         // 🦆 says ⮞ exact matchin'
-        if let Some(match_result) = self.exact_match(input) {
+        if let Some(match_result) = self.exact_match(&normalized) {
             let part_elapsed = part_start.elapsed();
             dt_debug(&format!("Exact match found: {}", match_result.script_name));
             let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);    
@@ -1118,7 +1124,7 @@ impl YoDo {
         }
     
         // 🦆 says ⮞ fallback yo go fuzzy matchin' i choose u!
-        if let Some(match_result) = self.fuzzy_match(input) {
+        if let Some(match_result) = self.fuzzy_match(&normalized) {
             let part_elapsed = part_start.elapsed();
             dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
             let final_result = MatchResult {

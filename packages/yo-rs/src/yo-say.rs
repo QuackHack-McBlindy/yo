@@ -141,8 +141,48 @@ fn convert_and_replace(path: &str) -> io::Result<()> {
 }
 
 
+// 🦆 says ⮞ read ESP IP from yo clients.json
+fn get_esp_ip() -> Option<String> {
+    let home = std::env::var("HOME").ok()?;
+    let path = format!("{}/.config/yo/clients.json", home);
+    let data = std::fs::read_to_string(&path).ok()?;
+    let clients: Vec<serde_json::Value> = serde_json::from_str(&data).ok()?;
+    clients
+        .iter()
+        .find(|c| c.get("room").and_then(|v| v.as_str()) == Some("esp"))
+        .and_then(|c| c.get("ip").and_then(|v| v.as_str()))
+        .map(|s| s.to_string())
+}
+
+// 🦆 says ⮞ stream TTS to ESP in the background (non‑blocking)
+fn stream_to_esp(model: &str, text: &str, esp_ip: &str) -> io::Result<()> {
+    let escaped_text = text.replace('\'', "'\\''");
+    let cmd = format!(
+        "echo '{}' | piper -m '{}' --output-raw | \
+         ffmpeg -f s16le -ar 22050 -ac 1 -i - -ar 16000 -ac 2 -f s16le - | \
+         nc {} 12345",
+        escaped_text, model, esp_ip
+    );
+
+    Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()?;
+    dt_info!("broadcasting to all ESP devices");
+    Ok(())
+}
+
 fn main() -> io::Result<()> {
     let args = parse_args();
+
+    // 🦆 says ⮞ immediately try to stream to ESP (if configured)
+    if let Some(esp_ip) = get_esp_ip() {
+        if let Err(e) = stream_to_esp(&args.model, &args.text, &esp_ip) {
+            dt_debug!("Failed to start ESP stream: {}", e);
+        }
+    }
 
     if try_broadcast(&args.text) {
         return Ok(());
