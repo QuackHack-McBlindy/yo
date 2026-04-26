@@ -1,11 +1,14 @@
 use std::{
     env,
+    collections::{HashSet, HashMap},
     io::{Read, Write, Cursor},
+    path::PathBuf,
+    fs::{self, File},
     net::{TcpListener, TcpStream},
     process::Command,
     thread,
     time::{Duration, Instant},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 use ducktrace_logger::*;
 use anyhow::Result;
@@ -21,12 +24,12 @@ use oww_rs::{
 };
 use rodio::OutputStream;
 use whisper_rs::{WhisperContext, FullParams, SamplingStrategy};
-
-use std::collections::HashSet;
-use std::fs::{self, File};
-use std::sync::Mutex;
-use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
+
+lazy_static::lazy_static! {
+    static ref ESP_AUDIO_STREAMS: Mutex<HashMap<String, Arc<Mutex<TcpStream>>>> =
+        Mutex::new(HashMap::new());
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ClientEntry {
@@ -223,7 +226,7 @@ fn handle_client(
                 if debug_clone { dt_debug!("[{}] Finished playing awake sound", client_id_clone); }
             });
 
-            // 🦆 says ⮞ Send notification to client
+            // 🦆 says ⮞ send notification (0x01) to client
             if let Err(e) = stream.write_u8(0x01) {
                 dt_error!("[{}] Failed to send detection notification: {}", client_id, e);
             }
@@ -419,6 +422,7 @@ fn handle_client_esp(
     exec_command: Option<String>,
     translate_to_shell: bool,
     room: String,
+    audio_out: Option<Arc<Mutex<TcpStream>>>,
 ) -> Result<()> {
     enum State {
         Normal,
@@ -474,16 +478,24 @@ fn handle_client_esp(
 
                 let detection = wake_model.detection(samples.clone());
                 if detection.detected {
-                    // debounce
+                    // DEBOUNCE
                     if let Some(last) = last_detection {
                         if last.elapsed() < Duration::from_secs_f64(COOLDOWN_SECS) {
                             continue;
                         }
-                    }
+                    } // DETECTED WAKE WORD
                     dt_info!("💥 DETECTED! {} Probability: {:.4}", client_id, detection.probability);
                     last_detection = Some(Instant::now());
 
-                    // play awake sound
+                    // SEND 0x01 TO CLIENT
+                    if let Err(e) = stream.write_u8(0x01) {
+                        dt_error!("[{}] failed to send 0x01 to client: {}", client_id, e);
+                    }
+                    if let Err(e) = stream.flush() {
+                        dt_error!("[{}] failed to flush 0x01: {}", client_id, e);
+                    }
+
+                    // PLAY AWAKE SOUND
                     let sound_data = sound_data.clone();
                     let client_id_clone = client_id.clone();
                     let debug_clone = debug;
@@ -494,19 +506,11 @@ fn handle_client_esp(
                             sink.sleep_until_end();
                         }
                         if debug_clone {
-                            dt_debug!("[{}] Finished playing awake sound", client_id_clone);
+                            dt_debug!("[{}] played awake sound", client_id_clone);
                         }
                     });
 
-                    // send 0x01 to client
-                    if let Err(e) = stream.write_u8(0x01) {
-                        dt_error!("[{}] Failed to send detection notification: {}", client_id, e);
-                    }
-                    if let Err(e) = stream.flush() {
-                        dt_error!("[{}] Failed to flush: {}", client_id, e);
-                    }
-
-                    // start recording
+                    // START RECORDING AUDIO
                     let mut buffer = Vec::with_capacity((ESP_MAX_DURATION_SECS * SAMPLE_RATE as f64) as usize);
                     buffer.extend(samples);
                     let start = Instant::now();
@@ -527,17 +531,17 @@ fn handle_client_esp(
             } => {
                 buffer.extend(samples);
 
-                // stop recording?
+                // STOP RECORDING?
                 let stop = if start.elapsed() >= duration {
                     true
                 } else {
-                    // calculate RMS over the most recent window
+                    // CALCULATE RMS OVER THE MOST RECENT WINDOW
                     let window_samples = (WINDOW_SECONDS * SAMPLE_RATE as f64) as usize;
                     if buffer.len() >= window_samples {
                         let window_start = buffer.len() - window_samples;
                         let window = &buffer[window_start..];
                         let rms = rms_f32(window);
-                        if debug {
+                        if debug { // LOG IT
                             dt_debug!("[{}] RMS: {:.6}", client_id, rms);
                         }
                         if rms > threshold {
@@ -545,16 +549,25 @@ fn handle_client_esp(
                         }
                         last_speech.elapsed() > timeout
                     } else {
-                        false   // not enough data yet to make a decision
+                        false // NOT ENOUGH DATA YET TO MAKE DECISION
                     }
                 };
 
                 if stop {
                     let duration_secs = buffer.len() as f64 / SAMPLE_RATE as f64;
-                    dt_info!("[{}] Recording finished ({} samples, {:.2}s)", client_id, buffer.len(), duration_secs);
+                    dt_info!("[{}] finished recording ({} samples, {:.2}s)", client_id, buffer.len(), duration_secs);
 
+                    // SAVE RECORDING TO DISK FOR DEBUG
                     if let Err(e) = save_audio_to_file(&buffer, &client_id) {
-                        dt_error!("[{}] Failed to save audio: {}", client_id, e);
+                        dt_error!("[{}] failed to save audio: {}", client_id, e);
+                    }
+                    
+                    // SEND 0x02 TO CLIENT
+                    if let Err(e) = stream.write_u8(0x02) {
+                        dt_error!("[{}] failed to send 0x02 to client: {}", client_id, e);
+                    }
+                    if let Err(e) = stream.flush() {
+                        dt_error!("[{}] failed to flush notification: {}", client_id, e);
                     }
 
                     // TRANSCRIBE
@@ -669,27 +682,27 @@ fn handle_client_esp(
                             }
                         }
 
-                        // play done sound
+                        // PLAY DONE SOUND
                         if command_succeeded {
                             play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
                         }
                     }
 
-                    // notify client (0x03 = success, 0x04 = failure)
+                    // NOTIFY CLIENT (0x03 == SUCCESS, 0x04 == FAILURE)
                     let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
                     if let Err(e) = stream.write_u8(notification_byte) {
-                        dt_error!("[{}] Failed to send notification to client: {}", client_id, e);
+                        dt_error!("[{}] failed to send notification to client: {}", client_id, e);
                     }
                     if let Err(e) = stream.flush() {
-                        dt_error!("[{}] Failed to flush after notification: {}", client_id, e);
+                        dt_error!("[{}] failed to flush after notification: {}", client_id, e);
                     }
 
                     reset_wake_model(&mut wake_model, 10);
-                    // after processing, go to cooldown
+                    // AFTER PROCESSING - GO TO COOLDOWN
                     let cooldown_until = Instant::now() + Duration::from_secs_f64(COOLDOWN_SECS);
                     state = State::Cooldown { until: cooldown_until };
                 } else {
-                    // continue recording
+                    // CONTINUE RECODING
                     state = State::Recording {
                         buffer,
                         start,
@@ -701,11 +714,10 @@ fn handle_client_esp(
                 }
             }
             State::Cooldown { until } => {
-                // ignore chunks til cooldown expires
+                // IGNORE CHUNKS TIL COOLDOWN EXPIRES
                 if Instant::now() >= until {
                     state = State::Normal;
-                }
-                // else discard chunk
+                } // ELSE DISCARD CHUNK
             }
         }
     }
@@ -736,7 +748,7 @@ fn play_done_sound(done_sound_data: Vec<u8>, client_id: String, debug: bool) {
             sink.sleep_until_end();
         }
         if debug {
-            dt_debug!("[{}] Finished playing done sound", client_id);
+            dt_debug!("[{}] played done sound", client_id);
         }
     });
 }
@@ -767,6 +779,81 @@ fn print_usage(program_name: &str) {
     );
 }
 
+
+fn handle_control_command(mut ctrl: TcpStream) {
+    use std::io::{BufRead, BufReader};
+    let reader = BufReader::new(ctrl.try_clone().unwrap());
+    for line in reader.lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => break,
+        };
+        let parts: Vec<&str> = line.splitn(2, ' ').collect();
+        match parts[0] {
+            "play" if parts.len() == 2 => {
+                let path = parts[1].to_string();
+                let room = "esp".to_string();
+                let streams = ESP_AUDIO_STREAMS.lock().unwrap();
+                if let Some(stream) = streams.get(&room) {
+                    let stream = Arc::clone(stream);
+                    thread::spawn(move || {
+                        stream_audio_to_esp(&path, stream);
+                    });
+                }
+            }
+            "tts" if parts.len() == 2 => {
+                // handle tts ?
+            }
+            _ => {
+                let _ = ctrl.write_all(b"unknown command\n");
+                let _ = ctrl.flush();
+            }
+        }
+    }
+}
+
+
+fn stream_audio_to_esp(path: &str, stream: Arc<Mutex<TcpStream>>) {
+    let mut child = Command::new("ffmpeg")
+        .args([
+            "-i", path,
+            "-f", "s16le",
+            "-acodec", "pcm_s16le",
+            "-ar", "16000",
+            "-ac", "2",
+            "-loglevel", "error",
+            "-",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .expect("failed to spawn ffmpeg");
+
+    let mut stdout = child.stdout.take().unwrap();
+    let mut buf = [0u8; 4096];
+    let mut audio = stream.lock().unwrap();
+
+    loop {
+        match stdout.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                if let Err(e) = audio.write_all(&buf[..n]) {
+                    dt_error!("failed to write to ESP: {}", e);
+                    break;
+                }
+            }
+            Err(e) => {
+                dt_error!("ffmpeg read error: {}", e);
+                break;
+            }
+        }
+    }
+
+    let _ = child.wait();
+}
+
+
+
+// MAIN
 fn main() -> Result<()> {
     env_logger::init();
 
@@ -988,7 +1075,18 @@ fn main() -> Result<()> {
     } else { DING_WAV.to_vec() };
 
     let listener = TcpListener::bind(&host)?;
-    
+
+    // START A THREAD THAT LISTEN AND REDIRECT ANY AAUDIO BBACK TO ESP SPEAKER
+    let control_listener = TcpListener::bind("0.0.0.0:12346")?;
+    thread::spawn(move || {
+        for conn in control_listener.incoming() {
+            if let Ok(mut ctrl) = conn {
+                thread::spawn(|| handle_control_command(ctrl));
+            }
+        }
+    }); 
+ 
+ 
     // 🦆 says ⮞ Print current settings
     let done_sound_display = done_sound_path.as_deref().unwrap_or("done.wav (embedded)");
     let awake_sound_display = sound_path.as_deref().unwrap_or("ding.wav (embedded)");
@@ -1039,6 +1137,12 @@ fn main() -> Result<()> {
                     Err(_) => "unknown".to_string(),
                 };
     
+                let peer_ip = peer_addr
+                    .split(':')
+                    .next()
+                    .unwrap_or("127.0.0.1")
+                    .to_string();
+    
                 // 🦆 says ⮞ get room by client
                 let room_len = match stream.read_u32::<LittleEndian>() {
                     Ok(len) => len as usize,
@@ -1058,12 +1162,32 @@ fn main() -> Result<()> {
                 } else {
                     String::new()
                 };
-    
+ 
+ 
+ 
                 // 🦆 says ⮞ create client id
                 let client_id = if room.is_empty() {
                     format!("client @ {}", peer_addr)
                 } else { format!("room '{}'", room) };
                 dt_info!("📡 ☑️ 🎙️ {} Connected (IP: {})", client_id, peer_addr);
+
+                let audio_out_stream = if room == "esp" {
+                    match TcpStream::connect((peer_ip.as_str(), 12345)) {
+                        Ok(s) => {
+                            dt_info!("🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output", peer_ip, 12345);
+                            Some(Arc::new(Mutex::new(s)))
+                        }
+                        Err(e) => {
+                            dt_error!("❌ FAILED to connect to ESP: {}", e);
+                            None
+                        }
+                    }
+                } else { None };
+
+                 if let Some(stream) = &audio_out_stream {
+                     ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
+                 }
+
 
                 { // register client
                     let mut reg = client_registry.lock().unwrap();
@@ -1103,6 +1227,8 @@ fn main() -> Result<()> {
                 let language = language.clone();
 
                 thread::spawn(move || {
+                    let room_for_cleanup = room.clone();
+
                     let result = if room == "esp" {
                         handle_client_esp(
                             stream,
@@ -1120,6 +1246,7 @@ fn main() -> Result<()> {
                             exec_command,
                             translate_to_shell,
                             room,
+                            audio_out_stream,
                         )
                     } else {
                         handle_client(
@@ -1144,6 +1271,7 @@ fn main() -> Result<()> {
                     { // unreg client
                         let mut reg = registry_clone.lock().unwrap();
                         reg.remove(&client_id_clone, &peer_addr_clone);
+                        ESP_AUDIO_STREAMS.lock().unwrap().remove(&room_for_cleanup);
                     }          
                     
                     if let Err(e) = result {
