@@ -1174,11 +1174,7 @@ fn main() -> Result<()> {
                     } else {
                         String::from_utf8_lossy(&room_buf).to_string()
                     }
-                } else {
-                    String::new()
-                };
- 
- 
+                } else { String::new() };
  
                 // 🦆 says ⮞ create client id
                 let display_id = if room.is_empty() {
@@ -1191,7 +1187,6 @@ fn main() -> Result<()> {
                     let mut reg = client_registry.lock().unwrap();
                     reg.add_connection(&room, &peer_ip);
                 }
-
 
                 //let audio_out_stream = if room == "esp" {
                 //    loop {
@@ -1218,8 +1213,7 @@ fn main() -> Result<()> {
                 //    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
                 //}
 
-                // 🦆 says ⮞ clone for the unregistration step
-                
+                // 🦆 says ⮞ clone for the unregistration step          
                 let registry_clone = client_registry.clone();
                 let room_clone = room.clone();
                 let ip_clone = peer_ip.clone();
@@ -1256,7 +1250,7 @@ fn main() -> Result<()> {
                                 stream,
                                 wake_model,
                                 whisper_ctx,
-                                display_id_clone,          // use the nice display name
+                                display_id_clone,
                                 debug,
                                 cooldown_secs,
                                 beam_size,
@@ -1267,7 +1261,7 @@ fn main() -> Result<()> {
                                 done_sound_data,
                                 exec_command,
                                 translate_to_shell,
-                                room_clone,                // the room string itself
+                                room_clone.clone(),
                             );
                         } else {
                             let _ = handle_client(
@@ -1285,7 +1279,7 @@ fn main() -> Result<()> {
                                 done_sound_data,
                                 exec_command,
                                 translate_to_shell,
-                                room_clone,
+                                room_clone.clone(),
                             );
                         }
                     }));
