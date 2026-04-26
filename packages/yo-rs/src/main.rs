@@ -1172,21 +1172,29 @@ fn main() -> Result<()> {
                 dt_info!("📡 ☑️ 🎙️ {} Connected (IP: {})", client_id, peer_addr);
 
                 let audio_out_stream = if room == "esp" {
-                    match TcpStream::connect((peer_ip.as_str(), 12345)) {
-                        Ok(s) => {
-                            dt_info!("🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output", peer_ip, 12345);
-                            Some(Arc::new(Mutex::new(s)))
-                        }
-                        Err(e) => {
-                            dt_error!("❌ FAILED to connect to ESP: {}", e);
-                            None
+                    loop {
+                        match TcpStream::connect((peer_ip.as_str(), 12345)) {
+                            Ok(s) => {
+                                dt_info!(
+                                    "🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output",
+                                    peer_ip, 12345
+                                );
+                                break Some(Arc::new(Mutex::new(s)));
+                            }
+                            Err(e) => {
+                                dt_error!(
+                                    "❌ Audio back‑channel to {}:{} failed: {} – retrying in 2s...",
+                                    peer_ip, 12345, e
+                                );
+                                thread::sleep(Duration::from_secs(2));
+                            }
                         }
                     }
                 } else { None };
 
-                 if let Some(stream) = &audio_out_stream {
-                     ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
-                 }
+                if let Some(stream) = &audio_out_stream {
+                    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
+                }
 
 
                 { // register client
