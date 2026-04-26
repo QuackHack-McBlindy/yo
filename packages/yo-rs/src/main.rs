@@ -1077,14 +1077,14 @@ fn main() -> Result<()> {
     let listener = TcpListener::bind(&host)?;
 
     // START A THREAD THAT LISTEN AND REDIRECT ANY AAUDIO BBACK TO ESP SPEAKER
-    let control_listener = TcpListener::bind("0.0.0.0:12346")?;
-    thread::spawn(move || {
-        for conn in control_listener.incoming() {
-            if let Ok(mut ctrl) = conn {
-                thread::spawn(|| handle_control_command(ctrl));
-            }
-        }
-    }); 
+    //let control_listener = TcpListener::bind("0.0.0.0:12346")?;
+    //thread::spawn(move || {
+    //    for conn in control_listener.incoming() {
+    //        if let Ok(mut ctrl) = conn {
+    //            thread::spawn(|| handle_control_command(ctrl));
+    //        }
+    //    }
+    //}); 
  
  
     // 🦆 says ⮞ Print current settings
@@ -1254,7 +1254,7 @@ fn main() -> Result<()> {
                             exec_command,
                             translate_to_shell,
                             room,
-                            audio_out_stream,
+                           // audio_out_stream,
                         )
                     } else {
                         handle_client(
