@@ -422,7 +422,7 @@ fn handle_client_esp(
     exec_command: Option<String>,
     translate_to_shell: bool,
     room: String,
-    audio_out: Option<Arc<Mutex<TcpStream>>>,
+    //audio_out: Option<Arc<Mutex<TcpStream>>>,
 ) -> Result<()> {
     enum State {
         Normal,
