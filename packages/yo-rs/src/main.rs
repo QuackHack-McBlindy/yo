@@ -1171,30 +1171,30 @@ fn main() -> Result<()> {
                 } else { format!("room '{}'", room) };
                 dt_info!("📡 ☑️ 🎙️ {} Connected (IP: {})", client_id, peer_addr);
 
-                let audio_out_stream = if room == "esp" {
-                    loop {
-                        match TcpStream::connect((peer_ip.as_str(), 12345)) {
-                            Ok(s) => {
-                                dt_info!(
-                                    "🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output",
-                                    peer_ip, 12345
-                                );
-                                break Some(Arc::new(Mutex::new(s)));
-                            }
-                            Err(e) => {
-                                dt_error!(
-                                    "❌ Audio back‑channel to {}:{} failed: {} – retrying in 2s...",
-                                    peer_ip, 12345, e
-                                );
-                                thread::sleep(Duration::from_secs(2));
-                            }
-                        }
-                    }
-                } else { None };
+                //let audio_out_stream = if room == "esp" {
+                //    loop {
+                //        match TcpStream::connect((peer_ip.as_str(), 12345)) {
+                //            Ok(s) => {
+                //                dt_info!(
+                //                    "🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output",
+                //                    peer_ip, 12345
+                //                );
+                //                break Some(Arc::new(Mutex::new(s)));
+                //            }
+                //            Err(e) => {
+                //                dt_error!(
+                //                    "❌ Audio back‑channel to {}:{} failed: {} – retrying in 2s...",
+                //                    peer_ip, 12345, e
+                //                );
+                //                thread::sleep(Duration::from_secs(2));
+                //            }
+                //        }
+                //    }
+                //} else { None };
 
-                if let Some(stream) = &audio_out_stream {
-                    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
-                }
+                //if let Some(stream) = &audio_out_stream {
+                //    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
+                //}
 
 
                 { // register client
@@ -1235,7 +1235,7 @@ fn main() -> Result<()> {
                 let language = language.clone();
 
                 thread::spawn(move || {
-                    let room_for_cleanup = room.clone();
+                    //let room_for_cleanup = room.clone();
 
                     let result = if room == "esp" {
                         handle_client_esp(
@@ -1279,7 +1279,7 @@ fn main() -> Result<()> {
                     { // unreg client
                         let mut reg = registry_clone.lock().unwrap();
                         reg.remove(&client_id_clone, &peer_addr_clone);
-                        ESP_AUDIO_STREAMS.lock().unwrap().remove(&room_for_cleanup);
+                        //ESP_AUDIO_STREAMS.lock().unwrap().remove(&room_for_cleanup);
                     }          
                     
                     if let Err(e) = result {
