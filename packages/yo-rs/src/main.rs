@@ -606,7 +606,10 @@ fn handle_client_esp(
                     // TRANSCRIBE
                     //let transcription_audio = buffer;
                     let perf_start = if debug { Some(Instant::now()) } else { None };
-
+                    dt_info!("[{}] Sending to Whisper: {} samples ({:.2}s)",
+                        client_id, transcription_audio.len(),
+                        transcription_audio.len() as f64 / SAMPLE_RATE as f64);
+                        
                     let sampling_strategy = if beam_size > 0 {
                         SamplingStrategy::BeamSearch { beam_size, patience: 1.0 }
                     } else { SamplingStrategy::Greedy { best_of: 1 } };
