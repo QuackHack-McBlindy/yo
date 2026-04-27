@@ -604,7 +604,7 @@ fn handle_client_esp(
                             dt_debug!("[{}] Trimmed trailing silence ({:.2}s, {} samples)",
                                 client_id, trim_seconds, trim_samples);
                         } else {
-                            dt_warn!("[{}] Buffer too short to trim – sending as is", client_id);
+                            dt_info!("[{}] Buffer too short to trim – sending as is", client_id);
                         }
                     }
 
