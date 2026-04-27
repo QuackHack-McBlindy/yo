@@ -276,6 +276,12 @@ $ docker compose --profile client up
 
 <br>
 
+**`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**  
+**GGML-based bin models from the Whisper family is used for speech-to-text.**  
+
+
+<br>
+
 ## **Further reading**
 
 Learn how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  

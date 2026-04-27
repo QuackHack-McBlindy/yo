@@ -156,7 +156,9 @@ const DEFAULT_WAKE_MODEL: &[u8] = include_bytes!("./../models/wake-words/yo_bitc
 // ESP32 client specific
 const ESP_SILENCE_THRESHOLD: f32 = 0.005;
 const ESP_SILENCE_TIMEOUT_SECS: f64 = 1.2;
+const ESP_ADDITIONAL_SILENCE_TRIM: f32 = 0.5;
 const ESP_MAX_DURATION_SECS: f64 = 5.0;
+const ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION: bool = true;
 const COOLDOWN_SECS: f64 = 10.0;  
 
 fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
@@ -592,14 +594,17 @@ fn handle_client_esp(
                     }
 
 
-                    
-                    // 🦆 says ⮞ TRIM TRAILING SILENCE IF STOP WAS DUE TO SILENCE TIMEOUT
+                    // 🦆 says ⮞ TRIM TRAILING SILENCE – always remove the silence timeout + extra margin
                     let mut transcription_audio = buffer;
-                    if stopped_by_silence {
-                        let trim_samples = (ESP_SILENCE_TIMEOUT_SECS * SAMPLE_RATE as f64) as usize;
+                    {
+                        let trim_seconds = ESP_SILENCE_TIMEOUT_SECS + ESP_ADDITIONAL_SILENCE_TRIM as f64;
+                        let trim_samples = (trim_seconds * SAMPLE_RATE as f64) as usize;
                         if transcription_audio.len() > trim_samples {
                             transcription_audio.truncate(transcription_audio.len() - trim_samples);
-                            dt_debug!("[{}] Trimmed trailing silence ({} samples)", client_id, trim_samples);
+                            dt_debug!("[{}] Trimmed trailing silence ({:.2}s, {} samples)",
+                                client_id, trim_seconds, trim_samples);
+                        } else {
+                            dt_warn!("[{}] Buffer too short to trim – sending as is", client_id);
                         }
                     }
 
@@ -637,7 +642,7 @@ fn handle_client_esp(
                             let segment = whisper_state.full_get_segment_text(i as i32)?;
                             transcription.push_str(&segment);
                         }
-                        dt_info!("[{}] Transcription: {}", client_id, transcription);
+                        dt_info!("TRANSCRIPTION: {}", transcription);
 
                         if debug {
                             if let Some(start) = perf_start {
@@ -646,15 +651,22 @@ fn handle_client_esp(
                             }
                         }
 
-                        let normalized = normalize_transcription(&transcription);
-                        if debug {
-                            dt_debug!("[{}] Normalized: {}", client_id, normalized);
+                        // 🦆 says ⮞ optionally cut transcription at first punctuation (enable if hallucination is a big problem)
+                        let mut transcription = transcription;
+                        if ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION {
+                            if let Some(pos) = transcription.find(['?', '!', '.']) {
+                                transcription.truncate(pos);
+                                dt_debug!("[{}] Cut transcription at punctuation: '{}'", client_id, transcription);
+                            }
                         }
+
+                        let normalized = normalize_transcription(&transcription);
+                        if debug { dt_debug!("[{}] Normalized: {}", client_id, normalized); }
 
                         if translate_to_shell {
                             if normalized.is_empty() {
                                 if debug {
-                                    dt_error!("[{}] Normalized text is empty, nothing to translate.", client_id);
+                                    dt_error!("[{}] nothing to translate.", client_id);
                                 }
                             } else {
                                 let mut cmd = Command::new("yo");
