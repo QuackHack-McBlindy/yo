@@ -279,6 +279,17 @@ $ docker compose --profile client up
 **`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**  
 **GGML-based bin models from the Whisper family is used for speech-to-text.**  
 
+Run the following command to download a tiny GGML model and `amy` an `en_US` TTS model:  
+    
+```
+mkdir -p "$HOME/models/stt" && mkdir -p "$HOME/models/tts"
+curl -L -o "$HOME/models/stt/ggml-tiny.bin" \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin"
+curl -L -o "$HOME/models/tts/en_US-amy-medium.onnx" \
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx"
+curl -L -o "$HOME/models/tts/en_US-amy-medium.onnx.json" \
+    "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx.json"    
+```
 
 <br>
 

@@ -155,11 +155,11 @@ const DEFAULT_WAKE_MODEL: &[u8] = include_bytes!("./../models/wake-words/yo_bitc
 
 // ESP32 client specific
 const ESP_SILENCE_THRESHOLD: f32 = 0.005;
-const ESP_SILENCE_TIMEOUT_SECS: f64 = 1.2;
+const ESP_SILENCE_TIMEOUT_SECS: f64 = 1.0;
 const ESP_ADDITIONAL_SILENCE_TRIM: f32 = 0.5;
 const ESP_MAX_DURATION_SECS: f64 = 5.0;
 const ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION: bool = true;
-const COOLDOWN_SECS: f64 = 10.0;  
+const COOLDOWN_SECS: f64 = 5.0;  
 
 fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
     let zero_chunk = vec![0.0; OWW_MODEL_CHUNK_SIZE];
