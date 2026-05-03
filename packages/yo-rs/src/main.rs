@@ -123,29 +123,29 @@ fn handle_intercom(
     mut stream: TcpStream,
     client_id: String,
     debug: bool,
-    room: String,
+    _room: String,           // unused, just to silence warning
 ) -> Result<()> {
     let (_stream, handle) = OutputStream::try_default()?;
     let sink = Sink::try_new(&handle)?;
     const SAMPLE_RATE: u32 = 16000;
 
     loop {
-        let msg_type = match stream.read_u8() {
-            Ok(b) => b,
-            Err(_) => {
-                dt_info!("[{}] Intercom disconnected", client_id);
+        // Read exactly the same format as the normal wake‑word client:
+        // 4‑byte LE count of f32 samples, then the samples themselves
+        let num_samples = match stream.read_u32::<LittleEndian>() {
+            Ok(n) => n as usize,
+            Err(e) => {
+                dt_info!("[{}] Intercom disconnected ({})", client_id, e);
                 break;
             }
         };
 
-        if msg_type != INTERCOM_AUDIO {   // 0x20
-            dt_error!("[{}] Unexpected msg 0x{:02X} in intercom", client_id, msg_type);
+        let mut raw = vec![0u8; num_samples * 4];
+        if let Err(e) = stream.read_exact(&mut raw) {
+            dt_info!("[{}] Intercom read error: {}", client_id, e);
             break;
         }
 
-        let num_samples = stream.read_u32::<LittleEndian>()? as usize;
-        let mut raw = vec![0u8; num_samples * 4];
-        stream.read_exact(&mut raw)?;
         let samples: Vec<f32> = raw
             .chunks_exact(4)
             .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
@@ -161,8 +161,9 @@ fn handle_intercom(
             .collect();
 
         let source = SamplesBuffer::new(1, SAMPLE_RATE, i16_samples);
-        sink.append(source);    // seamless queue, non‑blocking
+        sink.append(source);
     }
+
     Ok(())
 }
 
