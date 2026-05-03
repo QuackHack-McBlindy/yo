@@ -532,10 +532,11 @@ fn handle_ptt(
                     .chunks_exact(4)
                     .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                     .collect();
+                let sample_count = samples.len();          // save before move
                 audio_buffer.extend(samples);
                 if debug {
                     dt_debug!("[{}] PTT received {} samples, total {}",
-                        client_id, samples.len(), audio_buffer.len());
+                        client_id, sample_count, audio_buffer.len());
                 }
             }
             PTT_END => {
@@ -547,7 +548,7 @@ fn handle_ptt(
                     continue;
                 }
 
-                // Transcription (same code as in your existing handlers)
+                // Transcription
                 let sampling_strategy = if beam_size > 0 {
                     SamplingStrategy::BeamSearch { beam_size, patience: 1.0 }
                 } else {
@@ -583,13 +584,11 @@ fn handle_ptt(
                     }
                 };
 
-                
-                
                 let normalized = normalize_transcription(&transcription);
                 dt_info!("[{}] PTT transcription: {}", client_id, normalized);
-                
+
                 let mut command_succeeded = false;
-                
+
                 if translate_to_shell {
                     if normalized.is_empty() {
                         dt_error!("[{}] Normalized text is empty, nothing to translate.", client_id);
@@ -612,7 +611,7 @@ fn handle_ptt(
                         }
                     }
                 }
-                
+
                 if let Some(ref cmd_str) = exec_command {
                     if !translate_to_shell {
                         if normalized.is_empty() {
@@ -639,16 +638,16 @@ fn handle_ptt(
                         }
                     }
                 }
-                
+
                 if command_succeeded {
                     play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
                 }
-                
+
+                // Notify client once (no duplicate!)
                 let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
                 stream.write_u8(notification_byte)?;
                 stream.flush()?;
                 audio_buffer.clear();
-                
             }
             _ => {
                 dt_error!("[{}] unexpected PTT message type 0x{:02x}", client_id, msg_type);
@@ -658,6 +657,7 @@ fn handle_ptt(
     }
     Ok(())
 }
+
 
 // ESP32 clients are simplified – VAD handled on server
 fn handle_client_esp(
@@ -1385,16 +1385,18 @@ fn main() -> Result<()> {
                     let room_for_thread = room.clone();
                     let ip_for_registry = peer_ip.clone();
                     let registry = client_registry.clone();
+                    let display_for_handler = display_id.clone();   // clone to avoid move
                     thread::spawn(move || {
-                        if let Err(e) = handle_intercom(stream, display_id, debug, room_for_thread.clone()) {
+                        if let Err(e) = handle_intercom(stream, display_for_handler, debug, room_for_thread.clone()) {
                             dt_error!("[{}] Intercom error: {}", display_id, e);
                         }
                         let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
                         reg.remove_connection(&room_for_thread, &ip_for_registry);
                     });
-                    continue;   // go back to accept next connection
+                    continue;
                 }
 
+                // 🦆 says ⮞ Push‑to‑talk mode – one‑shot transcription
                 // 🦆 says ⮞ Push‑to‑talk mode – one‑shot transcription
                 if room == "oneshot" {
                     let sound_data = sound_data.clone();
@@ -1405,11 +1407,13 @@ fn main() -> Result<()> {
                     let room_for_thread = room.clone();
                     let ip_for_registry = peer_ip.clone();
                     let registry = client_registry.clone();
+                    let room_for_handler = room_for_thread.clone();  // separate clone for handler
+                    let display_for_handler = display_id.clone();    // clone for handler
                     thread::spawn(move || {
                         if let Err(e) = handle_ptt(
                             stream,
                             whisper_ctx,
-                            display_id,
+                            display_for_handler,
                             debug,
                             beam_size,
                             temperature,
@@ -1417,7 +1421,7 @@ fn main() -> Result<()> {
                             threads,
                             exec_command,
                             translate_to_shell,
-                            room_for_thread,
+                            room_for_handler,
                             sound_data,
                             done_sound_data,
                         ) {
@@ -1426,7 +1430,7 @@ fn main() -> Result<()> {
                         let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
                         reg.remove_connection(&room_for_thread, &ip_for_registry);
                     });
-                    continue;   // go back to accept next connection
+                    continue;
                 }
 
                 if !room.is_empty() {
