@@ -22,7 +22,7 @@ use oww_rs::{
     },
     oww::{OwwModel, OWW_MODEL_CHUNK_SIZE},
 };
-use rodio::OutputStream;
+
 use whisper_rs::{WhisperContext, FullParams, SamplingStrategy};
 use serde::{Serialize, Deserialize};
 
@@ -117,6 +117,55 @@ fn rms_f32(samples: &[f32]) -> f32 {
     (sum_squares / samples.len() as f32).sqrt()
 }
 
+use rodio::{OutputStream, Sink, buffer::SamplesBuffer};
+
+fn handle_intercom(
+    mut stream: TcpStream,
+    client_id: String,
+    debug: bool,
+    room: String,
+) -> Result<()> {
+    let (_stream, handle) = OutputStream::try_default()?;
+    let sink = Sink::try_new(&handle)?;
+    const SAMPLE_RATE: u32 = 16000;
+
+    loop {
+        let msg_type = match stream.read_u8() {
+            Ok(b) => b,
+            Err(_) => {
+                dt_info!("[{}] Intercom disconnected", client_id);
+                break;
+            }
+        };
+
+        if msg_type != INTERCOM_AUDIO {   // 0x20
+            dt_error!("[{}] Unexpected msg 0x{:02X} in intercom", client_id, msg_type);
+            break;
+        }
+
+        let num_samples = stream.read_u32::<LittleEndian>()? as usize;
+        let mut raw = vec![0u8; num_samples * 4];
+        stream.read_exact(&mut raw)?;
+        let samples: Vec<f32> = raw
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect();
+
+        if debug {
+            dt_debug!("[{}] Intercom got {} samples", client_id, samples.len());
+        }
+
+        let i16_samples: Vec<i16> = samples
+            .iter()
+            .map(|s| (s * i16::MAX as f32) as i16)
+            .collect();
+
+        let source = SamplesBuffer::new(1, SAMPLE_RATE, i16_samples);
+        sink.append(source);    // seamless queue, non‑blocking
+    }
+    Ok(())
+}
+
 fn save_audio_to_file(audio: &[f32], client_id: &str) -> std::io::Result<()> {
     use std::fs::{File, create_dir_all};
     use std::io::Write;
@@ -152,6 +201,12 @@ const DONE_WAV: &[u8] = include_bytes!("./../done.wav");
 
 const DEFAULT_WAKE_MODEL: &[u8] = include_bytes!("./../models/wake-words/yo_bitch.onnx");
 
+// PUSH TO TALK
+const PTT_START: u8 = 0x10; // CLIENT: “HERE COMES AUDIO”
+const PTT_DATA:  u8 = 0x11; // LENGTH + f32 SAMPLES
+const PTT_END:   u8 = 0x12; // CLIENT: “DONE!, TRANSCRIBE NOW”
+
+const INTERCOM_AUDIO: u8 = 0x20;
 
 // ESP32 client specific
 const ESP_SILENCE_THRESHOLD: f32 = 0.005;
@@ -160,6 +215,8 @@ const ESP_ADDITIONAL_SILENCE_TRIM: f32 = 0.5;
 const ESP_MAX_DURATION_SECS: f64 = 5.0;
 const ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION: bool = true;
 const COOLDOWN_SECS: f64 = 5.0;  
+
+
 
 fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
     let zero_chunk = vec![0.0; OWW_MODEL_CHUNK_SIZE];
@@ -419,6 +476,186 @@ fn handle_client(
     }
 
     dt_info!("🚫 ❌ {} Disconnected!", client_id);
+    Ok(())
+}
+
+
+fn handle_ptt(
+    mut stream: TcpStream,
+    whisper_ctx: Arc<WhisperContext>,
+    client_id: String,
+    debug: bool,
+    beam_size: i32,
+    temperature: f32,
+    language: Option<String>,
+    threads: i32,
+    exec_command: Option<String>,
+    translate_to_shell: bool,
+    room: String,
+    sound_data: Vec<u8>,
+    done_sound_data: Vec<u8>,
+) -> Result<()> {
+    let mut audio_buffer: Vec<f32> = Vec::new();
+
+    loop {
+        let msg_type = match stream.read_u8() {
+            Ok(b) => b,
+            Err(_) => {
+                dt_info!("[{}] PTT client disconnected", client_id);
+                break;
+            }
+        };
+
+        match msg_type {
+            PTT_START => {
+                dt_debug!("[{}] PTT recording started", client_id);
+                audio_buffer.clear();
+                // Optionally play the awake sound to signal “listening”
+                let data = sound_data.clone();
+                let id = client_id.clone();
+                let dbg = debug;
+                thread::spawn(move || {
+                    if let Ok((_stream, handle)) = OutputStream::try_default() {
+                        let cursor = Cursor::new(data);
+                        if let Ok(sink) = handle.play_once(cursor) {
+                            sink.sleep_until_end();
+                        }
+                        if dbg { dt_debug!("[{}] played awake sound for PTT", id); }
+                    }
+                });
+            }
+            PTT_DATA => {
+                let num_samples = stream.read_u32::<LittleEndian>()? as usize;
+                let mut buf = vec![0u8; num_samples * 4];
+                stream.read_exact(&mut buf)?;
+                let samples: Vec<f32> = buf
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                    .collect();
+                audio_buffer.extend(samples);
+                if debug {
+                    dt_debug!("[{}] PTT received {} samples, total {}",
+                        client_id, samples.len(), audio_buffer.len());
+                }
+            }
+            PTT_END => {
+                dt_info!("[{}] PTT recording ended, transcribing…", client_id);
+                if audio_buffer.is_empty() {
+                    dt_warning!("[{}] no audio to transcribe", client_id);
+                    let _ = stream.write_u8(0x04); // failure notification
+                    let _ = stream.flush();
+                    continue;
+                }
+
+                // Transcription (same code as in your existing handlers)
+                let sampling_strategy = if beam_size > 0 {
+                    SamplingStrategy::BeamSearch { beam_size, patience: 1.0 }
+                } else {
+                    SamplingStrategy::Greedy { best_of: 1 }
+                };
+                let mut params = FullParams::new(sampling_strategy);
+                params.set_n_threads(threads);
+                params.set_language(language.as_deref());
+                params.set_translate(false);
+                params.set_print_special(false);
+                params.set_print_progress(false);
+                params.set_print_realtime(false);
+                params.set_print_timestamps(false);
+                params.set_temperature(temperature);
+                params.set_suppress_blank(true);
+                params.set_suppress_non_speech_tokens(true);
+
+                let mut state = whisper_ctx.create_state()?;
+                let transcription = match state.full(params, &audio_buffer) {
+                    Ok(_) => {
+                        let n = state.full_n_segments()?;
+                        let mut text = String::new();
+                        for i in 0..n {
+                            text.push_str(&state.full_get_segment_text(i)?);
+                        }
+                        text
+                    }
+                    Err(e) => {
+                        dt_error!("[{}] Whisper error: {}", client_id, e);
+                        let _ = stream.write_u8(0x04);
+                        let _ = stream.flush();
+                        continue;
+                    }
+                };
+
+                
+                
+                let normalized = normalize_transcription(&transcription);
+                dt_info!("[{}] PTT transcription: {}", client_id, normalized);
+                
+                let mut command_succeeded = false;
+                
+                if translate_to_shell {
+                    if normalized.is_empty() {
+                        dt_error!("[{}] Normalized text is empty, nothing to translate.", client_id);
+                    } else {
+                        let mut cmd = Command::new("yo");
+                        cmd.arg("do");
+                        if !room.is_empty() { cmd.arg("--room").arg(&room); }
+                        cmd.arg(&normalized).env("VOICE_MODE", "1");
+                        let status = cmd.status();
+                        match status {
+                            Ok(status) => {
+                                if status.success() {
+                                    dt_info!("🎉 {} Shell translation successful!", client_id);
+                                    command_succeeded = true;
+                                } else {
+                                    dt_error!("[{}] Shell translator failed with exit code: {:?}", client_id, status.code());
+                                }
+                            }
+                            Err(e) => dt_error!("[{}] Failed to execute yo do: {}", client_id, e),
+                        }
+                    }
+                }
+                
+                if let Some(ref cmd_str) = exec_command {
+                    if !translate_to_shell {
+                        if normalized.is_empty() {
+                            dt_error!("[{}] Normalized text is empty, nothing to execute", client_id);
+                        } else {
+                            let mut parts = cmd_str.split_whitespace();
+                            if let Some(program) = parts.next() {
+                                let mut command = Command::new(program);
+                                for arg in parts { command.arg(arg); }
+                                command.arg(&normalized);
+                                command.env("VOICE_MODE", "1");
+                                match command.status() {
+                                    Ok(status) => {
+                                        if status.success() {
+                                            dt_info!("🎉 {} Executed successfully!", client_id);
+                                            command_succeeded = true;
+                                        } else {
+                                            dt_error!("🚫 {} Command failed with exit code: {:?}", client_id, status.code());
+                                        }
+                                    }
+                                    Err(e) => dt_error!("🚫 {} Failed to execute command: {}", client_id, e),
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if command_succeeded {
+                    play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
+                }
+                
+                let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
+                stream.write_u8(notification_byte)?;
+                stream.flush()?;
+                audio_buffer.clear();
+                
+            }
+            _ => {
+                dt_error!("[{}] unexpected PTT message type 0x{:02x}", client_id, msg_type);
+                break;
+            }
+        }
+    }
     Ok(())
 }
 
@@ -1143,10 +1380,60 @@ fn main() -> Result<()> {
 
                 dt_info!("📡 ☑ ️ 🎙️ {} Connected [{}]", display_id, peer_addr);
 
+                // 🦆 says ⮞ Intercom mode – audio straight to server speaker
+                if room == "intercom" {
+                    let room_for_thread = room.clone();
+                    let ip_for_registry = peer_ip.clone();
+                    let registry = client_registry.clone();
+                    thread::spawn(move || {
+                        if let Err(e) = handle_intercom(stream, display_id, debug, room_for_thread.clone()) {
+                            dt_error!("[{}] Intercom error: {}", display_id, e);
+                        }
+                        let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
+                        reg.remove_connection(&room_for_thread, &ip_for_registry);
+                    });
+                    continue;   // go back to accept next connection
+                }
+
+                // 🦆 says ⮞ Push‑to‑talk mode – one‑shot transcription
+                if room == "oneshot" {
+                    let sound_data = sound_data.clone();
+                    let done_sound_data = done_sound_data.clone();
+                    let exec_command = exec_command.clone();
+                    let whisper_ctx = Arc::clone(&whisper_ctx);
+                    let language = language.clone();
+                    let room_for_thread = room.clone();
+                    let ip_for_registry = peer_ip.clone();
+                    let registry = client_registry.clone();
+                    thread::spawn(move || {
+                        if let Err(e) = handle_ptt(
+                            stream,
+                            whisper_ctx,
+                            display_id,
+                            debug,
+                            beam_size,
+                            temperature,
+                            language,
+                            threads,
+                            exec_command,
+                            translate_to_shell,
+                            room_for_thread,
+                            sound_data,
+                            done_sound_data,
+                        ) {
+                            dt_error!("[{}] PTT handler error: {}", display_id, e);
+                        }
+                        let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
+                        reg.remove_connection(&room_for_thread, &ip_for_registry);
+                    });
+                    continue;   // go back to accept next connection
+                }
+
                 if !room.is_empty() {
                     let mut reg = client_registry.lock().unwrap();
                     reg.add_connection(&room, &peer_ip);
                 }
+
 
                 //let audio_out_stream = if room == "esp" {
                 //    loop {
