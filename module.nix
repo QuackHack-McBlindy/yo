@@ -1209,7 +1209,7 @@ in {
         YO_SPLIT_WORDS = splitWordsFile;
         YO_SORRY_PHRASES = sorryPhrasesFile;
         YO_INTENT_DATA = intentDataFile;
-        "ỲO_FUZZY_INDEX" = fuzzyIndexFile;
+        "YO_FUZZY_INDEX" = fuzzyIndexFlatFile;
         MATCHER_DIR = matcherDir;
         MATCHER_SOURCE = matcherSourceScript;
       };
@@ -1219,7 +1219,7 @@ in {
         "yo/split-words.json".source = splitWordsFile;
         "yo/sorry-phrases.json".source = sorryPhrasesFile;
         "yo/intent-data.json".source = intentDataFile;
-        "yo/fuzzy-index.json".source = fuzzyIndexFile;
+        "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
         "yo/matchers" = { source = matcherDir; };
         "yo/matcher-loader.sh".source = matcherSourceScript;
       };
