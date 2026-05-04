@@ -1271,8 +1271,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         });
         yo_do.load_intent_data(&intent_data_path)?;
 
-        if let Ok(fuzzy_index_path) = env::var("YO_FUZZY_INDEX") {
-            yo_do.load_fuzzy_index(&fuzzy_index_path)?;
+        let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
+            .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
+        match yo_do.load_fuzzy_index(&fuzzy_index_path) {
+            Ok(_) => dt_debug(&format!("Loaded fuzzy index from {}", fuzzy_index_path)),
+            Err(e) => dt_warn(&format!("Failed to load fuzzy index (fuzzy matching disabled): {}", e)),
         }
 
         yo_do.run(&input, cli.fuzzy)

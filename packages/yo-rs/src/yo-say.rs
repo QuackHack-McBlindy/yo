@@ -141,17 +141,23 @@ fn convert_and_replace(path: &str) -> io::Result<()> {
 }
 
 
-// 🦆 says ⮞ read ESP IP from yo clients.json
-fn get_esp_ip() -> Option<String> {
-    let home = std::env::var("HOME").ok()?;
+// 🦆 says ⮞ read ALL ESP IPs from yo clients.json
+fn get_esp_ips() -> Vec<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
     let path = format!("{}/.config/yo/clients.json", home);
-    let data = std::fs::read_to_string(&path).ok()?;
-    let clients: Vec<serde_json::Value> = serde_json::from_str(&data).ok()?;
+    let data = match std::fs::read_to_string(&path) {
+        Ok(d) => d,
+        Err(_) => return vec![],
+    };
+    let clients: Vec<serde_json::Value> = match serde_json::from_str(&data) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
     clients
         .iter()
-        .find(|c| c.get("room").and_then(|v| v.as_str()) == Some("esp"))
-        .and_then(|c| c.get("ip").and_then(|v| v.as_str()))
-        .map(|s| s.to_string())
+        .filter(|c| c.get("room").and_then(|v| v.as_str()) == Some("esp"))
+        .filter_map(|c| c.get("ip").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .collect()
 }
 
 // 🦆 says ⮞ stream TTS to ESP in the background (non‑blocking)
@@ -178,10 +184,11 @@ fn main() -> io::Result<()> {
     let args = parse_args();
 
     // 🦆 says ⮞ immediately try to stream to ESP (if configured)
-    if let Some(esp_ip) = get_esp_ip() {
+    let esp_ips = get_esp_ips();
+    for esp_ip in esp_ips {
         if let Err(e) = stream_to_esp(&args.model, &args.text, &esp_ip) {
-            dt_debug!("Failed to start ESP stream: {}", e);
-        }
+            dt_debug!("Failed to start ESP stream to {}: {}", esp_ip, e);
+        } else { dt_info!("Streaming TTS to ESP device at {}", esp_ip); }
     }
 
     if try_broadcast(&args.text) {

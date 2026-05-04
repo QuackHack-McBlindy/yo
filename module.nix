@@ -437,7 +437,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
     "yo/split-words.json".source = splitWordsFile;
     "yo/sorry-phrases.json".source = sorryPhrasesFile;
     "yo/intent-data.json".source = intentDataFile;
-    "yo/fuzzy-index.json".source = fuzzyIndexFile;
+    "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
     "yo/matchers" = {
       source = matcherDir;
     };
