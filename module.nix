@@ -429,7 +429,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
   environment.variables.YO_SPLIT_WORDS = splitWordsFile;
   environment.variables.YO_SORRY_PHRASES = sorryPhrasesFile;
   environment.variables.YO_INTENT_DATA = intentDataFile;
-  environment.variables."ỲO_FUZZY_INDEX" = fuzzyIndexFile;  
+  environment.variables."YO_FUZZY_INDEX" = fuzzyIndexFlatFile; # fuzzyIndexFile;  
   environment.variables.MATCHER_DIR = matcherDir;
   environment.variables.MATCHER_SOURCE = matcherSourceScript;
 
