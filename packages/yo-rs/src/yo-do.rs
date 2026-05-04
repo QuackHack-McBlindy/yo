@@ -1274,8 +1274,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
             .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
         match yo_do.load_fuzzy_index(&fuzzy_index_path) {
-            Ok(_) => dt_debug(&format!("Loaded fuzzy index from {}", fuzzy_index_path)),
-            Err(e) => dt_warn(&format!("Failed to load fuzzy index (fuzzy matching disabled): {}", e)),
+            Ok(_) => dt_debug!("Loaded fuzzy index"),
+            Err(e) => dt_warning!("Failed to load fuzzy index"),
         }
 
         yo_do.run(&input, cli.fuzzy)
