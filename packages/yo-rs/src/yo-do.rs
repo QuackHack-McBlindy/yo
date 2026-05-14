@@ -1002,7 +1002,8 @@ impl YoDo {
     }
     // 🦆 says ⮞ TTS
     fn say(&self, text: &str) {
-        let _ = std::process::Command::new("yo-say")
+        let _ = std::process::Command::new("yo")
+            .arg("say")
             .arg(text)
             .status();
     }
