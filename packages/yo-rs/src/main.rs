@@ -548,6 +548,11 @@ fn handle_ptt(
                     let _ = stream.flush();
                     continue;
                 }
+                
+                // SAVE RECORDING TO DISK FOR DEBUG
+                if let Err(e) = save_audio_to_file(&buffer, &client_id) {
+                    dt_error!("[{}] failed to save audio: {}", client_id, e);
+                }
 
                 // Transcription
                 let sampling_strategy = if beam_size > 0 {
@@ -644,7 +649,7 @@ fn handle_ptt(
                     play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
                 }
 
-                // Notify client once (no duplicate!)
+                // Notify client
                 let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
                 stream.write_u8(notification_byte)?;
                 stream.flush()?;
