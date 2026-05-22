@@ -550,7 +550,7 @@ fn handle_ptt(
                 }
                 
                 // SAVE RECORDING TO DISK FOR DEBUG
-                if let Err(e) = save_audio_to_file(&buffer, &client_id) {
+                if let Err(e) = save_audio_to_file(&audio_buffer, &client_id) {
                     dt_error!("[{}] failed to save audio: {}", client_id, e);
                 }
 
