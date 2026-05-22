@@ -1403,18 +1403,25 @@ fn main() -> Result<()> {
                 }
 
                 // 🦆 says ⮞ Push‑to‑talk mode – one‑shot transcription
-                // 🦆 says ⮞ Push‑to‑talk mode – one‑shot transcription
                 if room == "oneshot" {
+                    let registry_room = "esp".to_string();
+                    {
+                        let mut reg = client_registry.lock().unwrap();
+                        reg.add_connection(&registry_room, &peer_ip);
+                    }
                     let sound_data = sound_data.clone();
                     let done_sound_data = done_sound_data.clone();
                     let exec_command = exec_command.clone();
                     let whisper_ctx = Arc::clone(&whisper_ctx);
                     let language = language.clone();
-                    let room_for_thread = room.clone();
+                    let room_for_handler = room.clone(); 
+                    //let room_for_thread = room.clone();
                     let ip_for_registry = peer_ip.clone();
                     let registry = client_registry.clone();
-                    let room_for_handler = room_for_thread.clone();  // separate clone for handler
-                    let display_for_handler = display_id.clone();    // clone for handler
+                    //let room_for_handler = room_for_thread.clone();
+                    let display_for_handler = display_id.clone();
+                    let room_for_removal = registry_room;
+                    
                     thread::spawn(move || {
                         if let Err(e) = handle_ptt(
                             stream,
@@ -1434,7 +1441,7 @@ fn main() -> Result<()> {
                             dt_error!("[{}] PTT handler error: {}", display_id, e);
                         }
                         let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
-                        reg.remove_connection(&room_for_thread, &ip_for_registry);
+                        reg.remove_connection(&room_for_removal, &ip_for_registry); 
                     });
                     continue;
                 }
