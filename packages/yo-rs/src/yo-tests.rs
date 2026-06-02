@@ -1,4 +1,6 @@
 // ddotfiles/packages/yo-rs/src/yo-tests.rs ⮞ https://github.com/QuackHack-McBlindy/dotfiles
+#![allow(dead_code)]
+#![allow(unused)]
 use std::{ // 🦆 says ⮞ yo-tests (Automated Sentence Testing)
     env,
     fs::{OpenOptions, File},

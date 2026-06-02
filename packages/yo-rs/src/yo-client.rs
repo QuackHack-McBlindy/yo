@@ -1,4 +1,6 @@
 // ddotfiles/packages/yo-rs/src/yo-client.rs ⮞ https://github.com/QuackHack-McBlindy/dotfiles
+#![allow(dead_code)]
+#![allow(unused)]
 use std::{ // 🦆 says ⮞ yo-client (Microphone Client)
     env,
     io::{Cursor, Read, Write},

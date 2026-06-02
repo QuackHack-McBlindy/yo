@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused)]
 use std::{
     env,
     fs::{OpenOptions, File},
@@ -890,25 +892,31 @@ impl YoDo {
                     current = current[end+1..].to_string();
                 } else { break; }
             }
-            
+                    
             for (i, word) in sentence_words.iter().enumerate() {
                 if word.starts_with('{') && word.ends_with('}') {
                     if i < input_words.len() && param_index < param_names.len() {
                         let param_name = &param_names[param_index];
-                        let param_value = input_words[i];
-                        
+                    
+                        // 🦆 says ⮞ if this is the last word in the template, grab everything that's left
+                        let param_value = if i == sentence_words.len() - 1 {
+                            input_words[i..].join(" ")
+                        } else {
+                            input_words[i].to_string()
+                        };
+                    
                         // 🦆 says ⮞ go entity resolution i choose u!
-                        let resolved_value = self.resolve_entity(&script_name, param_name, param_value);
-                        
+                        let resolved_value = self.resolve_entity(&script_name, param_name, &param_value);
+                    
                         args.push(format!("--{}", param_name));
                         args.push(resolved_value);
                         param_index += 1;
-                        
+                    
                         dt_debug(&format!("      Fuzzy argument: --{} {}", param_name, param_value));
                     }
                 }
             }
-            
+        
             Some(MatchResult {
                 script_name,
                 args,
@@ -1190,7 +1198,7 @@ fn load_sorry_phrases() -> Vec<String> {
 fn parse_args() -> CliArgs {
     let mut args = env::args().skip(1).peekable();
     let mut input = None;
-    let mut fuzzy = 65;
+    let mut fuzzy = 25;
     let mut room = None;
     let mut realtime = false;
 

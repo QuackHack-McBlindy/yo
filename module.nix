@@ -1394,7 +1394,7 @@ in {
         logLevel = "INFO";
         parameters = [
           { name = "input"; description = "Text to translate"; optional = true; } 
-          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = 60; }
+          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = 25; }
           { name = "room"; type = "string"; description = "Optional client area (used for context)"; optional = true; }
         ];
       };

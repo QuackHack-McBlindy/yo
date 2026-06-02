@@ -1,43 +1,62 @@
+# ───────────────────────────────────────────────────────────────────────
+# PACKAFGE INFO
 [package]
-name = "yo-rs"
-description = "yo-rs is a multi-client wake word detection and transcription server with shell command translation and execution. Including microphone client. All communication is over TCP with a simple binary protocol. yo-rs is a full-stack voice assistant."
-version = "0.1.6"
+name    = "yo-rs"
+version = "0.1.8"
 edition = "2021"
-license = "MIT"
+# ───────────────────────────────────────────────────────────────────────
+description = """
+  yo-rs is a multi-client wake word detection and transcription server with shell command translation and execution. 
+  Including microphone client. All communication is over TCP with a simple binary protocol. 
+  yo-rs is a full-stack voice assistant."""
+# ───────────────────────────────────────────────────────────────────────
+authors    = ["QuackHack-McBlindy"]
 repository = "https://github.com/QuackHack-McBlindy/yo"
-keywords = ["wakeword", "speech-to-text", "shell-translator", "multi-client"]
+license    = "MIT"
+readme     = "README.md"
+keywords   = ["wakeword", "speech-to-text", "shell-translator", "multi-client"]
 
+# ───────────────────────────────────────────────────────────────────────
+# DEPENDENCIES
 [dependencies]
-ducktrace-logger = "0.1.4"
-oww-rs = { path = "vendor/oww-rs" }
-whisper-rs = "0.8"
-clap = { version = "4.0", features = ["derive"] }
-cpal = "0.16"
-anyhow = "1.0"
-env_logger = "0.11"
-tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.20"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-futures-util = "0.3"
-log = "0.4"
-byteorder = "1.5"
-rodio = "0.17"
+clap        = { version = "4.0", features = ["derive"] }
+tokio       = { version = "1", features   = ["full"] }
+serde       = { version = "1.0", features = ["derive"] }
+oww-rs      = { path = "vendor/oww-rs" }
+whisper-rs  = "0.8"
+serde_json  = "1.0"
+cpal        = "0.16"
+anyhow      = "1.0"
+env_logger  = "0.11"
+byteorder   = "1.5"
+rodio       = "0.17"
+nnnoiseless = "0.5.2"
+
+tokio-tungstenite       = "0.20"
+futures-util            = "0.3"
+
+# ───────────────────────────────────────────────────────────────────────
 # Logging dependencies
-lazy_static = "1.4"
-dirs = "5.0"
-tempfile = "3.8"
-colored = "2.1"
+ducktrace-logger = "0.1.4"
+log              = "0.4"
+lazy_static      = "1.4"
+dirs             = "5.0"
+tempfile         = "3.8"
+colored          = "2.1"
+hound            = "3.5"
 
+# ───────────────────────────────────────────────────────────────────────
 # Shell translator dependencies (yo-do)
-regex = "1.0"
 chrono = { version = "0.4", features = ["serde", "clock"] }
-rand = "0.8"
+regex  = "1.0"
+rand   = "0.8"
 
+# ───────────────────────────────────────────────────────────────────────
 # Compiler
 toml = "0.8"
 
-
+# ───────────────────────────────────────────────────────────────────────
+# EXECUTABLES
 [[bin]]
 name = "yo-builder"
 path = "src/yo-builder.rs"
@@ -61,4 +80,3 @@ path = "src/yo-say.rs"
 [[bin]]
 name = "yo-toml"
 path = "src/yo-toml.rs"
-

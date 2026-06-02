@@ -1,11 +1,14 @@
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+#![allow(unused)]
 use std::{
     env,
     collections::{HashSet, HashMap},
-    io::{Read, Write, Cursor},
+    io::{self, Read, Write, Cursor},
     path::PathBuf,
     fs::{self, File},
     net::{TcpListener, TcpStream},
-    process::Command,
+    process::{Command, Stdio},
     thread,
     time::{Duration, Instant},
     sync::{Arc, Mutex},
@@ -119,18 +122,101 @@ fn rms_f32(samples: &[f32]) -> f32 {
 
 use rodio::{OutputStream, Sink, buffer::SamplesBuffer};
 
+// ───────────────────────────────────────────────────────────────────────
+// NOISE REDUCTION
+const NOISE_PROFILE_BYTES: &[u8] = include_bytes!("./../noise.prof");
+
+fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f32>> {
+    // 1. Write the embedded profile to a temporary file, flush and sync it
+    let mut tmp = tempfile::NamedTempFile::new()?;
+    tmp.write_all(NOISE_PROFILE_BYTES)?;
+    tmp.flush()?;                        // ensure data reaches the OS
+    tmp.as_file().sync_all()?;           // force disk flush
+    let profile_path = tmp.path().to_str().unwrap();
+
+    // 2. Build a 16‑bit WAV in memory to pipe into SoX
+    let mut wav_bytes = Vec::new();
+    {
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut writer = hound::WavWriter::new(std::io::Cursor::new(&mut wav_bytes), spec)?;
+        for &s in samples {
+            let clamped = s.clamp(-1.0, 1.0);
+            writer.write_sample((clamped * i16::MAX as f32) as i16)?;
+        }
+        writer.finalize()?;
+    }
+
+    // 3. Invoke SoX with RAW output (no WAV header)
+    let mut child = Command::new("sox")
+        .args([
+            "-t", "wav", "-",                     // input from stdin as WAV
+            "-t", "raw",                          // output raw PCM
+            "-e", "signed-integer",               //   signed 16-bit
+            "-b", "16",
+            "-c", "1",                            //   mono
+            "-r", &format!("{}", sample_rate),    //   same sample rate
+            "-",                                  //   to stdout
+            "noisered", profile_path,
+            &format!("{:.2}", amount),
+        ])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    // 4. Write input and close stdin
+    {
+        let mut stdin = child.stdin.take().unwrap();
+        stdin.write_all(&wav_bytes)?;
+        // stdin is dropped → pipe closed, SoX will finish
+    }
+
+    // 5. Read the raw PCM bytes
+    let mut raw_bytes = Vec::new();
+    child.stdout.take().unwrap().read_to_end(&mut raw_bytes)?;
+
+    let status = child.wait()?;
+    if !status.success() {
+        let mut err_msg = String::new();
+        if let Some(mut stderr) = child.stderr {
+            stderr.read_to_string(&mut err_msg).ok();
+        }
+        anyhow::bail!("SoX failed (exit {}): {}", status.code().unwrap_or(-1), err_msg.trim());
+    }
+
+    // 6. Convert raw i16 samples to f32
+    if raw_bytes.len() % 2 != 0 {
+        anyhow::bail!("Raw output size {} is odd, expected even number of bytes for i16", raw_bytes.len());
+    }
+    let num_samples = raw_bytes.len() / 2;
+    let mut cleaned = Vec::with_capacity(num_samples);
+    // Assume little‑endian (default for SoX on most platforms)
+    for chunk in raw_bytes.chunks_exact(2) {
+        let sample = i16::from_le_bytes([chunk[0], chunk[1]]);
+        cleaned.push(sample as f32 / i16::MAX as f32);
+    }
+
+    Ok(cleaned)
+}
+
+// ───────────────────────────────────────────────────────────────────────
 fn handle_intercom(
     mut stream: TcpStream,
     client_id: String,
     debug: bool,
-    _room: String,           // unused, just to silence warning
+    _room: String,
 ) -> Result<()> {
     let (_stream, handle) = OutputStream::try_default()?;
     let sink = Sink::try_new(&handle)?;
     const SAMPLE_RATE: u32 = 16000;
 
     loop {
-        // Read exactly the same format as the normal wake‑word client:
+        // READ EXACTLY THE SAME FORMAT AS THE NORMAL WAKE-WORD CLIENT
         // 4‑byte LE count of f32 samples, then the samples themselves
         let num_samples = match stream.read_u32::<LittleEndian>() {
             Ok(n) => n as usize,
@@ -202,14 +288,14 @@ const DONE_WAV: &[u8] = include_bytes!("./../done.wav");
 
 const DEFAULT_WAKE_MODEL: &[u8] = include_bytes!("./../models/wake-words/yo_bitch.onnx");
 
-// PUSH TO TALK
+// PFUSH TO TALK
 const PTT_START: u8 = 0x10; // CLIENT: “HERE COMES AUDIO”
 const PTT_DATA:  u8 = 0x11; // LENGTH + f32 SAMPLES
 const PTT_END:   u8 = 0x12; // CLIENT: “DONE!, TRANSCRIBE NOW”
 
 const INTERCOM_AUDIO: u8 = 0x20;
 
-// ESP32 client specific
+// ESP32 CLLIENT SPECIFIC
 const ESP_SILENCE_THRESHOLD: f32 = 0.005;
 const ESP_SILENCE_TIMEOUT_SECS: f64 = 1.0;
 const ESP_ADDITIONAL_SILENCE_TRIM: f32 = 0.5;
@@ -218,7 +304,8 @@ const ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION: bool = true;
 const COOLDOWN_SECS: f64 = 5.0;  
 
 
-
+// ───────────────────────────────────────────────────────────────────────
+// RESET WAKE MODEL BY SENDING ZERO
 fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
     let zero_chunk = vec![0.0; OWW_MODEL_CHUNK_SIZE];
     for _ in 0..chunks_to_flush {
@@ -226,6 +313,8 @@ fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
     }
 }
 
+// ───────────────────────────────────────────────────────────────────────
+// HANDLE CLIENT
 fn handle_client(
     mut stream: TcpStream,
     mut wake_model: OwwModel,
@@ -511,7 +600,7 @@ fn handle_ptt(
             PTT_START => {
                 dt_debug!("[{}] PTT recording started", client_id);
                 audio_buffer.clear();
-                // Optionally play the awake sound to signal “listening”
+
                 let data = sound_data.clone();
                 let id = client_id.clone();
                 let dbg = debug;
@@ -541,6 +630,8 @@ fn handle_ptt(
                 }
             }
             PTT_END => {
+                let duration_millis = audio_buffer.len() as f64 / 16_000.0 * 1000.0;
+                dt_info!("[{}] assumed duration: {:.0} ms", client_id, duration_millis);
                 dt_info!("[{}] PTT recording ended, transcribing…", client_id);
                 if audio_buffer.is_empty() {
                     dt_warning!("[{}] no audio to transcribe", client_id);
@@ -548,18 +639,27 @@ fn handle_ptt(
                     let _ = stream.flush();
                     continue;
                 }
-                
-                // SAVE RECORDING TO DISK FOR DEBUG
-                if let Err(e) = save_audio_to_file(&audio_buffer, &client_id) {
-                    dt_error!("[{}] failed to save audio: {}", client_id, e);
-                }
 
-                // Transcription
+
+                // ESP-HAL's I2S SIGNAL LOOPBACK ADDS A TON OF INTERFERENCE
+                // WE CLEAN THE AUDIO BEFORE TRANSCRIPTION
+                let AMOUNT = 0.21;
+                let cleaned_audio = match sox_noisered(&audio_buffer, 16000, AMOUNT) {
+                    Ok(audio) => audio,
+                    Err(e) => {
+                        dt_error!("[{}] Noise reduction failed: {} – using raw audio", client_id, e);
+                        audio_buffer.clone()
+                    }
+                };
+                let rms_clean = rms_f32(&cleaned_audio);
+                dt_debug!("[{}] Cleaned audio RMS: {:.6}", client_id, rms_clean);
+                
+                
+                // TRANSCRIPTION
                 let sampling_strategy = if beam_size > 0 {
                     SamplingStrategy::BeamSearch { beam_size, patience: 1.0 }
-                } else {
-                    SamplingStrategy::Greedy { best_of: 1 }
-                };
+                } else { SamplingStrategy::Greedy { best_of: 1 } };
+                
                 let mut params = FullParams::new(sampling_strategy);
                 params.set_n_threads(threads);
                 params.set_language(language.as_deref());
@@ -573,7 +673,7 @@ fn handle_ptt(
                 params.set_suppress_non_speech_tokens(true);
 
                 let mut state = whisper_ctx.create_state()?;
-                let transcription = match state.full(params, &audio_buffer) {
+                let transcription = match state.full(params, &cleaned_audio) {         
                     Ok(_) => {
                         let n = state.full_n_segments()?;
                         let mut text = String::new();
@@ -654,6 +754,13 @@ fn handle_ptt(
                 stream.write_u8(notification_byte)?;
                 stream.flush()?;
                 audio_buffer.clear();
+                   
+                // SAVE RECORDING TO DISK FOR DEBUG
+                if let Err(e) = save_audio_to_file(&cleaned_audio, &client_id) {
+                    dt_error!("[{}] failed to save audio: {}", client_id, e);
+                }
+
+                
             }
             _ => {
                 dt_error!("[{}] unexpected PTT message type 0x{:02x}", client_id, msg_type);
