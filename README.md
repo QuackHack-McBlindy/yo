@@ -34,6 +34,23 @@ At runtime it takes input, runs it through exact and fuzzy matching against the 
 - **❌ An LLM with shell access!**  
 
 <br>
+
+## **Runtime Example**  
+
+Thanks to fuzzy parameter resolution, not a single word needs to be correct for it to find and execute the right script.  
+
+``` 
+🦆🏠  HOME via 🐍 via 🦀 
+16:03:13 ❯ yo do "seetlt ao tiimezrr fobor twoz hourazs ninre minuotes twentyonz<e secondips"
+   ┌─(yo-timer)
+   │🦆 qwack!? seetlt ao tiimezrr fobor twoz hourazs ninre minuotes twentyonz<e secondips
+   └─⮞ --hours 2
+   └─⮞ --minutes 9
+   └─⮞ --seconds 21
+   └─⏰ do took 283.959385ms
+```
+
+<br>
   
 ## **Installation**
 
