@@ -15,6 +15,7 @@ use std::{
 };
 use ducktrace_logger::*;
 use anyhow::Result;
+use anyhow::Context;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use oww_rs::{
     mic::{
@@ -32,6 +33,17 @@ use serde::{Serialize, Deserialize};
 lazy_static::lazy_static! {
     static ref ESP_AUDIO_STREAMS: Mutex<HashMap<String, Arc<Mutex<TcpStream>>>> =
         Mutex::new(HashMap::new());
+}
+
+
+
+struct ChildGuard(std::process::Child);
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -210,10 +222,27 @@ fn handle_intercom(
     client_id: String,
     debug: bool,
     _room: String,
+    esp_ip: String,
 ) -> Result<()> {
     let (_stream, handle) = OutputStream::try_default()?;
     let sink = Sink::try_new(&handle)?;
     const SAMPLE_RATE: u32 = 16000;
+
+    let _reverse_guard = {
+        let ip = esp_ip;
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "ffmpeg -f alsa -i default -f s16le -ar 16000 -ac 2 - | nc {} 12345",
+                ip
+            ))
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("failed to start reverse audio stream")
+            .map(ChildGuard)?
+    };
 
     loop {
         // READ EXACTLY THE SAME FORMAT AS THE NORMAL WAKE-WORD CLIENT
@@ -1515,13 +1544,14 @@ fn main() -> Result<()> {
                     let room_for_thread = room.clone();
                     let ip_for_registry = peer_ip.clone();
                     let registry = client_registry.clone();
-                    let display_for_handler = display_id.clone();   // clone to avoid move
+                    let display_for_handler = display_id.clone();
+                    let esp_ip = peer_ip.clone();
                     thread::spawn(move || {
-                        if let Err(e) = handle_intercom(stream, display_for_handler, debug, room_for_thread.clone()) {
+                        if let Err(e) = handle_intercom(stream, display_for_handler, debug, room_for_thread.clone(), esp_ip) {
                             dt_error!("[{}] Intercom error: {}", display_id, e);
                         }
                         let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
-                        reg.remove_connection(&room_for_thread, &ip_for_registry);
+                        reg.remove_connection(&room_for_thread, &ip_for_registry);                  
                     });
                     continue;
                 }
@@ -1577,31 +1607,6 @@ fn main() -> Result<()> {
                     reg.add_connection(&room, &peer_ip);
                 }
 
-
-                //let audio_out_stream = if room == "esp" {
-                //    loop {
-                //        match TcpStream::connect((peer_ip.as_str(), 12345)) {
-                //            Ok(s) => {
-                //                dt_info!(
-                //                    "🎙️⮞ 📡 ⮜🔊 Bidirectional audio established {}:{} for audio output",
-                //                    peer_ip, 12345
-                //                );
-                //                break Some(Arc::new(Mutex::new(s)));
-                //            }
-                //            Err(e) => {
-                //                dt_error!(
-                //                    "❌ Audio back‑channel to {}:{} failed: {} – retrying in 2s...",
-                //                    peer_ip, 12345, e
-                //                );
-                //                thread::sleep(Duration::from_secs(2));
-                //            }
-                //        }
-                //    }
-                //} else { None };
-
-                //if let Some(stream) = &audio_out_stream {
-                //    ESP_AUDIO_STREAMS.lock().unwrap().insert(room.clone(), Arc::clone(stream));
-                //}
 
                 // 🦆 says ⮞ clone for the unregistration step          
                 let registry_clone = client_registry.clone();
