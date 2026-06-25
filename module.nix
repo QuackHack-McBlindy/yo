@@ -389,6 +389,34 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
       ) generatedIntents
     ));
 
+  # 🦆 says ⮞ fuzzy entity dictionary: script -> param -> list of (rawInput, canonicalOut)
+  fuzzyEntityDictFile = pkgs.writeText "fuzzy-entity-dict.json"
+    (builtins.toJSON (
+      lib.mapAttrs (scriptName: intent:
+        let
+          # 🦆 collect all lists for this script
+          lists = lib.foldl (acc: d: acc // (d.lists or {})) {} intent.data;
+        in
+          lib.mapAttrs (paramName: listData:
+            # 🦆 expand every "in" field, collecting all raw tokens
+            lib.unique (
+              lib.concatMap (item:
+                let
+                  rawIn = item."in";
+                  # 🦆 remove optional brackets for expansion
+                  cleaned = lib.removePrefix "[" (lib.removeSuffix "]" rawIn);
+                  # 🦆 split by "|" to get alternatives
+                  alternatives = lib.splitString "|" cleaned;
+                in
+                  map (token: {
+                    input = token;
+                    output = item.out;
+                  }) alternatives
+              ) listData.values
+            )
+          ) lists
+      ) generatedIntents
+    ));
 
   # 🦆 says ⮞ quack! now we preslicin' dem sentences wit their fuzzynutty signatures for bitchin' fast fuzz-lookup!
   fuzzyIndex = lib.mapAttrsToList (scriptName: intent:
@@ -429,6 +457,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
   environment.variables.YO_SPLIT_WORDS = splitWordsFile;
   environment.variables.YO_SORRY_PHRASES = sorryPhrasesFile;
   environment.variables.YO_INTENT_DATA = intentDataFile;
+  environment.variables.YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
   environment.variables."YO_FUZZY_INDEX" = fuzzyIndexFlatFile; # fuzzyIndexFile;  
   environment.variables.MATCHER_DIR = matcherDir;
   environment.variables.MATCHER_SOURCE = matcherSourceScript;
@@ -438,6 +467,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
     "yo/sorry-phrases.json".source = sorryPhrasesFile;
     "yo/intent-data.json".source = intentDataFile;
     "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
+    "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
     "yo/matchers" = {
       source = matcherDir;
     };
@@ -1209,6 +1239,7 @@ in {
         YO_SPLIT_WORDS = splitWordsFile;
         YO_SORRY_PHRASES = sorryPhrasesFile;
         YO_INTENT_DATA = intentDataFile;
+        YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
         "YO_FUZZY_INDEX" = fuzzyIndexFlatFile;
         MATCHER_DIR = matcherDir;
         MATCHER_SOURCE = matcherSourceScript;
@@ -1220,6 +1251,7 @@ in {
         "yo/sorry-phrases.json".source = sorryPhrasesFile;
         "yo/intent-data.json".source = intentDataFile;
         "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
+        "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
         "yo/matchers" = { source = matcherDir; };
         "yo/matcher-loader.sh".source = matcherSourceScript;
       };

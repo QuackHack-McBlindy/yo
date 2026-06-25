@@ -331,6 +331,7 @@ fn handle_client(
     exec_command: Option<String>,
     translate_to_shell: bool,
     room: String,
+    sender_ip: String,     
 ) -> Result<()> {  
     let mut last_detection: Option<Instant> = None;
 
@@ -475,7 +476,9 @@ fn handle_client(
                     let segment = state.full_get_segment_text(i as i32)?;
                     transcription.push_str(&segment);
                 }
-                dt_info!("[{}] Transcription: {}", client_id, transcription);                
+                dt_info!("[{}] Transcription: {}", client_id, transcription);
+                write_last_sender_ip(&sender_ip);
+                
 
                 // 🦆 says ⮞ if --debug
                 if debug { // 🦆 says ⮞ print transcription timer
@@ -569,6 +572,17 @@ fn handle_client(
     Ok(())
 }
 
+fn write_last_sender_ip(ip: &str) {
+    let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let dir = PathBuf::from(&home).join(".config/yo");
+    let _ = fs::create_dir_all(&dir);
+    let dest = dir.join("last_sender_ip");
+    let tmp = dest.with_extension(".tmp");
+    if let Ok(mut f) = File::create(&tmp) {
+        let _ = writeln!(f, "{}", ip);
+        let _ = fs::rename(&tmp, &dest);
+    }
+}
 
 fn handle_ptt(
     mut stream: TcpStream,
@@ -584,6 +598,7 @@ fn handle_ptt(
     room: String,
     sound_data: Vec<u8>,
     done_sound_data: Vec<u8>,
+    sender_ip: String,
 ) -> Result<()> {
     let mut audio_buffer: Vec<f32> = Vec::new();
 
@@ -692,7 +707,7 @@ fn handle_ptt(
 
                 let normalized = normalize_transcription(&transcription);
                 dt_info!("[{}] PTT transcription: {}", client_id, normalized);
-
+                write_last_sender_ip(&sender_ip);
                 let mut command_succeeded = false;
 
                 if translate_to_shell {
@@ -790,6 +805,7 @@ fn handle_client_esp(
     translate_to_shell: bool,
     room: String,
     //audio_out: Option<Arc<Mutex<TcpStream>>>,
+    sender_ip: String,
 ) -> Result<()> {
     enum State {
         Normal,
@@ -994,6 +1010,7 @@ fn handle_client_esp(
                         }
                         dt_info!("TRANSCRIPTION: {}", transcription);
 
+                        write_last_sender_ip(&sender_ip);
                         if debug {
                             if let Some(start) = perf_start {
                                 let elapsed = start.elapsed();
@@ -1524,6 +1541,7 @@ fn main() -> Result<()> {
                     let room_for_handler = room.clone(); 
                     //let room_for_thread = room.clone();
                     let ip_for_registry = peer_ip.clone();
+                    let sender_ip = peer_ip.clone();
                     let registry = client_registry.clone();
                     //let room_for_handler = room_for_thread.clone();
                     let display_for_handler = display_id.clone();
@@ -1544,6 +1562,7 @@ fn main() -> Result<()> {
                             room_for_handler,
                             sound_data,
                             done_sound_data,
+                            sender_ip,
                         ) {
                             dt_error!("[{}] PTT handler error: {}", display_id, e);
                         }
@@ -1588,6 +1607,7 @@ fn main() -> Result<()> {
                 let registry_clone = client_registry.clone();
                 let room_clone = room.clone();
                 let ip_clone = peer_ip.clone();
+                let ip_for_removal = ip_clone.clone();
                 let display_id_clone = display_id.clone();
                 
                 let sound_data = sound_data.clone();
@@ -1633,6 +1653,7 @@ fn main() -> Result<()> {
                                 exec_command,
                                 translate_to_shell,
                                 room_clone.clone(),
+                                ip_clone, 
                             );
                         } else {
                             let _ = handle_client(
@@ -1651,6 +1672,7 @@ fn main() -> Result<()> {
                                 exec_command,
                                 translate_to_shell,
                                 room_clone.clone(),
+                                ip_clone,
                             );
                         }
                     }));
@@ -1659,7 +1681,7 @@ fn main() -> Result<()> {
                         let mut reg = registry_clone
                             .lock()
                             .unwrap_or_else(|poisoned| poisoned.into_inner());
-                        reg.remove_connection(&room_clone, &ip_clone);
+                        reg.remove_connection(&room_clone, &ip_for_removal);
                     }
                 
                     if let Err(panic_info) = result {

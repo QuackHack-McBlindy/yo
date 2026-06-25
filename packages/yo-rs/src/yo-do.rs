@@ -241,6 +241,7 @@ struct YoDo {
     scripts: HashMap<String, ScriptConfig>,
     intent_data: HashMap<String, IntentData>,
     fuzzy_index: Vec<FuzzyIndexEntry>,
+    fuzzy_entity_dict: HashMap<String, HashMap<String, Vec<EntityMapping>>>,
     processing_order: Vec<ScriptPriority>,
     fuzzy_threshold: i32,
     debug: bool,
@@ -249,6 +250,11 @@ struct YoDo {
     sorry_phrases: Vec<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+struct EntityMapping {
+    input: String,
+    output: String,
+}
 
 impl YoDo {
     fn new() -> Self {
@@ -275,6 +281,7 @@ impl YoDo {
             scripts: HashMap::new(),
             intent_data: HashMap::new(),
             fuzzy_index: Vec::new(),
+            fuzzy_entity_dict: HashMap::new(),
             processing_order: Vec::new(),
             fuzzy_threshold: 15,
             debug: env::var("DEBUG").is_ok() || env::var("DT_DEBUG").is_ok(),
@@ -284,8 +291,94 @@ impl YoDo {
         }
     }
 
+    fn log_intent_time(&self, ms: u128) -> io::Result<()> {
+        let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        let dir = format!("{}/.config/yo", home);
+        let file_path = format!("{}/exec.txt", dir);
+        std::fs::create_dir_all(&dir)?;
+
+        let mut sum: u128 = 0;
+        let mut count: u64 = 0;
+        let mut entries = Vec::new();
+
+        if let Ok(content) = std::fs::read_to_string(&file_path) {
+            for line in content.lines().skip(1) {
+                let trimmed = line.trim();
+                if let Some(num_str) = trimmed.strip_suffix(" ms") {
+                    if let Ok(num) = num_str.parse::<u128>() {
+                        sum += num;
+                        count += 1;
+                        entries.push(trimmed.to_string());
+                    }
+                }
+            }
+        }
+
+        sum += ms;
+        count += 1;
+        entries.push(format!("{} ms", ms));
+
+        let average = if count > 0 { sum as f64 / count as f64 } else { 0.0 };
+        let header = format!("Average: {:.2} ms ({} entries)", average, count);
+        let mut output = header + "\n";
+        for entry in &entries {
+            output.push_str(entry);
+            output.push('\n');
+        }
+        std::fs::write(&file_path, output)?;
+        Ok(())
+    }
+
     fn normalize_input(input: &str) -> String {
         input.replace(['?', '!', '.', ',', '&', '/'], "").to_lowercase()
+    }
+
+    fn fuzzy_resolve_entity(
+        &self,
+        script_name: &str,
+        param_name: &str,
+        value: &str,
+        threshold: i32,
+    ) -> Option<String> {
+        let param_dict = self.fuzzy_entity_dict
+            .get(script_name)?
+            .get(param_name)?;
+
+        let normalized_value = value.to_lowercase();
+        let mut best_score = 0;
+        let mut best_output = None;
+
+        for mapping in param_dict {
+            let input = &mapping.input.to_lowercase();
+            let distance = self.levenshtein_distance(&normalized_value, input);
+            let max_len = normalized_value.len().max(input.len());
+            if max_len == 0 {
+                continue;
+            }
+            let score = 100 - (distance * 100 / max_len) as i32;
+            if score >= threshold && score > best_score {
+                best_score = score;
+                best_output = Some(mapping.output.clone());
+            }
+        }
+
+        if let Some(ref out) = best_output {
+            dt_debug(&format!(
+                "      Fuzzy entity match ({}%): {} → {}",
+                best_score, value, out
+            ));
+        }
+        best_output
+    }
+
+    fn load_fuzzy_entity_dict(&mut self, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let data = fs::read_to_string(path)?;
+        self.fuzzy_entity_dict = serde_json::from_str(&data)?;
+        dt_debug(&format!(
+            "🦆 Loaded fuzzy entity dict for {} scripts",
+            self.fuzzy_entity_dict.len()
+        ));
+        Ok(())
     }
 
     fn is_wildcard_param(&self, script_name: &str, param_name: &str) -> bool {
@@ -568,9 +661,15 @@ impl YoDo {
             }
             dt_debug(&format!("      No entity match found for '{}'", param_value));
         }
+        
+        if let Some(fuzzy_result) = self.fuzzy_resolve_entity(script_name, param_name, param_value, 70) {
+            return fuzzy_result;
+        }
+
+        // 🦆 say ⮞ fallback to original value
         param_value.to_string()
     }
-  
+   
     // 🦆 says ⮞ DYNAMIC REGEX BUILDER - quacky pattern magic!
     fn build_pattern_matcher(&self, script_name: &str, sentence: &str) -> Option<(Regex, Vec<String>)> {
         let start_time = Instant::now();
@@ -1098,8 +1197,7 @@ impl YoDo {
     fn process_single_input(&self, input: &str, total_start: Instant) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
         let normalized = Self::normalize_input(input);         
-        
-        
+               
         // 🦆 says ⮞ collect fuzzy candidates for logging
         let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
             .filter_map(|entry| {
@@ -1120,6 +1218,7 @@ impl YoDo {
         // 🦆 says ⮞ exact matchin'
         if let Some(match_result) = self.exact_match(&normalized) {
             let part_elapsed = part_start.elapsed();
+            let _ = self.log_intent_time(part_elapsed.as_millis());
             dt_debug(&format!("Exact match found: {}", match_result.script_name));
             let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);    
             let final_result = MatchResult {
@@ -1135,6 +1234,7 @@ impl YoDo {
         // 🦆 says ⮞ fallback yo go fuzzy matchin' i choose u!
         if let Some(match_result) = self.fuzzy_match(&normalized) {
             let part_elapsed = part_start.elapsed();
+            let _ = self.log_intent_time(part_elapsed.as_millis());
             dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
             let final_result = MatchResult {
                 script_name: match_result.script_name,
@@ -1193,6 +1293,7 @@ fn load_sorry_phrases() -> Vec<String> {
     serde_json::from_str(&content)
         .unwrap_or_else(|e| panic!("Invalid JSON in sorry phrases file {}: {}", path, e))
 }
+
 
 
 fn parse_args() -> CliArgs {
@@ -1279,6 +1380,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         });
         yo_do.load_intent_data(&intent_data_path)?;
+
+        let fuzzy_entity_path = env::var("YO_FUZZY_ENTITY_DICT")
+            .unwrap_or_else(|_| "/etc/yo/fuzzy-entity-dict.json".to_string());
+        yo_do.load_fuzzy_entity_dict(&fuzzy_entity_path)?;
 
         let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
             .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
