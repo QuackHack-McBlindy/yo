@@ -1371,15 +1371,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let mut yo_do = YoDo::new();
 
-        let intent_data_path = env::var("YO_INTENT_DATA").unwrap_or_else(|_| {
-            eprintln!("🦆 says ⮞ fuck ❌ YO_INTENT_DATA environment variable not set");
-            eprintln!("Available YO_* vars:");
-            for (key, _) in env::vars().filter(|(k, _)| k.starts_with("YO_")) {
-                eprintln!("   {}", key);
-            }
-            std::process::exit(1);
-        });
+        let intent_data_path = env::var("YO_INTENT_DATA")
+            .unwrap_or_else(|_| DEFAULT_INTENT_DATA_PATH.to_string());
+            
         yo_do.load_intent_data(&intent_data_path)?;
+
 
         let fuzzy_entity_path = env::var("YO_FUZZY_ENTITY_DICT")
             .unwrap_or_else(|_| "/etc/yo/fuzzy-entity-dict.json".to_string());
