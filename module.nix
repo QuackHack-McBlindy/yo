@@ -1386,19 +1386,27 @@ in {
         ) cfg.scripts)
       ];
   
+      
       systemd.user.timers = mkMerge [
         (mapAttrs' (name: script:
           nameValuePair "yo-${name}-periodic" (mkIf (script.runEvery != null) {
             enable = true;
             wantedBy = ["timers.target"];
-            timerConfig = {
-              OnCalendar = "*-*-* *:0/${script.runEvery}";
+            timerConfig = let
+              runEveryStr = script.runEvery;
+              isMinute = builtins.match "^[0-9]+$" runEveryStr != null
+                         && lib.toInt (lib.head (builtins.match "0*([0-9]+)" runEveryStr)) <= 59;
+              onCalendar = if isMinute
+                           then "*-*-* *:${runEveryStr}:00"
+                           else "*-*-* *:0/${runEveryStr}";
+            in {
+              OnCalendar = onCalendar;
               Unit = "yo-${name}-periodic.service";
               Persistent = true;
             };
           })
         ) cfg.scripts)
-  
+      
         (foldl' recursiveUpdate {} (mapAttrsToList (name: script:
           if script.runAt != null then
             listToAttrs (map (timeStr:
