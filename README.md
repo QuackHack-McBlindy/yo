@@ -12,12 +12,6 @@ It takes declarative sentence templates with optional parameters and entity list
 At runtime it takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
 
 
-`yo` supports usage from:      
-- **NixOS module**  
-- **Full Rust version (scripts in Toml) for non Nix users**    
-- **Client support for any Linux/**[ESP32](https://github.com/QuackHack-McBlindy/yo-esp) **that has i2s configured**  
-    
-
 
 `yo` is a **full-stack voice assistant** that's:  
 - **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
@@ -25,8 +19,7 @@ At runtime it takes input, runs it through exact and fuzzy matching against the 
 - **Simple** - Everything neatly packaged and runs on one port.  
 - **Safe** - Rule based, user defines the rules.  
 - **Offline** - No internet required after setup.  
-- **Easy to deploy** - Using the NixOS module or containerized clients via Docker.  
-- **Plug & Play** - Using the `examples/` scripts. 
+- **Easy to deploy** - Using the NixOS module.  
 
 <br>
 
@@ -89,7 +82,6 @@ services.yo-rs = {
   server = {
     enable         = true;
     shellTranslate = true;
-    demo           = true;   # imports /examples/*.nix
 
     # Optional settings:
     # host                  = "0.0.0.0:12345";
@@ -175,121 +167,6 @@ Which only relies on `pkgs.jq` and `pkgs.coreutils`.
 
 </details>
 
-
-
-<details><summary><strong>
-📦 Building from source
-</strong></summary>
-
-If your not on a NixOS system you can choose to compile the grammar using `yo-toml` *(Rust)* instead of Nix.  <br>
-This involves creating your voice sentences and commands using `.toml` files and using `yo-toml --config-dir` to generated the required JSOn files.  
-
-**Example**
-
-```bash
-$ git clone git@github.com:QuackHack-McBlindy/yo.git
-$ cd yo
-$ cargo build --release --manifest-path ./packages/yo-rs/Cargo.toml
-# Specify directory containing your toml scripts
-$ ./packages/yo-rs/target/release/yo-toml --config-dir ./examples --output $XDG_CACHE_HOME/yo
-# Build the wrappers from toml scripts
-$ ./packages/yo-rs/target/release/yo-builder ./examples $XDG_CACHE_HOME/yo/bin
-```
-
-<br>
-  
-Now you should be able to start the server/client.  
-
-Server:  
-
-```bash
-$ ./target/release/yo-rs \
-  --host 0.0.0.0:12345 \
-  --translate-to-shell \
-  # Optional:
-  # --wake-word ./models/wake.onnx \
-  # --threshold 0.5 \
-  # --model ./models/ggml-small.bin \
-  # --beam-size 5 \
-  # --temperature 0.2 \
-  # --threads 4 \
-  # --language en \
-  # --awake-sound ./sounds/ding.wav \
-  # --done-sound ./sounds/done.wav \
-  # --exec-command "echo" \
-  # --tts-model ./models/en_US-amy-medium.onnx \
-  # --debug
-```
-
-Client:
-
-```bash
-./target/release/yo-client \
-  --uri 127.0.0.1:12345 \
-  # Optional:
-  # --room desktop \
-  # --awake-sound ./sounds/ding.wav \
-  # --done-sound ./sounds/done.wav \
-  # --awake-cmd "notify-send Listening" \
-  # --done-cmd "notify-send Done" \
-  # --silence-threshold 0.005 \
-  # --silence-timeout 1.0 \
-  # --max-duration 5.0 \
-  # --debug
-```
-
-<br>
-
-
-**Done!**  
-  
-If both started without issues - you can now:    
-speak your wake word *(default: `"yo bitch"`)*  
-& ask what time it is or what weather it is or whatever.  
-*or if you prefer CLI:*  
-
-```bash
-$ yo do "whats the time"
-# legacy: (slower - but cooler)
-$ yo legacy "is it warm outside"
-```
-
-<br>
-
-</details>
-
-
-
-
-<details><summary><strong>
-🐋 Docker (for use outside of Nix ecosystem)
-</strong></summary>
-
-<br>
-
-Use the provided Dockerfile to build your container with either client, server or both.  
-Optional configuration can be made in the `docker-compose.yaml` file then run:  
-
-```bash
-$ docker compose build client # or server
-```
-
-To build the image.  
-To start client + server run:  
-
-```bash
-$ docker compose --profile all up
-``` 
-
-To only start a clien:  
-
-```bash
-$ docker compose --profile client up
-```
-
-<br>
-
-</details>
 
 <br>
 

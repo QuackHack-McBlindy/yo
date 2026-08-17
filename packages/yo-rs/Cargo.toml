@@ -58,8 +58,8 @@ toml = "0.8"
 # ───────────────────────────────────────────────────────────────────────
 # EXECUTABLES
 [[bin]]
-name = "yo-builder"
-path = "src/yo-builder.rs"
+name = "main"
+path = "src/main.rs"
 
 [[bin]]
 name = "yo-client"
@@ -77,6 +77,4 @@ path = "src/yo-tests.rs"
 name = "yo-say"
 path = "src/yo-say.rs"
 
-[[bin]]
-name = "yo-toml"
-path = "src/yo-toml.rs"
+

@@ -238,6 +238,11 @@ in {
       readOnly = true;
       description = "The final yo scripts package";
     };
+    language = lib.mkOption {
+      type = lib.types.string;
+      default = "english";
+      description = "Voice commands language for example scripts.";
+    };    
     legacy = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -252,9 +257,9 @@ in {
       type = lib.types.listOf lib.types.str;
       default = [
         "Buddy, you are speaking Japanese, I dont understand anything."
-        "It sounds like you have a Swedish meatball in your mouth. Finish your dinner and then try again."
-        "Hey bro, open your mouth before you talk, I dont get anything."
-        "No clue Golf ball."
+        "I'm sorry, I did not understand that"
+        "Sorry, can you repeat that"
+        "I did not quite catch that"
         "Excuse me?!"
       ];
       description = "List of phrases for TTS when no match is found";

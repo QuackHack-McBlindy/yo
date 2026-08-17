@@ -5,26 +5,40 @@
   pkgs,
   ...
 } : with lib;
-let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'  
+let
+
+  utils = import ./lib { inherit lib; };
+  inherit (utils)
+    cartesianProductOfLists
+    expandOptionalWords
+    expandListInputVariants
+    expandToRegex
+    makeEntityResolver
+    escapeMD
+    makeTimerName
+    countGeneratedPatterns
+    countUnderstoodPhrases
+    countTotalGeneratedPatterns
+    countTotalUnderstoodPhrases
+    ;
+
+
   cfg = config.yo;
   scripts = cfg.scripts; 
-  scriptNames = builtins.attrNames scripts; # 🦆 says ⮞ just names - we never name one
-  # 🦆 says ⮞ only scripts with known intentions
+  scriptNames = builtins.attrNames scripts;
   scriptNamesWithIntents = builtins.filter (scriptName:
-    let # 🦆 says ⮞ a intent iz kinda ..
+    let
       intent = generatedIntents.${scriptName};
-      # 🦆 says ⮞ .. pointless if it haz no sentence data ..
       hasSentences = builtins.any (data: data ? sentences && data.sentences != []) intent.data;
-    in # 🦆 says ⮞ .. so datz how we build da scriptz!
+    in
       builtins.hasAttr scriptName generatedIntents && hasSentences
-  ) (builtins.attrNames scriptsWithVoice); # 🦆 says ⮞ datz quackin' cool huh?!
+  ) (builtins.attrNames scriptsWithVoice);
 
-  # 🦆 says ⮞ only scripts with voice enabled and non-null voice config
+
   scriptsWithVoice = lib.filterAttrs (_: script: 
     script.voice != null && (script.voice.enabled or true)
   ) config.yo.scripts;
   
-  # 🦆 says ⮞ generate intents
   generatedIntents = lib.mapAttrs (name: script: {
     priority = script.voice.priority or 3;
     data = [{
@@ -52,161 +66,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
     }];
   }) scriptsWithFuzzy));
 
-
-  # 🦆 says ⮞ QUACK! da duck take a list of listz and duck make all da possible combinationz
-  cartesianProductOfLists = lists:
-    # 🦆 says ⮞ if da listz iz empty .. 
-    if lists == [] then
-      [ [] ] # 🦆 says ⮞ .. i gib u empty listz of listz yo got it?
-    else # 🦆 says ⮞ ELSE WAT?!
-      let # 🦆 says ⮞ sorry.. i gib u first list here u go yo
-        head = builtins.head lists;
-        # 🦆 says ⮞ remaining listz for u here u go bro!
-        tail = builtins.tail lists;
-        # 🦆 says ⮞ calculate combinations for my tail - yo calc wher u at?!
-        tailProduct = cartesianProductOfLists tail;
-      in # 🦆 says ⮞ for everyy x in da listz ..
-        lib.concatMap (x:
-          # 🦆 says ⮞ .. letz combinez wit every tail combinationz ..  
-          map (y: [x] ++ y) tailProduct
-        ) head; # 🦆 says ⮞ dang! datz a DUCK COMBO alright!  
-# 🦆 EXAMPLE ⮞ cartesianProductOfLists [ ["a" "b"] ["1" "2"] ["x" "y"] ]
-# 🦆 BOOOOOM ⮟ 
-#  [ ["a" "1" "x"]
-#    ["a" "1" "y"] 
-#    ["a" "2" "x"]
-#    ["a" "2" "y"]
-#    ["b" "1" "x"]
-#    ["b" "1" "y"]
-#    ["b" "2" "x"]
-#    ["b" "2" "y"] ]
-         
-  # 🦆 says ⮞ here i duckie help yo out! makin' yo life eazy sleazy' wen declarative sentence yo typin'    
-  expandOptionalWords = sentence: # 🦆 says ⮞ qucik & simple sentences we quacky & hacky expandin'
-    let # 🦆 says ⮞ CHOP CHOP! Rest in lil' Pieceez bigg sentence!!1     
-      tokens = lib.splitString " " sentence;      
-      # 🦆 says ⮞ definin' dem wordz in da (braces) taggin' dem' wordz az (ALTERNATIVES) lettin' u choose one of dem wen triggerin' 
-      isRequiredGroup = t: lib.hasPrefix "(" t && lib.hasSuffix ")" t;
-      # 🦆 says ⮞ puttin' sentence wordz in da [bracket] makin' em' [OPTIONAL] when bitchin' u don't have to be pickin' woooho 
-      isOptionalGroup = t: lib.hasPrefix "[" t && lib.hasSuffix "]" t;   
-      expandToken = token: # 🦆 says ⮞ dis gets all da real wordz out of one token (yo!)
-        if isRequiredGroup token then
-          let # 🦆 says ⮞ thnx 4 lettin' ducklin' be cleanin' - i'll be removin' dem "()" 
-            clean = lib.removePrefix "(" (lib.removeSuffix ")" token);
-            alternatives = lib.splitString "|" clean; # 🦆 says ⮞ use "|" to split (alternative|wordz) yo 
-          in  # 🦆 says ⮞ dat's dat 4 dem alternativez
-            alternatives
-        else if isOptionalGroup token then
-          let # 🦆 says ⮞ here we be goin' again - u dirty and i'll be cleanin' dem "[]"
-            clean = lib.removePrefix "[" (lib.removeSuffix "]" token);
-            alternatives = lib.splitString "|" clean; # 🦆 says ⮞ i'll be stealin' dat "|" from u 
-          in # 🦆 says ⮞ u know wat? optional means we include blank too!
-            alternatives ++ [ "" ]
-        else # 🦆 says ⮞ else i be returnin' raw token for yo
-          [ token ];      
-      # 🦆 says ⮞ now i gib u generatin' all dem combinationz yo
-      expanded = cartesianProductOfLists (map expandToken tokens);      
-      # 🦆 says ⮞ clean up if too much space, smush back into stringz for ya
-      trimmedVariants = map (tokenList:
-        let # 🦆 says ⮞ join with spaces then trim them suckers
-          raw = lib.concatStringsSep " " tokenList;
-          # 🦆 says ⮞ remove ALL extra spaces
-          cleaned = lib.replaceStrings ["  "] [" "] (lib.strings.trim raw);
-        in # 🦆 says ⮞ wow now they be shinin'
-          cleaned 
-      ) expanded; # 🦆 says ⮞ and they be multiplyyin'!      
-      # 🦆 says ⮞ throwin' out da empty and cursed ones yo
-      nonEmpty = lib.filter (s: s != "") trimmedVariants;
-      hasFixedText = v: builtins.match ".*[^\\{].*" v != null; # 🦆 says ⮞ no no no, no nullin'
-      validVariants = lib.filter hasFixedText nonEmpty;
-    in # 🦆 says ⮞ returnin' all unique variantz of da sentences – holy duck dat'z fresh 
-      lib.unique validVariants;
-  
-  # 🦆 says ⮞ we be doin' sorta da same wit dem listz
-  expandListInputVariants = value: 
-    let # 🦆 says ⮞ first we choppy choppy - break up da list into word tokenz
-      tokens = lib.splitString " " value;
-      # 🦆 says ⮞ checkin' if a token be wrapped like [diz] = optional, ya feel?
-      isOptional = t: lib.hasPrefix "[" t && lib.hasSuffix "]" t;
-      # 🦆 says ⮞ now ducklin' expandz each token — either real or optional wit options
-      expandToken = token:
-        if isOptional token then
-          let # 🦆 says ⮞ time 2 clean dat square junk up 4 yo bro
-            clean = lib.removePrefix "[" (lib.removeSuffix "]" token);
-             # 🦆 says ⮞ u know da drill - splittin' on da "|" to find alt optionalz
-            alternatives = lib.splitString "|" clean;
-          in
-            alternatives
-        else # 🦆 says ⮞ not optional? just be givin' back da token as iz
-          [ token ];
-      expanded = cartesianProductOfLists (map expandToken tokens);
-      variants = map (tokenList:
-        lib.replaceStrings [ "  " ] [ " " ] (lib.concatStringsSep " " tokenList)
-      ) expanded;  # 🦆 says ⮞ only da fresh unique non-emptiez stayin’ in da pond
-    in lib.unique (lib.filter (s: s != "") variants);
-
-  # 🦆 says ⮞ optimized pattern expansion
-  expandToRegex = sentence: data:
-    let
-      # 🦆 says ⮞ helper function to convert patterns to regex
-      convertPattern = token:
-        if lib.hasPrefix "(" token then
-          let
-            clean = lib.removePrefix "(" (lib.removeSuffix ")" token);
-            alternatives = lib.splitString "|" clean;
-            escaped = map lib.escapeRegex alternatives;
-          in "(?:" + lib.concatStringsSep "|" escaped + ")"
-        else if lib.hasPrefix "[" token then
-          let
-            clean = lib.removePrefix "[" (lib.removeSuffix "]" token);
-            alternatives = lib.splitString "|" clean;
-            escaped = map lib.escapeRegex alternatives;
-          in "(?:" + lib.concatStringsSep "|" escaped + ")?"
-        else
-          lib.escapeRegex token;
-      
-      # 🦆 says ⮞ split into tokens while preserving special groups
-      tokenize = s:
-        let
-          groups = builtins.match "([^{]*)(\{[^}]*\})?(.*)" s;
-        in
-          if groups == null then [s]
-          else let
-            prefix = builtins.elemAt groups 0;
-            param = builtins.elemAt groups 1;
-            rest = builtins.elemAt groups 2;
-            tokens = if prefix != "" then [prefix] else [];
-            tokensWithParam = if param != null then tokens ++ [param] else tokens;
-          in tokensWithParam ++ tokenize rest;
-      
-      # 🦆 says ⮞ process tokens into regex parts
-      tokens = tokenize sentence;
-      regexParts = map (token:
-        if lib.hasPrefix "{" token then
-          let
-            param = lib.removePrefix "{" (lib.removeSuffix "}" token);
-            isWildcard = data.lists.${param}.wildcard or false;
-          in if isWildcard then "(.*)" else "\\b([^ ]+)\\b"
-        else
-          convertPattern token
-      ) tokens;
-      
-      # 🦆 says ⮞ combine parts into final regex
-      regex = "^" + lib.concatStrings regexParts + "$";
-    in
-      regex; 
-
-  # 🦆 says ⮞ take each value like "yo|hey" and map it to its 'out' – buildin’ da translation matrix yo!
-  makeEntityResolver = data: listName: # 🦆 says ⮞ i like ducks
-    lib.concatMapStrings (entity:
-      let 
-        variants = expandListInputVariants entity."in"; # 🦆 says ⮞ "in" must always be quoted in Nix. never forget yo
-      in # 🦆 says ⮞ otherwize itz an in like this one!
-        lib.concatMapStrings (variant: ''
-          "${variant}") echo "${entity.out}";;
-        '') variants # 🦆 says ⮞ all of them yo!
-    ) data.lists.${listName}.values; # 🦆 says ⮞ maps each "in" value to an echo of its "out"
-  
+ 
   # 🦆 says ⮞ where da magic dynamic regex iz at 
   makePatternMatcher = scriptName: let
     dataList = generatedIntents.${scriptName}.data;    
@@ -428,7 +288,8 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
           # 🦆 says ⮞ precompute signature for FAAASTEERRr matching - quicky quacky snappy matchin' yo! 
           signature = let
             words = lib.splitString " " (lib.toLower expanded); # 🦆 says ⮞ lowercase & split likez stale rye
-            sorted = lib.sort (a: b: lib.hasPrefix a b) words; # 🦆 says ⮞ duck sort dem quackz alphabetically-ish quack quack
+            #sorted = lib.sort (a: b: lib.hasPrefix a b) words; # 🦆 says ⮞ duck sort dem quackz alphabetically-ish quack quack
+            sorted = lib.sort (a: b: a < b) words;
           in builtins.concatStringsSep "|" sorted;  # 🦆 says ⮞ make a fuzzy-flyin’ signature string, pipe separated - yo' know it 
         }) (expandOptionalWords sentence) # 🦆 says ⮞ diz iz where optional wordz becomez reality
       ) data.sentences # 🦆 says ⮞ waddlin' through all yo' sentencez
@@ -453,29 +314,6 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
   # 🦆 duck say ⮞ turn hyphens into underscores so bash is happy
   sanitizeVarName = name: builtins.replaceStrings ["-"] ["_"] name;
 
-  # 🦆 says ⮞ export da nix store path to da intent data - could be useful yo
-  environment.variables.YO_SPLIT_WORDS = splitWordsFile;
-  environment.variables.YO_SORRY_PHRASES = sorryPhrasesFile;
-  environment.variables.YO_INTENT_DATA = intentDataFile;
-  environment.variables.YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
-  environment.variables."YO_FUZZY_INDEX" = fuzzyIndexFlatFile; # fuzzyIndexFile;  
-  environment.variables.MATCHER_DIR = matcherDir;
-  environment.variables.MATCHER_SOURCE = matcherSourceScript;
-
-  environment.etc = {
-    "yo/split-words.json".source = splitWordsFile;
-    "yo/sorry-phrases.json".source = sorryPhrasesFile;
-    "yo/intent-data.json".source = intentDataFile;
-    "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
-    "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
-    "yo/matchers" = {
-      source = matcherDir;
-    };
-    "yo/matcher-loader.sh".source = matcherSourceScript;
-  };
-  
-  file."split-words.json" = splitWordsFile;
-  
   # 🦆 says ⮞ priority system 4 runtime optimization
   scriptRecordsWithIntents = 
     let # 🦆 says ⮞ calculate priority
@@ -502,19 +340,6 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
       ) (map makeRecord scriptNamesWithIntents);
   # 🦆 says ⮞ generate optimized processing order
   processingOrder = map (r: r.name) scriptRecordsWithIntents;
-
-  # 🦆 duck say ⮞ quacky hacky helper 2 escape md special charizardz yo
-  escapeMD = str: let
-    replacements = [
-      [ "\\" "\\\\" ]
-      [ "*" "\\*" ]
-      [ "`" "\\`" ]
-      [ "_" "\\_" ]
-      [ "[" "\\[" ]
-      [ "]" "\\]" ]
-    ];
-  in
-    lib.foldl (acc: r: lib.replaceStrings [ (builtins.elemAt r 0) ] [ (builtins.elemAt r 1) ] acc) str replacements;
 
   failingScripts = lib.filter (script:
     ! ( (script.binary == null && (script.code != null && script.code != "")) ||
@@ -820,88 +645,7 @@ let # 🦆 says ⮞ grabbin’ all da scripts for ez listin'
         ) scripts)
     ) sortedCategories2;
   in concatStringsSep "\n" rows;
-
-
-  # 🦆 duck say ⮞ count GENERATED regex patterns (the ~800 count)
-  countGeneratedPatterns = script:
-    if script.voice == null then
-      0
-    else
-      let # 🦆 duck say ⮞ expand sentence variants with optional wordz
-        expandedSentences = lib.concatMap expandOptionalWords script.voice.sentences;
-      in
-        lib.length expandedSentences;
-  
-  # 🦆 duck say ⮞ count phrase coverage  
-  countUnderstoodPhrases = script:
-    if script.voice == null then
-      0
-    else
-      let # 🦆 duck say ⮞ expand sentence variants with optional wordz
-        expandedSentences = lib.concatMap expandOptionalWords script.voice.sentences;   
-        # 🦆 duck say ⮞ extract parameter names from sentences
-        extractParamNames = sentence:
-          let # 🦆 duck say ⮞ split by { to find parameters
-            parts = lib.splitString "{" sentence;
-            paramNames = lib.concatMap (part:
-              let
-                paramPart = lib.splitString "}" part;
-              in
-                if lib.length paramPart > 1 then
-                  [ (lib.elemAt paramPart 0) ]
-                else
-                  []
-            ) (lib.tail parts); # 🦆 says ⮞ skip the first part (before first {)
-          in
-            paramNames; 
-        # 🦆 says ⮞ count parameter combinations for each expanded sentence
-        countPhrasesForSentence = sentence:
-          let
-            paramNames = extractParamNames sentence;
-          in
-            if paramNames == [] then
-              1
-            else
-              let # 🦆 duck say ⮞ count possible values for each parameter
-                paramValueCounts = map (paramName:
-                  let
-                    list = script.voice.lists.${paramName} or null;
-                  in
-                    if list == null then 1
-                    else lib.length list.values
-                ) paramNames;           
-                # 🦆 duck say ⮞ multiply counts for all parameters
-                totalCombinations = lib.foldl (a: b: a * b) 1 paramValueCounts;
-              in
-                totalCombinations; 
-        # 🦆 duck say ⮞ sum phrases across all expanded sentences
-        totalPhrases = lib.foldl (total: sentence:
-          total + countPhrasesForSentence sentence
-        ) 0 expandedSentences;
-      in
-        totalPhrases;
-  
-  # 🦆 duck say ⮞ count generated patterns
-  countTotalGeneratedPatterns = scripts:
-    lib.foldl (total: script: 
-      total + countGeneratedPatterns script
-    ) 0 (lib.attrValues scripts);
-  
-  # 🦆 duck say ⮞ count phrases across all scriptz  
-  countTotalUnderstoodPhrases = scripts:
-    lib.foldl (total: script: 
-      total + countUnderstoodPhrases script
-    ) 0 (lib.attrValues scripts);
-  
-  
-  # 🦆 duck say ⮞ generatez safe systemd timer namez
-  makeTimerName = scriptName: timeStr:
-    let
-      safeTime = replaceStrings [":"] ["-"] timeStr;
-    in
-      "yo-${scriptName}-at-${safeTime}";
-
-
+ 
   # The yo package
   yoScriptsPackage = pkgs.symlinkJoin {
     name = "yo-scripts";

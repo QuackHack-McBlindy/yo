@@ -89,9 +89,7 @@ impl ClientRegistry {
             let (count, _) = entry.get_mut();
             if *count > 1 {
                 *count -= 1;
-            } else {
-                entry.remove();
-            }
+            } else { entry.remove(); }
             self.save();
         }
     }
@@ -139,14 +137,12 @@ use rodio::{OutputStream, Sink, buffer::SamplesBuffer};
 const NOISE_PROFILE_BYTES: &[u8] = include_bytes!("./../noise.prof");
 
 fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f32>> {
-    // 1. Write the embedded profile to a temporary file, flush and sync it
     let mut tmp = tempfile::NamedTempFile::new()?;
     tmp.write_all(NOISE_PROFILE_BYTES)?;
-    tmp.flush()?;                        // ensure data reaches the OS
-    tmp.as_file().sync_all()?;           // force disk flush
+    tmp.flush()?;
+    tmp.as_file().sync_all()?; 
     let profile_path = tmp.path().to_str().unwrap();
 
-    // 2. Build a 16‑bit WAV in memory to pipe into SoX
     let mut wav_bytes = Vec::new();
     {
         let spec = hound::WavSpec {
@@ -163,16 +159,15 @@ fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f3
         writer.finalize()?;
     }
 
-    // 3. Invoke SoX with RAW output (no WAV header)
     let mut child = Command::new("sox")
         .args([
-            "-t", "wav", "-",                     // input from stdin as WAV
-            "-t", "raw",                          // output raw PCM
-            "-e", "signed-integer",               //   signed 16-bit
+            "-t", "wav", "-",
+            "-t", "raw",
+            "-e", "signed-integer",
             "-b", "16",
-            "-c", "1",                            //   mono
-            "-r", &format!("{}", sample_rate),    //   same sample rate
-            "-",                                  //   to stdout
+            "-c", "1",
+            "-r", &format!("{}", sample_rate),
+            "-",
             "noisered", profile_path,
             &format!("{:.2}", amount),
         ])
@@ -181,14 +176,12 @@ fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f3
         .stderr(Stdio::piped())
         .spawn()?;
 
-    // 4. Write input and close stdin
+
     {
         let mut stdin = child.stdin.take().unwrap();
         stdin.write_all(&wav_bytes)?;
-        // stdin is dropped → pipe closed, SoX will finish
     }
 
-    // 5. Read the raw PCM bytes
     let mut raw_bytes = Vec::new();
     child.stdout.take().unwrap().read_to_end(&mut raw_bytes)?;
 
@@ -201,13 +194,11 @@ fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f3
         anyhow::bail!("SoX failed (exit {}): {}", status.code().unwrap_or(-1), err_msg.trim());
     }
 
-    // 6. Convert raw i16 samples to f32
     if raw_bytes.len() % 2 != 0 {
         anyhow::bail!("Raw output size {} is odd, expected even number of bytes for i16", raw_bytes.len());
     }
     let num_samples = raw_bytes.len() / 2;
     let mut cleaned = Vec::with_capacity(num_samples);
-    // Assume little‑endian (default for SoX on most platforms)
     for chunk in raw_bytes.chunks_exact(2) {
         let sample = i16::from_le_bytes([chunk[0], chunk[1]]);
         cleaned.push(sample as f32 / i16::MAX as f32);
@@ -963,9 +954,7 @@ fn handle_client_esp(
                         if last_speech.elapsed() > timeout {
                             stopped_by_silence = true;
                             true
-                        } else {
-                            false
-                        }
+                        } else { false }
                     } else {
                         false // NOT ENOUGH DATA YET TO MAKE DECISION
                     }
@@ -998,9 +987,7 @@ fn handle_client_esp(
                             transcription_audio.truncate(transcription_audio.len() - trim_samples);
                             dt_debug!("[{}] Trimmed trailing silence ({:.2}s, {} samples)",
                                 client_id, trim_seconds, trim_samples);
-                        } else {
-                            dt_info!("[{}] Buffer too short to trim – sending as is", client_id);
-                        }
+                        } else { dt_info!("[{}] Buffer too short to trim – sending as is", client_id); }
                     }
 
                     // TRANSCRIBE
@@ -1428,9 +1415,7 @@ fn main() -> Result<()> {
                 DONE_WAV.to_vec()
             }
         }
-    } else {
-        DONE_WAV.to_vec()
-    };    
+    } else { DONE_WAV.to_vec() };    
     // awake sound
     let sound_data = if let Some(ref path) = sound_path {
         match std::fs::read(&path) {
@@ -1446,17 +1431,6 @@ fn main() -> Result<()> {
     } else { DING_WAV.to_vec() };
 
     let listener = TcpListener::bind(&host)?;
-
-    // START A THREAD THAT LISTEN AND REDIRECT ANY AAUDIO BBACK TO ESP SPEAKER
-    //let control_listener = TcpListener::bind("0.0.0.0:12346")?;
-    //thread::spawn(move || {
-    //    for conn in control_listener.incoming() {
-    //        if let Ok(mut ctrl) = conn {
-    //            thread::spawn(|| handle_control_command(ctrl));
-    //        }
-    //    }
-    //}); 
- 
  
     // 🦆 says ⮞ Print current settings
     let done_sound_display = done_sound_path.as_deref().unwrap_or("done.wav (embedded)");

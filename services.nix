@@ -9,6 +9,7 @@
   cfg = config.services.yo-rs;
   inherit (lib) types mkOption mkEnableOption mkIf optional optionals getExe;
 in {
+
   options.services.yo-rs = {
     enable = mkEnableOption "yo-rs services (server and/or client)";
 
@@ -349,11 +350,5 @@ in {
         };
       };
     })
-    
-    (lib.mkIf (cfg.server.enable && cfg.server.demo)
-      (lib.mkMerge (map (file: import (./examples + "/${file}"))
-        (builtins.filter (lib.hasSuffix ".nix")
-          (builtins.attrNames (builtins.readDir ./examples)))))
-    ) 
-   
+       
   ];}
