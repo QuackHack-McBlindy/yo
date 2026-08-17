@@ -71,6 +71,15 @@ Use `yo` as voice assistant in 4 steps:
   imports = [ yo.nixosModules.yo ];
 ```
 
+> **Note:** the module also requires `self` and `inputs` as module arguments. Pass them to your `nixosSystem` via `specialArgs`:
+
+```nix
+  nixosSystem {
+    specialArgs = { inherit self inputs; };
+    ...
+  }
+```
+
 <br>
 
 
@@ -130,6 +139,8 @@ services.yo-rs = {
 
 <br>
 
+
+> **Note:** the server and the generated scripts call `piper`, `ffmpeg` and `aplay` from `PATH`. Add them to your packages — in nixpkgs the TTS engine is `piper-tts` (do not use `pkgs.piper`, which is the gaming-mouse GUI): `environment.systemPackages = [ pkgs.piper-tts pkgs.ffmpeg pkgs.alsa-utils ];`
 
 #### **4: Rebuild your system**  
 
