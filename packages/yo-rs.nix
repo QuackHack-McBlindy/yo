@@ -48,7 +48,7 @@ rustPlatform.buildRustPackage {
   buildInputs = [ 
     pkgs.openssl.dev
     pkgs.alsa-lib-with-plugins
-    pkgs.piper
+    pkgs.piper-tts
     pkgs.ffmpeg
   ];
 
