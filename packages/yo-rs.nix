@@ -21,17 +21,15 @@
     sha256 = "sha256-G+OpsgY4Z7k35k4ux0gzZKeZF+FX+pjF2UtcH//qmHs=";
   };
 
-  lisa_svSE = pkgs.fetchurl {
-    url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/sv/sv_SE/lisa/medium/sv_SE-lisa-medium.onnx";
-    sha256 = "sha256-lMrpErMdbpFA0/UWDxgVlRWIYAx6nkPVOboegaEQ0TE=";
+  piperVoices = pkgs.fetchgit {
+    url            = "https://huggingface.co/rhasspy/piper-voices";
+    rev            = "375a0fe641dea077c2a47b4e9a056d6da521eed3";  # tag v1.0.0
+    fetchLFS       = true;
+    sparseCheckout = [ "en/en_US/amy/medium" "sv/sv_SE/lisa/medium" ];
+    sha256         = "0f5myl87yj2l31xg9s6cav94v7imai20qhc2qhshj40ibd1wbar2";
   };
 
-  amy_enUS = pkgs.fetchurl {
-    url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/medium/en_US-amy-medium.onnx";
-    sha256 = "sha256-s6bke1e4x/vmoM4lGBYaUPWanN2KUINcAssCvdYgbBg=";
-  };
-
-in  
+in
 rustPlatform.buildRustPackage {
   pname = "yo-rs";
   inherit version;
@@ -45,7 +43,7 @@ rustPlatform.buildRustPackage {
     rustPlatform.bindgenHook
   ];
 
-  buildInputs = [ 
+  buildInputs = [
     pkgs.openssl.dev
     pkgs.alsa-lib-with-plugins
     pkgs.piper
@@ -60,10 +58,10 @@ rustPlatform.buildRustPackage {
 
     mkdir -p $out/share/yo-rs/models/stt
     cp ${smallWhisper} $out/share/yo-rs/models/stt/ggml-small.bin
-    
+
     mkdir -p $out/share/yo-rs/models/tts
-    cp ${amy_enUS} $out/share/yo-rs/models/tts/en_US-amy-medium.onnx
-    cp ${lisa_svSE} $out/share/yo-rs/models/tts/sv_SE-lisa-medium.onnx        
+    cp ${piperVoices}/en/en_US/amy/medium/en_US-amy-medium.onnx{,.json} $out/share/yo-rs/models/tts/
+    cp ${piperVoices}/sv/sv_SE/lisa/medium/sv_SE-lisa-medium.onnx{,.json} $out/share/yo-rs/models/tts/
   '';
 
   meta = with lib; {
@@ -71,5 +69,5 @@ rustPlatform.buildRustPackage {
     license = licenses.mit;
     maintainers = [ "QuackHack-McBlindy" ];
     mainProgram = "yo-rs";
-    
+
   };}
