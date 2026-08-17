@@ -243,7 +243,7 @@ let
           lists = lib.foldl (acc: d: acc // (d.lists or {})) {} intentList.data;
         in {
           inherit substitutions;
-          inherit sentences;
+          sentences = expandedSentences;
           inherit lists;
         }
       ) generatedIntents
