@@ -1173,7 +1173,7 @@ in {
     (mkIf (!cfg.legacy) {      
       yo.scripts.do = {
         description = "do is a Natural Language to Shell script translator that generates dynamic regex patterns at build time for defined yo.script sentences. It runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
-        binary = "/run/current-system/sw/bin/yo-do";
+        binary = "${config.services.yo-rs.package}/bin/yo-do";
         category = "🗣️ Voice";
         logLevel = "INFO";
         parameters = [
@@ -1185,7 +1185,7 @@ in {
   
       yo.scripts.tests = {
         description = "Extensive automated sentence testing for the yo do"; 
-        binary = "/run/current-system/sw/bin/yo-tests";      
+        binary = "${config.services.yo-rs.package}/bin/yo-tests";      
         category = "🗣️ Voice";
         parameters = [
           { name = "input"; description = "Text to test as a single  sentence test"; optional = true; }
@@ -1197,7 +1197,7 @@ in {
   
       yo.scripts.say = {
         description = "Text to speech with built in language detection and automatic model downloading";
-        binary = "/run/current-system/sw/bin/yo-say";
+        binary = "${config.services.yo-rs.package}/bin/yo-say";
         category = "🗣️ Voice";
         logLevel = "WARNING";
         parameters = [
