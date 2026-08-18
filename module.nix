@@ -1191,6 +1191,8 @@ in {
           { name = "input"; description = "Text to test as a single  sentence test"; optional = true; }
           { name = "stats"; type = "bool"; description = "Flag to display voice commands information like generated regex patterns, generated phrases and ratio"; optional = true; }    
           { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = 30; }
+          { name = "script"; type = "string"; description = "Extensive sentence testing of the specified script"; optional = true; }
+          { name = "max-variants"; type = "int"; description = "Maximum number of variants tested peer sentence."; optional = true; default = 50; }
         ];
       };  
   

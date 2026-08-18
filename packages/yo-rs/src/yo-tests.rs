@@ -1,7 +1,6 @@
-// ddotfiles/packages/yo-rs/src/yo-tests.rs ⮞ https://github.com/QuackHack-McBlindy/dotfiles
 #![allow(dead_code)]
 #![allow(unused)]
-use std::{ // 🦆 says ⮞ yo-tests (Automated Sentence Testing)
+use std::{
     env,
     fs::{OpenOptions, File},
     io::{self, Write},
@@ -49,6 +48,7 @@ struct ListValue {
 struct IntentData {
     substitutions: Vec<Substitution>,
     sentences: Vec<String>,
+    lists: HashMap<String, ListConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +70,8 @@ struct TestRunner {
     debug: bool,
     stats_mode: bool,
     single_input: Option<String>,
+    script_filter: Option<String>,
+    max_variants: usize,
 }
 
 #[derive(Debug)]
@@ -92,10 +94,11 @@ impl TestRunner {
             debug: env::var("DEBUG").is_ok() || env::var("DT_DEBUG").is_ok(),
             stats_mode: false,
             single_input: None,
+            script_filter: None,
+            max_variants: 1000,  
         }
     }
 
-    // 🦆 says ⮞ load data from env var
     fn load_data(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(intent_data_path) = env::var("YO_INTENT_DATA") {
             let data = fs::read_to_string(intent_data_path)?;
@@ -121,7 +124,83 @@ impl TestRunner {
         eprintln!("[🦆📜] ✅INFO✅ ⮞ {}", msg);
     }
 
-    // 🦆 says ⮞ word expansion same algorithm as da Nix version
+    
+    fn normalize_input(&self, input: &str) -> String {
+        input.replace(['?', '!', '.', ',', '&', '/'], "").to_lowercase()
+    }
+    
+    fn apply_real_time_substitutions(&self, script_name: &str, text: &str) -> (String, HashMap<String, String>) {
+        let mut resolved_text = text.to_lowercase();
+        let mut substitutions = HashMap::new();
+    
+        if let Some(intent) = self.intent_data.get(script_name) {
+            for sub in &intent.substitutions {
+                let pattern = format!(r"\b{}\b", regex::escape(&sub.pattern));
+                if let Ok(re) = Regex::new(&pattern) {
+                    if let Some(original_match) = re.find(&resolved_text) {
+                        let original = original_match.as_str().to_string();
+                        resolved_text = re.replace_all(&resolved_text, &sub.value).to_string();
+                        substitutions.insert(original.clone(), sub.value.clone());
+                        self.quack_debug(&format!("      Real-time sub: {} → {}", original, sub.value));
+                    }
+                }
+            }
+        }
+        (resolved_text, substitutions)
+    }
+    
+    
+    fn resolve_entity(&self, script_name: &str, param_name: &str, param_value: &str) -> String {
+        if let Some(intent) = self.intent_data.get(script_name) {
+            let normalized_input = param_value.to_lowercase();
+    
+    
+            for sub in &intent.substitutions {
+                let pattern = sub.pattern.to_lowercase();
+    
+    
+                if pattern == normalized_input {
+                    self.quack_debug(&format!("      Exact entity match: {} → {}", param_value, sub.value));
+                    return sub.value.clone();
+                }
+    
+                if pattern.starts_with('(') && pattern.ends_with(')') {
+                    let content = &pattern[1..pattern.len()-1];
+                    if content == normalized_input {
+                        self.quack_debug(&format!("      Parenthesized entity match: {} → {}", param_value, sub.value));
+                        return sub.value.clone();
+                    }
+                    if pattern.contains('|') {
+                        for alt in content.split('|') {
+                            if alt.trim() == normalized_input {
+                                self.quack_debug(&format!("      Parenthesized alternative match: {} → {}", param_value, sub.value));
+                                return sub.value.clone();
+                            }
+                        }
+                    }
+                }
+            }
+    
+            if let Some(list_config) = intent.lists.get(param_name) {
+                if !list_config.wildcard {
+                    for value in &list_config.values {
+                        for literal in self.expand_list_entry(&value.r#in) {
+                            if literal == normalized_input {
+                                self.quack_debug(&format!("      List entity match: {} → {}", param_value, value.out));
+                                return value.out.clone();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        param_value.to_string()
+    }
+    
+    
+
+
     fn expand_optional_words(&self, sentence: &str) -> Vec<String> {
         let tokens: Vec<&str> = sentence.split_whitespace().collect();
         let mut variants = Vec::new();
@@ -138,18 +217,15 @@ impl TestRunner {
             let token = tokens[index];
             let mut alternatives = Vec::new();
 
-            // 🦆 says ⮞ handle (required|alternatives)
             if token.starts_with('(') && token.ends_with(')') {
                 let clean = &token[1..token.len()-1];
                 alternatives.extend(clean.split('|').map(|s| s.to_string()));
             } 
-            // 🦆 says ⮞ handle [optional|words]
             else if token.starts_with('[') && token.ends_with(']') {
                 let clean = &token[1..token.len()-1];
                 alternatives.extend(clean.split('|').map(|s| s.to_string()));
                 alternatives.push("".to_string());
             } 
-            // 🦆 says ⮞ regular token
             else { alternatives.push(token.to_string()); }
 
             for alt in alternatives {
@@ -163,18 +239,15 @@ impl TestRunner {
 
         generate_combinations(&tokens, Vec::new(), 0, &mut variants);
         
-        // 🦆 says ⮞ clean and filter
         variants.iter()
             .map(|v| v.replace("  ", " ").trim().to_string())
             .filter(|v| !v.is_empty())
             .collect()
     }
 
-    // 🦆 says ⮞ resolve sentence / mimic resolve_sentences
     fn resolve_sentence(&self, script_name: &str, sentence: &str) -> String {
         let mut resolved = sentence.to_string();
         
-        // 🦆 says ⮞ extract param like {param}
         let param_pattern = Regex::new(r"\{([^}]+)\}").unwrap();
         let mut params: Vec<String> = Vec::new();
         
@@ -184,7 +257,6 @@ impl TestRunner {
             }
         }
 
-        // 🦆 says ⮞ replace da param with da example values
         for param in params {
             let replacement = if param.to_lowercase().contains("hour") 
                 || param.to_lowercase().contains("minute") 
@@ -200,37 +272,176 @@ impl TestRunner {
             resolved = resolved.replace(&format!("{{{}}}", param), &replacement);
         }
 
-        // 🦆 says ⮞ handle alternatives (word1|word2) pick da first yo
         let required_pattern = Regex::new(r"\(([^|)]+)(\|[^)]+)?\)").unwrap();
         resolved = required_pattern.replace_all(&resolved, "$1").to_string();
         
-        // 🦆 says ⮞ handle optional words [word] steal da word
         let optional_pattern = Regex::new(r"\[([^]]+)\]").unwrap();
         resolved = optional_pattern.replace_all(&resolved, " $1 ").to_string();
         
-        // 🦆 says ⮞ handle vertical bars in da alts
         resolved = resolved.replace(" | ", " ").to_string();
         
-        // 🦆 says ⮞ clean da spaces
         resolved = resolved.replace("  ", " ").trim().to_string();
 
         resolved
     }
 
-    // 🦆 says ⮞ exact matchin' testin'
+    fn expand_list_entry(&self, pattern: &str) -> Vec<String> {
+        let trimmed = pattern.trim();
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            let inner = &trimmed[1..trimmed.len()-1];
+            inner.split('|')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else if trimmed.contains('|') {
+            trimmed.split('|')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        } else {
+            vec![trimmed.to_string()]
+        }
+    }
+
+    fn generate_param_test_cases(&self, script_name: &str, sentence: &str) -> Vec<(String, HashMap<String, String>)> {
+        if self.max_variants == 0 {
+            return Vec::new();
+        }
+
+        let expanded_templates = self.expand_optional_words(sentence);
+        let mut test_cases = Vec::new();
+
+        for template in expanded_templates {
+            if test_cases.len() >= self.max_variants {
+                break;
+            }        
+            let param_pattern = Regex::new(r"\{([^}]+)\}").unwrap();
+            let param_names: Vec<String> = param_pattern.captures_iter(&template)
+                .map(|cap| cap[1].to_string())
+                .collect();
+
+            if param_names.is_empty() {
+                test_cases.push((template.clone(), HashMap::new()));
+                continue;
+            }
+
+            let mut param_options: Vec<Vec<(String, String)>> = Vec::new();
+            for pname in &param_names {
+                let mut options = Vec::new();
+                if let Some(list_config) = self.intent_data.get(script_name)
+                    .and_then(|intent| intent.lists.get(pname))
+                {
+                    if list_config.wildcard {
+                        for sample in ["test", "star wars", "123"] {
+                            options.push((sample.to_string(), sample.to_string()));
+                        }
+                    } else {
+                        for value in &list_config.values {
+                            for literal in self.expand_list_entry(&value.r#in) {
+                                options.push((literal.clone(), value.out.clone()));
+                            }
+                        }
+                    }
+                } else { options.push((format!("<{}>", pname), format!("<{}>", pname))); }
+
+                if options.is_empty() {
+                    options.push((format!("<{}>", pname), format!("<{}>", pname)));
+                }
+                param_options.push(options);
+            }
+
+            fn cartesian_product(
+                idx: usize,
+                current_input: String,
+                current_expected: HashMap<String, String>,
+                param_names: &[String],
+                param_options: &[Vec<(String, String)>],
+                result: &mut Vec<(String, HashMap<String, String>)>,
+            ) {
+                if idx == param_names.len() {
+                    result.push((current_input, current_expected));
+                    return;
+                }
+                for (literal, out_val) in &param_options[idx] {
+                    let mut new_input = current_input.clone();
+                    new_input = new_input.replace(&format!("{{{}}}", param_names[idx]), literal);
+                    let mut new_expected = current_expected.clone();
+                    new_expected.insert(param_names[idx].clone(), out_val.clone());
+                    cartesian_product(idx + 1, new_input, new_expected, param_names, param_options, result);
+                }
+            }
+
+            cartesian_product(0, template.clone(), HashMap::new(), &param_names, &param_options, &mut test_cases);
+        }
+
+        test_cases.sort_by(|a, b| a.0.cmp(&b.0));
+        test_cases.dedup_by(|a, b| a.0 == b.0);
+        test_cases
+    }
+
+    fn extract_params_from_regex(re: &Regex, input: &str) -> Option<HashMap<String, String>> {
+        let caps = re.captures(input)?;
+        let mut map = HashMap::new();
+        for name in re.capture_names().flatten() {
+            if let Some(m) = caps.name(name) {
+                map.insert(name.to_string(), m.as_str().to_string());
+            }
+        }
+        Some(map)
+    }
+    
+    
+    fn test_param_extraction(&self, script_name: &str, input: &str, expected: &HashMap<String, String>) -> bool {
+        let normalized_input = self.normalize_input(input);
+    
+        let (resolved_input, _substitutions) = self.apply_real_time_substitutions(script_name, &normalized_input);
+    
+        if let Some(intent) = self.intent_data.get(script_name) {
+            for sentence in &intent.sentences {
+                for variant in self.expand_optional_words(sentence) {
+                    let pattern = self.build_test_regex(script_name, &variant);
+                    if let Ok(re) = Regex::new(&pattern) {
+                        if let Some(captures) = re.captures(&resolved_input) {
+                            let mut actual = HashMap::new();
+                            for name in re.capture_names().flatten() {
+                                if let Some(m) = captures.name(name) {
+                                    actual.insert(name.to_string(), m.as_str().to_string());
+                                }
+                            }
+    
+                            for (param_name, raw_value) in actual.iter_mut() {
+                                *raw_value = self.resolve_entity(script_name, param_name, raw_value);
+                            }
+    
+                            if &actual == expected {
+                                self.quack_debug(&format!(
+                                    "✅ Param extraction success: '{}' -> {:?}",
+                                    input, actual
+                                ));
+                                return true;
+                            } else {
+                                self.quack_debug(&format!(
+                                    "❌ Param mismatch for '{}': expected {:?}, got {:?}",
+                                    input, expected, actual
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+    
+
     fn test_exact_match(&self, script_name: &str, input: &str) -> bool {
         if let Some(intent) = self.intent_data.get(script_name) {
             let normalized_input = input.to_lowercase();
-            
             for sentence in &intent.sentences {
-                let expanded_variants = self.expand_optional_words(sentence);
-                
-                for variant in expanded_variants {
-                    // 🦆 says ⮞ build dynamic regex
-                    let pattern = self.build_test_regex(&variant);
+                for variant in self.expand_optional_words(sentence) {
+                    let pattern = self.build_test_regex(script_name, &variant);
                     if let Ok(re) = Regex::new(&pattern) {
                         if re.is_match(&normalized_input) {
-                            self.quack_debug(&format!("✅ EXACT MATCH: {} -> '{}'", script_name, input));
                             return true;
                         }
                     }
@@ -240,50 +451,47 @@ impl TestRunner {
         false
     }
 
-    // 🦆 says ⮞ build test regex
-    fn build_test_regex(&self, sentence: &str) -> String {
+    fn build_test_regex(&self, script_name: &str, sentence: &str) -> String {
         let mut regex_parts = Vec::new();
         let mut current = sentence.to_string();
-
-        // 🦆 says ⮞ exxtract da param & build regex
+    
         while let Some(start) = current.find('{') {
             if let Some(end) = current.find('}') {
                 let before_param = &current[..start];
                 let param = &current[start+1..end];
                 let after_param = &current[end+1..];
-
+    
                 if !before_param.is_empty() {
-                    let escaped = regex::escape(before_param);
-                    regex_parts.push(escaped);
+                    regex_parts.push(regex::escape(before_param));
                 }
-
-                // 🦆 says ⮞ wildcard vs specific parameters
-                let regex_group = if param == "search" || param == "param" {
-                    "(.*)".to_string()
-                } else {
-                    r"(\b[^ ]+\b)".to_string()
-                };
-                
+    
+                let is_wildcard = self.intent_data.get(script_name)
+                    .and_then(|intent| intent.lists.get(param))
+                    .map(|list| list.wildcard)
+                    .unwrap_or(false);
+    
+                let regex_group = if is_wildcard {
+                    format!("(?P<{}>.*)", regex::escape(param))
+                } else { format!(r"(?P<{}>\b[^ ]+\b)", regex::escape(param)) };
+    
                 regex_parts.push(regex_group);
                 current = after_param.to_string();
-            } else {
-                break;
-            }
+            } else { break; }
         }
-
+    
         if !current.is_empty() {
             regex_parts.push(regex::escape(&current));
         }
-
+    
         format!("^{}$", regex_parts.join(""))
     }
+    
 
-    // 🦆 says ⮞ test single input
+
     fn test_single_input(&self, input: &str) {
         println!("{}", "[🦆📜] Testing single input:".bright_blue());
         println!("{} '{}'", "   └─".bright_blue(), input);
         let mut matched = false;
-        // 🦆 says ⮞ exact matchin' first
         for script_name in self.intent_data.keys() {
             if self.test_exact_match(script_name, input) {
                 println!("{} {} {}", "   └─".green(), "✅ MATCH:".green(), script_name);
@@ -293,14 +501,12 @@ impl TestRunner {
         }
 
         if !matched {
-            // 🦆 says ⮞ fuzzy matchin'
             if let Some(fuzzy_match) = self.find_best_fuzzy_match(input) {
                 println!("{} {} {} (score: {}%)", "   └─".yellow(), "FUZZY:".yellow(), fuzzy_match.0, fuzzy_match.1);
             } else { println!("{} {}", "   └─".red(), "❌ NO MATCH".red()); }
         }
     }
 
-    // 🦆 says ⮞ fuzzy matchin'
     fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, i32)> {
         let normalized_input = text.to_lowercase();
         let mut best_score = 0;
@@ -346,7 +552,6 @@ impl TestRunner {
         matrix[a_len][b_len]
     }
 
-    // 🦆 says ⮞ testin' suite
     fn run_test_suite(&self) -> TestResult {
         let start_time = Instant::now();
         let mut result = TestResult {
@@ -360,48 +565,58 @@ impl TestRunner {
             processing_time: std::time::Duration::default(),
         };
 
-        self.test_positive_cases(&mut result);
-        self.test_negative_cases(&mut result);
-        self.test_boundary_cases(&mut result);
+        let filter = self.script_filter.as_deref();
+
+        self.test_positive_cases(&mut result, filter);
+        self.test_negative_cases(&mut result, filter);
+        self.test_boundary_cases(&mut result, filter);
 
         result.processing_time = start_time.elapsed();
         result
     }
 
-    fn test_positive_cases(&self, result: &mut TestResult) {
+    
+    fn test_positive_cases(&self, result: &mut TestResult, filter: Option<&str>) {
         println!("{}", "[🦆📜] Testing Positive Cases".bright_blue());
 
         for (script_name, intent) in &self.intent_data {
+            if let Some(f) = filter {
+                if script_name != f {
+                    continue;
+                }
+            }
+
             println!("{} {}", "   └─ Testing script:".bright_blue(), script_name);
 
             for sentence in &intent.sentences {
-                let expanded_variants = self.expand_optional_words(sentence);
-                
-                for variant in expanded_variants {
-                    let test_sentence = self.resolve_sentence(script_name, &variant);
+                let test_cases = self.generate_param_test_cases(script_name, sentence);
+
+                for (input, expected_params) in test_cases {
                     result.total_positive += 1;
+                    print!("{} {}", "     Testing:".bright_blue(), input);
 
-                    print!("{} {}", "     Testing:".bright_blue(), test_sentence);
-
-                    if self.test_exact_match(script_name, &test_sentence) {
+                    if self.test_param_extraction(script_name, &input, &expected_params) {
                         println!(" {}", "✅".green());
                         result.passed_positive += 1;
                     } else {
                         println!(" {}", "❌".red());
-                        result.failures.push(format!("POSITIVE: {} | {}", script_name, test_sentence));
+                        result.failures.push(format!(
+                            "POSITIVE: {} | input='{}' expected={:?}",
+                            script_name, input, expected_params
+                        ));
                     }
                 }
             }
         }
     }
-
-    fn test_negative_cases(&self, result: &mut TestResult) {
+    
+    fn test_negative_cases(&self, result: &mut TestResult, filter: Option<&str>) {
         println!("{}", "[🦆🚫] Testing Negative Cases".bright_blue());
 
         let negative_cases = vec![
             "make me a sandwich",
             "launch the nuclear torpedos!",
-            "gör mig en macka", 
+            "gör mig en macka",
             "avfyra kärnvapnen!",
             "ducks sure are the best dont you agree",
         ];
@@ -412,6 +627,12 @@ impl TestRunner {
 
             let mut matched = false;
             for script_name in self.intent_data.keys() {
+                if let Some(f) = filter {
+                    if script_name != f {
+                        continue;
+                    }
+                }
+
                 if self.test_exact_match(script_name, case) {
                     println!(" {}", "❌ FALSE POSITIVE".red());
                     result.failures.push(format!("NEGATIVE: {} | {}", script_name, case));
@@ -427,7 +648,7 @@ impl TestRunner {
         }
     }
 
-    fn test_boundary_cases(&self, result: &mut TestResult) {
+    fn test_boundary_cases(&self, result: &mut TestResult, filter: Option<&str>) {
         println!("{}", "[🦆🔲] Testing Boundary Cases".bright_blue());
         let boundary_cases = vec!["", "   ", ".", "!@#$%^&*()"];
 
@@ -437,6 +658,12 @@ impl TestRunner {
 
             let mut matched = false;
             for script_name in self.intent_data.keys() {
+                if let Some(f) = filter {
+                    if script_name != f {
+                        continue;
+                    }
+                }
+
                 if self.test_exact_match(script_name, case) {
                     println!(" {}", "❌".red());
                     result.failures.push(format!("BOUNDARY: {} | '{}'", script_name, case));
@@ -452,7 +679,6 @@ impl TestRunner {
         }
     }
 
-    // 🦆 says ⮞ display statz yo
     fn display_stats(&self) {
         println!("{}", "[🦆📊] Voice Command Statistics".bright_blue());
         println!();
@@ -498,15 +724,12 @@ impl TestRunner {
         println!("  • Use priority=5 for scripts with many patterns to optimize performance");
     }
 
-    // 🦆 says ⮞ Final report
     fn display_final_report(&self, result: &TestResult) {
         let total_tests = result.total_positive + result.total_negative + result.total_boundary;
         let passed_tests = result.passed_positive + result.passed_negative + result.passed_boundary;
         let percent = if total_tests > 0 {
             (passed_tests * 100) / total_tests
-        } else {
-            0
-        };
+        } else { 0 };
 
         let (color, duck_report) = if percent >= 80 {
             (Color::Green, "⭐")
@@ -516,7 +739,6 @@ impl TestRunner {
             (Color::Red, "😭")
         };
 
-        // 🦆 says ⮞ display fails
         if passed_tests != total_tests && !result.failures.is_empty() {
             println!();
             println!("{}", "# ────── FAILURES ──────#".red());
@@ -559,14 +781,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dt_debug!("Started yo-tests!");    
     let args: Vec<String> = env::args().collect();
     let mut test_runner = TestRunner::new();
+
     let mut stats_mode = false;
     let mut single_input = None;
+    let mut script_filter = None;
+    let mut max_variants = 1000;
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "--stats" => stats_mode = true,
             "--input" if i + 1 < args.len() => {
                 single_input = Some(args[i + 1].clone());
+                i += 1;
+            }
+            "--script" if i + 1 < args.len() => {
+                script_filter = Some(args[i + 1].clone());
+                i += 1;
+            }
+            "--max-variants" if i + 1 < args.len() => {
+                max_variants = args[i + 1].parse().unwrap_or(1000);
                 i += 1;
             }
             _ => {}
@@ -576,8 +809,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     test_runner.stats_mode = stats_mode;
     test_runner.single_input = single_input;
+    test_runner.script_filter = script_filter;
+    test_runner.max_variants = max_variants;
 
-    // 🦆 says ⮞ load test data
     test_runner.load_data()?;
 
     if test_runner.stats_mode {

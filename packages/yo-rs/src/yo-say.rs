@@ -136,14 +136,12 @@ fn convert_and_replace(path: &str) -> io::Result<()> {
     if status.success() {
         std::fs::rename(&temp, path)?;
         dt_info!("Converted and replaced: {}", path);
-    } else {
-        eprintln!("ffmpeg conversion failed");
-    }
+    } else { eprintln!("ffmpeg conversion failed"); }
     Ok(())
 }
 
 
-// 🦆 says ⮞ read ALL ESP IPs from yo clients.json
+
 fn get_esp_ips() -> Vec<String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let path = format!("{}/.config/yo/clients.json", home);
@@ -162,7 +160,6 @@ fn get_esp_ips() -> Vec<String> {
         .collect()
 }
 
-// 🦆 says ⮞ stream TTS to ESP in the background (non‑blocking)
 fn stream_to_esp(model: &str, text: &str, esp_ip: &str) -> io::Result<()> {
     let escaped_text = text.replace('\'', "'\\''");
     let cmd = format!(
@@ -185,7 +182,6 @@ fn stream_to_esp(model: &str, text: &str, esp_ip: &str) -> io::Result<()> {
 fn main() -> io::Result<()> {
     let args = parse_args();
 
-    // 🦆 says ⮞ immediately try to stream to ESP (if configured)
     let esp_ips = get_esp_ips();
     for esp_ip in esp_ips {
         if let Err(e) = stream_to_esp(&args.model, &args.text, &esp_ip) {

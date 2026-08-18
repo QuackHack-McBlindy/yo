@@ -1,7 +1,6 @@
-// ddotfiles/packages/yo-rs/src/yo-client.rs ⮞ https://github.com/QuackHack-McBlindy/dotfiles
 #![allow(dead_code)]
 #![allow(unused)]
-use std::{ // 🦆 says ⮞ yo-client (Microphone Client)
+use std::{
     env,
     io::{Cursor, Read, Write},
     net::TcpStream,
@@ -57,7 +56,7 @@ fn print_usage(program_name: &str) {
   );
 }
 
-// 🦆 says ⮞ RMS helper
+
 fn rms_f32(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -237,7 +236,6 @@ fn main() -> Result<()> {
         done_cmd_display
     );
 
-    // 🦆 says ⮞ load awake sound
     let awake_sound_data = if let Some(ref path) = awake_sound_path {
         match std::fs::read(path) {
             Ok(data) => {
@@ -251,7 +249,6 @@ fn main() -> Result<()> {
         }
     } else { DING_WAV.to_vec() };
 
-    // 🦆 says ⮞ load done sound
     let done_sound_data = if let Some(ref path) = done_sound_path {
         match std::fs::read(path) {
             Ok(data) => {
@@ -265,7 +262,6 @@ fn main() -> Result<()> {
         }
     } else { DONE_WAV.to_vec() };
 
-    // 🦆 says ⮞ load fail sound
     let fail_sound_data = if let Some(ref path) = fail_sound_path {
         match std::fs::read(path) {
             Ok(data) => {
@@ -279,7 +275,7 @@ fn main() -> Result<()> {
         }
     } else { FAIL_WAV.to_vec() };
 
-    // 🦆 says ⮞ Microphone setup
+
     let host = cpal::default_host();
     let device = host
         .default_input_device()
@@ -291,15 +287,12 @@ fn main() -> Result<()> {
     let original_sample_rate = config.sample_rate.0;
     let channels = config.channels as usize;
 
-    // 🦆 says ⮞ shared channel for audio chunks – can be replaced when reconnecting
     let chunk_tx_global: Arc<Mutex<Option<mpsc::SyncSender<Vec<f32>>>>> = Arc::new(Mutex::new(None));
 
-    // 🦆 says ⮞ shared state for transcription
     let is_transcribing = Arc::new(AtomicBool::new(false));
     let recording_active = Arc::new(AtomicBool::new(false));
     let recording_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
 
-    // 🦆 says ⮞ microphone stream – runs continuously regardless of connection
     let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(vec![]));
     let buffer_clone = buffer.clone();
 
@@ -312,7 +305,6 @@ fn main() -> Result<()> {
 
     let err_fn = |err| dt_error!("Stream error: {}", err);
 
-    // 🦆 says ⮞ build the input stream with a callback that uses the global sender
     let stream = match sample_format {
         SampleFormat::F32 => device.build_input_stream(
             &config,
@@ -376,15 +368,14 @@ fn main() -> Result<()> {
                 }
             }
         };
-        // 🦆 says ⮞ SUCCESSFUL CONNECTION
+
         dt_info!("📡 ☑️ 🎙️ @ {}", server_addr);
 
-        // 🦆 says ⮞ send room to server as length‑prefixed UTF‑8
         let room_bytes = room.as_deref().unwrap_or("").as_bytes();
         let room_len = room_bytes.len() as u32;
         if let Err(e) = stream.write_u32::<LittleEndian>(room_len) {
             dt_error!("Failed to send room length: {}", e);
-            continue; // 🦆 says ⮞ reconnect
+            continue;
         }
         if room_len > 0 {
             if let Err(e) = stream.write_all(room_bytes) {
@@ -398,35 +389,29 @@ fn main() -> Result<()> {
         }
         dt_info!("Sent room: {}", room.as_deref().unwrap_or("(empty)"));
 
-        // 🦆 says ⮞ Clone streams for reading and writing
+
         let read_stream = stream.try_clone()?;
         let write_stream = Arc::new(Mutex::new(stream.try_clone()?));
 
-        // 🦆 says ⮞ set a read timeout so the receiver thread can check shutdown flag
+
         if let Err(e) = read_stream.set_read_timeout(Some(Duration::from_secs(1))) {
             dt_error!("Failed to set read timeout: {}", e);
         }
 
-        // 🦆 says ⮞ create a new channel for audio chunks
         let (tx, rx) = mpsc::sync_channel::<Vec<f32>>(100);
         *chunk_tx_global.lock().unwrap() = Some(tx);
 
-        // 🦆 says ⮞ shutdown flag to stop threads gracefully
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        // 🦆 says ⮞ channel to notify main thread when a worker exits
         let (exit_tx, exit_rx) = mpsc::channel::<()>();
 
-        // 🦆 says ⮞ Sender thread
         let sender_shutdown = shutdown.clone();
         let sender_exit_tx = exit_tx.clone();
         let sender_write_stream = write_stream.clone();
         let sender_is_transcribing = is_transcribing.clone();
         let sender_handle = thread::spawn(move || {
-            // 🦆 says ⮞ Use catch_unwind to ensure exit notification is sent even on panic
             let _ = std::panic::catch_unwind(|| {
                 for chunk in rx {
-                    // 🦆 says ⮞ check shutdown flag before each iteration
                     if sender_shutdown.load(Ordering::SeqCst) {
                         break;
                     }
@@ -463,7 +448,6 @@ fn main() -> Result<()> {
             let _ = sender_exit_tx.send(());
         });
 
-        // 🦆 says ⮞ receiver thread!
         let receiver_shutdown = shutdown.clone();
         let receiver_exit_tx = exit_tx.clone();
         let receiver_write_stream = write_stream.clone();
@@ -500,7 +484,6 @@ fn main() -> Result<()> {
                                 }
                                 receiver_is_transcribing.store(true, Ordering::SeqCst);
 
-                                // 🦆 says ⮞ play detection sound     
                                 let sound_data = receiver_awake_sound.clone();
                                 thread::spawn(move || {
                                     let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -510,7 +493,6 @@ fn main() -> Result<()> {
                                     }
                                 });
                       
-                                // 🦆 says ⮞ execute awake command if provided
                                 if let Some(cmd) = &receiver_awake_cmd {
                                     let cmd = cmd.clone();
                                     thread::spawn(move || {
@@ -535,7 +517,6 @@ fn main() -> Result<()> {
                                     });
                                 }
                       
-                                // 🦆 says ⮞ BOOOOM 
                                 let timer = dt_timer("voice pipeline");
                                 dt_info!("💥 DETECTED!");
                                 timer.lap("wake word detected");
@@ -545,10 +526,9 @@ fn main() -> Result<()> {
                                 {
                                     let mut guard = receiver_recording_buffer.lock().unwrap();
                                     guard.clear();
-                                } // 🦆 says ⮞ start recording
+                                }
                                 receiver_recording_active.store(true, Ordering::SeqCst);
 
-                                 // 🦆 says ⮞ dynanic cooldown
                                 let start_time = Instant::now();
                                 let mut last_speech_time = Instant::now();
                                 let receiver_debug = receiver_debug;
@@ -565,17 +545,13 @@ fn main() -> Result<()> {
                                         break;
                                     }
 
-                                    // 🦆 says ⮞ calculate RMS over the most recent window of samples
                                     let rms = {
-                                        // 🦆 says ⮞ lock the shared recording buffer
                                         let guard = receiver_recording_buffer.lock().unwrap();
-                                        // 🦆 says ⮞ total number of samples in current buffer
                                         let len = guard.len();
                                         if len == 0 {
                                             continue;
                                         }
                                         
-                                        // 🦆 says ⮞ determine the starting index of the window
                                         let start_idx = if len > window_samples { len - window_samples } else { 0 };
                                         let window = &guard[start_idx..];
                                         if window.is_empty() {
@@ -584,14 +560,10 @@ fn main() -> Result<()> {
                                         rms_f32(window)
                                     };
 
-                                    // 🦆 says ⮞ --debug? print RMS
                                     if receiver_debug { dt_debug!("RMS: {:.6}", rms); }
                                     
-                                    // 🦆 says ⮞ RMS exceeds configured silence threshold,
-                                    // treat this as speech activity and reset the silence timer
                                     if rms > receiver_silence_threshold { last_speech_time = Instant::now(); }
                                     
-                                    // 🦆 says ⮞ reached silence timeout - exit loop
                                     if last_speech_time.elapsed() > receiver_silence_timeout { break; }
                                 }
 
@@ -626,9 +598,7 @@ fn main() -> Result<()> {
                                     if let Err(e) = guard.flush() { dt_error!("Failed to flush: {}", e); }
                                 }
 
-                                //receiver_is_transcribing.store(false, Ordering::SeqCst);                                
-                                
-                                // 🦆 says ⮞ wait for server response
+
                                 let mut response_buf = [0u8; 1];
                                 let timeout_duration = Duration::from_secs(5);
                                 let start_wait = Instant::now();
@@ -647,7 +617,7 @@ fn main() -> Result<()> {
                                                     timer.lap("command executed sucessfully");
                                                     timer.complete();
                                                     server_timer.complete();
-                                                    // 🦆 says ⮞ play done sound
+
                                                     let sound_data = receiver_done_sound.clone();
                                                     thread::spawn(move || {
                                                         let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -657,7 +627,6 @@ fn main() -> Result<()> {
                                                         }
                                                     });
 
-                                                    // 🦆 says ⮞ execute done command
                                                     if let Some(cmd) = &receiver_done_cmd {
                                                         let cmd = cmd.clone();
                                                         thread::spawn(move || {
@@ -673,9 +642,7 @@ fn main() -> Result<()> {
                                                                 Ok(status) => {
                                                                     if status.success() {
                                                                         dt_debug!("Done command executed successfully");
-                                                                    } else {
-                                                                        dt_error!("Done command failed with exit code: {:?}", status.code());
-                                                                    }
+                                                                    } else { dt_error!("Done command failed with exit code: {:?}", status.code()); }
                                                                 }
                                                                 Err(e) => dt_error!("Failed to execute done command: {}", e),
                                                             }
@@ -684,7 +651,7 @@ fn main() -> Result<()> {
                                                 } // 💩
                                                 0x04 => { 
                                                     dt_debug!("Command execution failed – check server logs");
-                                                    // 🦆 says ⮞ play fail sound
+                                                    // play fail sound
                                                     let sound_data = receiver_fail_sound.clone();
                                                     thread::spawn(move || {
                                                         let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -708,7 +675,6 @@ fn main() -> Result<()> {
                                     }
                                 }
 
-                                // 🦆 says ⮞ resume sending wake chunks
                                 receiver_is_transcribing.store(false, Ordering::SeqCst);
                             }
                         }
@@ -738,7 +704,6 @@ fn main() -> Result<()> {
         let _ = receiver_handle.join();
 
         dt_info!("⚠️ Reconnecting...");
-        // 🦆 says ⮞ LOOOP IT YO!
     }
 }
 
@@ -747,9 +712,7 @@ fn resample_to_16k_mono(raw: &[f32], input_rate: u32, channels: usize) -> Vec<f3
         raw.chunks(channels)
             .map(|frame| frame.iter().sum::<f32>() / channels as f32)
             .collect::<Vec<f32>>()
-    } else {
-        raw.to_vec()
-    };
+    } else { raw.to_vec() };
 
     let mut resampler = match make_resampler(input_rate, 16000, 1) {
         Ok(r) => r,

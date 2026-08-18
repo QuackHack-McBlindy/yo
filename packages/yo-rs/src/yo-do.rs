@@ -31,62 +31,14 @@ struct CliArgs {
     input: Option<String>,
     fuzzy: i32,
     room: Option<String>,
-    realtime: bool,
 }
 
-
-struct TranscriptionClient {
-    ws: Option<futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>>,
-    nlp_processor: Arc<YoDo>,
+#[derive(Clone)]
+struct CompiledPattern {
+    regex: Regex,
+    param_names: Vec<String>,
+    script_name: String,
 }
-
-impl TranscriptionClient {
-    async fn new(nlp_processor: Arc<YoDo>) -> Result<Self, Box<dyn std::error::Error>> {
-        let (ws_stream, _) = connect_async("ws://localhost:8765").await?;
-        let (ws, mut read) = ws_stream.split();
-        
-        let client = TranscriptionClient {
-            ws: Some(ws),
-            nlp_processor: nlp_processor.clone(),
-        };
-        
-        // 🦆 says ⮞ start message processing
-        tokio::spawn(async move {
-            while let Some(message) = read.next().await {
-                if let Ok(Message::Text(text)) = message {
-                    if let Ok(data) = serde_json::from_str::<Value>(&text) {
-                        if data["type"] == "transcription" {
-                            if let Some(transcription) = data["text"].as_str() {
-                                if !transcription.trim().is_empty() {
-                                    // 🦆 says ⮞ process with NLP
-                                    let _ = nlp_processor.process_transcription(transcription).await;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        Ok(client)
-    }
-    
-    async fn send_audio_chunk(&mut self, chunk: &[u8], is_final: bool) -> Result<(), Box<dyn std::error::Error>> {
-        if let Some(ws) = &mut self.ws {
-            let message = serde_json::json!({
-                "type": "audio_chunk",
-                "chunk": chunk,
-                "is_final": is_final,
-                "timestamp": chrono::Utc::now().timestamp_millis(),
-                "reduce_noise": true
-            });
-            
-            ws.send(Message::Text(message.to_string())).await?;
-        }
-        Ok(())
-    }
-}
-
 
 // 🦆 says ⮞ memory
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,7 +121,7 @@ struct ListConfig {
 // 🦆 says ⮞ entity resolution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EntityValue {
-    r#in: String,  // 🦆 says ⮞ "in" is a keyword so we use raw identifier
+    r#in: String, // 🦆 says ⮞ "in" is a keyword so we use raw identifier
     out: String,
 }
 
@@ -238,7 +190,6 @@ struct MatchResult {
 
 #[derive(Clone)]     
 struct YoDo {
-    scripts: HashMap<String, ScriptConfig>,
     intent_data: HashMap<String, IntentData>,
     fuzzy_index: Vec<FuzzyIndexEntry>,
     fuzzy_entity_dict: HashMap<String, HashMap<String, Vec<EntityMapping>>>,
@@ -248,6 +199,7 @@ struct YoDo {
     memory_data: MemoryData,  
     split_words: Vec<String>,
     sorry_phrases: Vec<String>,
+    compiled_patterns: HashMap<String, Vec<CompiledPattern>>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -278,7 +230,6 @@ impl YoDo {
         });
     
         Self {
-            scripts: HashMap::new(),
             intent_data: HashMap::new(),
             fuzzy_index: Vec::new(),
             fuzzy_entity_dict: HashMap::new(),
@@ -288,6 +239,7 @@ impl YoDo {
             memory_data,
             split_words,
             sorry_phrases,
+            compiled_patterns: HashMap::new(),
         }
     }
 
@@ -331,6 +283,64 @@ impl YoDo {
 
     fn normalize_input(input: &str) -> String {
         input.replace(['?', '!', '.', ',', '&', '/'], "").to_lowercase()
+    }
+
+    fn is_param_token(word: &str) -> Option<&str> {
+        if word.starts_with('{') && word.ends_with('}') {
+            Some(&word[1..word.len() - 1])
+        } else { None }
+    }
+
+    fn align_words(&self, pattern: &[String], text: &[String]) -> Vec<Option<usize>> {
+        let p_len = pattern.len();
+        let t_len = text.len();
+
+        let mut dp = vec![vec![0usize; t_len + 1]; p_len + 1];
+
+        for i in 0..=p_len {
+            dp[i][0] = i;
+        }
+        for j in 0..=t_len {
+            dp[0][j] = j;
+        }
+
+        for i in 1..=p_len {
+            for j in 1..=t_len {
+                let cost = if Self::is_param_token(&pattern[i - 1]).is_some() {
+                    0
+                } else if pattern[i - 1].eq_ignore_ascii_case(&text[j - 1]) {
+                    0
+                } else { 1 };
+
+                dp[i][j] = (dp[i - 1][j] + 1)        // deletion
+                    .min(dp[i][j - 1] + 1)          // insertion
+                    .min(dp[i - 1][j - 1] + cost); // match/substitute
+            }
+        }
+
+
+        let mut alignment = vec![None; p_len];
+        let (mut i, mut j) = (p_len, t_len);
+
+        while i > 0 && j > 0 {
+            let cost = if Self::is_param_token(&pattern[i - 1]).is_some() {
+                0
+            } else if pattern[i - 1].eq_ignore_ascii_case(&text[j - 1]) {
+                0
+            } else { 1 };
+
+            if dp[i][j] == dp[i - 1][j - 1] + cost {
+                alignment[i - 1] = Some(j - 1);
+                i -= 1;
+                j -= 1;
+            } else if dp[i][j] == dp[i - 1][j] + 1 {
+                i -= 1;
+            } else { j -= 1; }
+        }
+
+        while i > 0 { i -= 1; }
+
+        alignment
     }
 
     fn fuzzy_resolve_entity(
@@ -434,22 +444,11 @@ impl YoDo {
             self.execute_script(&match_result)?;
         } else if let Some(match_result) = self.fuzzy_match(text) {
             self.execute_script(&match_result)?;
-        } else {
-            dt_debug(&format!("No command found for: {}", text));
-        }
+        } else { dt_debug(&format!("No command found for: {}", text)); }
         
         Ok(())
     }
     
-    // 🦆 says ⮞ Real-time mode
-    pub async fn run_realtime(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let client = TranscriptionClient::new(Arc::new(self.clone())).await?;
-        dt_info("🦆 Real-time NLP mode activated - listening for transcriptions...");
-        
-        // 🦆 says ⮞ Keep alive
-        tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
-        Ok(())
-    }
 
     // 🦆 says ⮞ never fail but log failz anywayz
     fn log_failed_command(&self, input: &str, fuzzy_candidates: &[(String, String, i32)]) -> Result<(), Box<dyn std::error::Error>> {
@@ -551,7 +550,34 @@ impl YoDo {
         dt_debug(&format!("🦆 Loaded {} fuzzy index entries", self.fuzzy_index.len()));
         Ok(())
     }
-    
+   
+    fn precompile_patterns(&mut self) {
+        let mut all_patterns: HashMap<String, Vec<CompiledPattern>> = HashMap::new();
+
+        for (script_name, intent) in &self.intent_data {
+            let mut patterns_for_script = Vec::new();
+
+            for sentence in &intent.sentences {
+                for variant in self.expand_optional_words(sentence) {
+                    if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, &variant) {
+                        patterns_for_script.push(CompiledPattern {
+                            regex,
+                            param_names,
+                            script_name: script_name.clone(),
+                        });
+                    }
+                }
+            }
+
+            if !patterns_for_script.is_empty() {
+                all_patterns.insert(script_name.clone(), patterns_for_script);
+            }
+        }
+
+        self.compiled_patterns = all_patterns;
+        dt_debug(&format!("🦆 Precompiled {} pattern groups", self.compiled_patterns.len()));
+    }   
+   
     // 🦆 says ⮞ OPTIONAL WORD EXPANDER - make all the combinations!
     fn expand_optional_words(&self, sentence: &str) -> Vec<String> {
         let tokens: Vec<&str> = sentence.split_whitespace().collect();
@@ -651,9 +677,7 @@ impl YoDo {
                             // 🦆 say ⮞ no .0 if integer
                             if scaled.fract() == 0.0 {
                                 return format!("{}", scaled as i64);
-                            } else {
-                                return format!("{}", scaled);
-                            }
+                            } else { return format!("{}", scaled); }
                         }
                     }
                     // 🦆 TODO ⮞ add word‑to‑number map
@@ -717,17 +741,13 @@ impl YoDo {
                     };
 
                     if next_is_wildcard {
-                        r"([^ ]+)".to_string()  // No trailing \b before wildcard
-                    } else {
-                        r"\b([^ ]+)\b".to_string()  // Normal word boundaries
-                    }
+                        r"([^ ]+)".to_string()
+                    } else { r"\b([^ ]+)\b".to_string() }
                 };
 
                 regex_parts.push(regex_group);
                 current = after_param.to_string();
-            } else {
-                break;
-            }
+            } else { break; }
         }
 
         // 🦆 says ⮞ handle remaining text
@@ -842,71 +862,53 @@ impl YoDo {
     // 🦆 says ⮞ EXACT MATCHIN'        
     fn exact_match(&self, text: &str) -> Option<MatchResult> {
         let global_start = Instant::now();
-        let text = text.to_lowercase();     
+        let text = text.to_lowercase();
         dt_debug(&format!("Starting EXACT match for: '{}'", text));
-    
+
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
-            let script_name = &script_priority.name; 
+            let script_name = &script_priority.name;
             dt_debug(&format!("Trying script [{}/{}]: {}", 
                 script_index + 1, self.processing_order.len(), script_name));
-            // 🦆 says ⮞ go real-time substitutions i choose u!
+
             let (resolved_text, substitutions) = self.apply_real_time_substitutions(script_name, &text);
             dt_debug(&format!("After substitutions: '{}'", resolved_text));
-            if let Some(intent) = self.intent_data.get(script_name) {
-                for sentence in &intent.sentences {
-                    let expanded_variants = self.expand_optional_words(sentence);
-                    
-                    for variant in expanded_variants {
-                        if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, &variant) {
-                            if let Some(captures) = regex.captures(&resolved_text) {
-                                let mut args = Vec::new();      
-                                // 🦆 says ⮞ process da param
-                                for i in 1..captures.len() {
-                                    if let Some(matched) = captures.get(i) {
-                                        let param_index = i - 1;
-                                        let param_name = if param_index < param_names.len() {
-                                            &param_names[param_index]
-                                        } else {
-                                            "param"
-                                        };
-                    
-                                        let mut param_value = matched.as_str().to_string();     
-                                        // 🦆 says ⮞ go entity resolution i choose u!
-                                        dt_debug(&format!("Before entity resolution: --{} {}", param_name, param_value));
-                                        
-                                        let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
-                                        if entity_resolved != param_value {
-                                            dt_debug(&format!("      Entity resolution: --{} {} → {}", 
-                                                param_name, param_value, entity_resolved));
-                                            param_value = entity_resolved;
-                                        }
-                                        
-                                        if let Some(sub) = substitutions.get(&param_value) {
-                                            dt_debug(&format!("      Substitution: {} → {}", param_value, sub));
-                                            param_value = sub.clone();
-                                        }
-                                        
-                                        dt_debug(&format!("      Final argument: --{} {}", param_name, param_value));
-                                        args.push(format!("--{}", param_name));
-                                        args.push(param_value);
-                                    }
+
+            if let Some(patterns) = self.compiled_patterns.get(script_name) {
+                for pattern in patterns {
+                    if let Some(captures) = pattern.regex.captures(&resolved_text) {
+                        let mut args = Vec::new();
+
+                        for (i, param_name) in pattern.param_names.iter().enumerate() {
+                            if let Some(matched) = captures.get(i + 1) {
+                                let mut param_value = matched.as_str().to_string();
+
+                                let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
+                                if entity_resolved != param_value {
+                                    param_value = entity_resolved;
                                 }
-                                
-                                return Some(MatchResult {
-                                    script_name: script_name.clone(),
-                                    args,
-                                    matched_sentence: text.clone(),
-                                    processing_time: global_start.elapsed(),
-                                });
+
+                                if let Some(sub) = substitutions.get(&param_value) {
+                                    param_value = sub.clone();
+                                }
+
+                                args.push(format!("--{}", param_name));
+                                args.push(param_value);
                             }
                         }
+
+                        return Some(MatchResult {
+                            script_name: script_name.clone(),
+                            args,
+                            matched_sentence: text.clone(),
+                            processing_time: global_start.elapsed(),
+                        });
                     }
                 }
             }
-        }          
+        }
+
         None
     }
-
              
     // 🦆 says ⮞ fallback yo! FUZZY MATCHIN' 2 teh moon!
     fn levenshtein_distance(&self, a: &str, b: &str) -> usize {
@@ -966,56 +968,44 @@ impl YoDo {
         self.fuzzy_index.iter().any(|entry| entry.script == script_name)
     }    
 
+    
     fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
-
+    
         if let Some((script_name, sentence, score)) = self.find_best_fuzzy_match(text) {
-            // 🦆 say 🛑 STOP 🛑 fuzzy iz allowed?
             if !self.is_fuzzy_allowed(&script_name) {
                 dt_debug(&format!("Fuzzy matching disabled for script: {}", script_name));
                 return None;
             }
-            dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score)); 
-            // 🦆 says ⮞ TODO parameter extraction for fuzzy matches
-            let input_words: Vec<&str> = text.split_whitespace().collect();
-            let sentence_words: Vec<&str> = sentence.split_whitespace().collect();     
+    
+            dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
+    
+            let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
+            let sentence_words: Vec<String> = sentence.split_whitespace().map(|s| s.to_string()).collect();
+    
+            let alignment = self.align_words(&sentence_words, &input_words);
+    
             let mut args = Vec::new();
-            let mut param_index = 0;  
-            // 🦆 says ⮞ extract parameter names from sentence
-            let mut param_names = Vec::new();
-            let mut current = sentence.clone();
-            while let Some(start) = current.find('{') {
-                if let Some(end) = current.find('}') {
-                    let param = &current[start+1..end];
-                    param_names.push(param.to_string());
-                    current = current[end+1..].to_string();
-                } else { break; }
-            }
-                    
+    
             for (i, word) in sentence_words.iter().enumerate() {
-                if word.starts_with('{') && word.ends_with('}') {
-                    if i < input_words.len() && param_index < param_names.len() {
-                        let param_name = &param_names[param_index];
-                    
-                        // 🦆 says ⮞ if this is the last word in the template, grab everything that's left
-                        let param_value = if i == sentence_words.len() - 1 {
-                            input_words[i..].join(" ")
-                        } else {
-                            input_words[i].to_string()
-                        };
-                    
-                        // 🦆 says ⮞ go entity resolution i choose u!
-                        let resolved_value = self.resolve_entity(&script_name, param_name, &param_value);
-                    
-                        args.push(format!("--{}", param_name));
-                        args.push(resolved_value);
-                        param_index += 1;
-                    
-                        dt_debug(&format!("      Fuzzy argument: --{} {}", param_name, param_value));
-                    }
+                if let Some(param_name) = Self::is_param_token(word) {
+                    let param_value = match alignment[i] {
+                        Some(idx) => input_words[idx].clone(),
+                        None => String::new(),
+                    };
+    
+                    let resolved_value = self.resolve_entity(&script_name, param_name, &param_value);
+    
+                    dt_debug(&format!(
+                        "      Fuzzy argument: --{} {} (raw: '{}')",
+                        param_name, resolved_value, param_value
+                    ));
+    
+                    args.push(format!("--{}", param_name));
+                    args.push(resolved_value);
                 }
             }
-        
+    
             Some(MatchResult {
                 script_name,
                 args,
@@ -1301,7 +1291,6 @@ fn parse_args() -> CliArgs {
     let mut input = None;
     let mut fuzzy = 25;
     let mut room = None;
-    let mut realtime = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -1328,9 +1317,6 @@ fn parse_args() -> CliArgs {
                 }
                 room = Some(value);
             }
-            "--realtime" => {
-                realtime = true;
-            }
             _ => {
                 eprintln!("🦆 says ⮞ fuck ❌ Unknown argument: {}", arg);
                 std::process::exit(1);
@@ -1338,7 +1324,7 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { input, fuzzy, room, realtime }
+    CliArgs { input, fuzzy, room }
 }
 
 
@@ -1350,45 +1336,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     dt_setup(None, None);
     dt_debug!("Started yo-do!");
 
-    if cli.realtime {
-        let mut yo_do = YoDo::new();
-        let intent_data_path = env::var("YO_INTENT_DATA")
-            .unwrap_or_else(|_| DEFAULT_INTENT_DATA_PATH.to_string());
-        yo_do.load_intent_data(&intent_data_path)?;
-        let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
-            .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
-        yo_do.load_fuzzy_index(&fuzzy_index_path)?;
-        tokio::runtime::Runtime::new()?.block_on(yo_do.run_realtime())?;
-        Ok(())
-    } else {
-        let input = match cli.input {
-            Some(i) => i,
-            None => {
-                eprintln!("🦆 says ⮞ fuck ❌ Missing required argument: --input");
-                std::process::exit(1);
-            }
-        };
-
-        let mut yo_do = YoDo::new();
-
-        let intent_data_path = env::var("YO_INTENT_DATA")
-            .unwrap_or_else(|_| DEFAULT_INTENT_DATA_PATH.to_string());
-            
-        yo_do.load_intent_data(&intent_data_path)?;
-
-
-        let fuzzy_entity_path = env::var("YO_FUZZY_ENTITY_DICT")
-            .unwrap_or_else(|_| "/etc/yo/fuzzy-entity-dict.json".to_string());
-        yo_do.load_fuzzy_entity_dict(&fuzzy_entity_path)?;
-
-        let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
-            .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
-        match yo_do.load_fuzzy_index(&fuzzy_index_path) {
-            Ok(_) => dt_debug!("Loaded fuzzy index"),
-            Err(e) => dt_warning!("Failed to load fuzzy index"),
+    let input = match cli.input {
+        Some(i) => i,
+        None => {
+            eprintln!("🦆 says ⮞ fuck ❌ Missing required argument: --input");
+            std::process::exit(1);
         }
+    };
 
-        yo_do.run(&input, cli.fuzzy)
+    let mut yo_do = YoDo::new();
+
+    let intent_data_path = env::var("YO_INTENT_DATA")
+        .unwrap_or_else(|_| DEFAULT_INTENT_DATA_PATH.to_string());
+    yo_do.load_intent_data(&intent_data_path)?;
+    yo_do.precompile_patterns();
+
+    let fuzzy_entity_path = env::var("YO_FUZZY_ENTITY_DICT")
+        .unwrap_or_else(|_| "/etc/yo/fuzzy-entity-dict.json".to_string());
+    yo_do.load_fuzzy_entity_dict(&fuzzy_entity_path)?;
+
+    let fuzzy_index_path = env::var("YO_FUZZY_INDEX")
+        .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
+    if let Err(e) = yo_do.load_fuzzy_index(&fuzzy_index_path) {
+        dt_warning!("Failed to load fuzzy index: {}", e);
     }
-}
 
+    yo_do.run(&input, cli.fuzzy)
+}

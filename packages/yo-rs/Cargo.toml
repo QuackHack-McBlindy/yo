@@ -2,7 +2,7 @@
 # PACKAFGE INFO
 [package]
 name    = "yo-rs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 # ───────────────────────────────────────────────────────────────────────
 description = """
@@ -58,8 +58,8 @@ toml = "0.8"
 # ───────────────────────────────────────────────────────────────────────
 # EXECUTABLES
 [[bin]]
-name = "yo-builder"
-path = "src/yo-builder.rs"
+name = "yo-rs"
+path = "src/main.rs"
 
 [[bin]]
 name = "yo-client"
@@ -76,9 +76,4 @@ path = "src/yo-tests.rs"
 [[bin]]
 name = "yo-say"
 path = "src/yo-say.rs"
-
-[[bin]]
-name = "yo-toml"
-path = "src/yo-toml.rs"
-
 
