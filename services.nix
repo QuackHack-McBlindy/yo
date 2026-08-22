@@ -8,15 +8,48 @@
 } : let
   cfg = config.services.yo-rs;
   inherit (lib) types mkOption mkEnableOption mkIf optional optionals getExe;
+
   languageToVoice = {
+    "ar" = "ar_JO-kareem-medium";
+    "ca" = "ca_ES-upc_ona-medium";
+    "cs" = "cs_CZ-jirka-medium";
+    "cy" = "cy_GB-bu_tts-medium";
+    "da" = "da_DK-talesyntese-medium";
+    "de" = "de_DE-thorsten-medium";
+    "el" = "el_GR-rapunzelina-low";
     "en" = "en_US-amy-medium";
+    "es" = "es_ES-davefx-medium";
+    "fa" = "fa_IR-amir-medium";
+    "fi" = "fi_FI-harri-medium";
+    "fr" = "fr_FR-mls-medium";
+    "hi" = "hi_IN-pratham-medium";
+    "hu" = "hu_HU-anna-medium";
+    "is" = "is_IS-bui-medium";
+    "it" = "it_IT-paola-medium";
+    "ka" = "ka_GE-natia-medium";
+    "kk" = "kk_KZ-issai-high";
+    "lb" = "lb_LU-marylux-medium";
+    "lv" = "lv_LV-aivars-medium";
+    "ml" = "ml_IN-arjun-medium";
+    "ne" = "ne_NP-chitwan-medium";
+    "nl" = "nl_NL-mls-medium";
+    "no" = "no_NO-talesyntese-medium";
+    "pl" = "pl_PL-darkman-medium";
+    "pt" = "pt_PT-tugao-medium";
+    "ro" = "ro_RO-mihai-medium";
+    "ru" = "ru_RU-denis-medium";
+    "sk" = "sk_SK-lili-medium";
+    "sl" = "sl_SI-artur-medium";
+    "sr" = "sr_RS-serbski_institut-medium";
     "sv" = "sv_SE-lisa-medium";
+    "sw" = "sw_CD-lanfrica-medium";
+    "tr" = "tr_TR-dfki-medium";
+    "uk" = "uk_UA-ukrainian_tts-medium";
+    "vi" = "vi_VN-vais1000-medium";
+    "zh" = "zh_CN-huayan-medium";
   };
 
-  defaultVoice = "en_US-amy-medium";
-  selectedVoice = languageToVoice.${cfg.server.language} or defaultVoice;
-
-  yo-rs-with-voice = cfg.package.override { voice = selectedVoice; };
+  selectedVoice = languageToVoice.${cfg.server.language} or "en_US-amy-medium";
   yo-rs-with-models = cfg.package.override { language = cfg.server.language; model = cfg.server.whisper; };
 in {
 
@@ -31,8 +64,8 @@ in {
     };
 
     port = mkOption {
-      type = types.str;
-      default = "12345";
+      type = types.port;
+      default = 12345;
       description = "Listening port for yo.";
     };
     
@@ -47,26 +80,26 @@ in {
 
       host = mkOption {
         type = types.str;
-        default = "0.0.0.0:12345";
+        default = "0.0.0.0:${toString cfg.port}";
         description = "Listening address and port for the server.";
       };
 
       awakeSound = mkOption {
         type = types.nullOr types.path;
-        default = null;
-        description = ''
-          Path to a custom WAV file played on wake detection.
-          If `null`, the embedded `ding.wav` is used.
-        '';
+        default = "${yo-rs-with-models}/share/yo-rs/ding.wav";
+        description = "Path to a custom WAV file played on wake detection.";
       };
 
       doneSound = mkOption {
         type = types.nullOr types.path;
-        default = null;
-        description = ''
-          Path to a custom WAV file played on successful command execution.
-          If `null`, the embedded `done.wav` is used.
-        '';
+        default = "${yo-rs-with-models}/share/yo-rs/done.wav";
+        description = "Path to a custom WAV file played on successful command execution.";
+      };
+
+      failSound = mkOption {
+        type = types.nullOr types.path;
+        default = "${yo-rs-with-models}/share/yo-rs/fail.wav";
+        description = "Path to a custom WAV file played on successful command execution.";
       };
 
       wakeWordPath = mkOption {
@@ -111,11 +144,9 @@ in {
       };
 
       language = mkOption {
-        type = types.nullOr types.str;
+        type = types.enum (lib.attrNames languageToVoice);
         default = "en";
-        description = ''
-          Language code (e.g., `sv` or `en`)
-        '';
+        description = "Language code (e.g., `sv` or `en`)";
       };
 
       threads = mkOption {
@@ -205,20 +236,20 @@ in {
 
       awakeSound = mkOption {
         type = types.nullOr types.path;
-        default = null;
-        description = ''
-          Path to a custom WAV file played on wake detection (client‑side).
-          If `null`, the embedded `ding.wav` is used.
-        '';
+        default = "${yo-rs-with-models}/share/yo-rs/ding.wav";
+        description = "Path to a custom WAV file played on wake detection (client‑side).";
       };
 
       doneSound = mkOption {
         type = types.nullOr types.path;
-        default = null;
-        description = ''
-          Path to a custom WAV file played on successful command execution (client‑side).
-          If `null`, the embedded `done.wav` is used.
-        '';
+        default = "${yo-rs-with-models}/share/yo-rs/done.wav";
+        description = "Path to a custom WAV file played on successful command execution (client‑side).";
+      };
+
+      failSound = mkOption {
+        type = types.nullOr types.path;
+        default = "${yo-rs-with-models}/share/yo-rs/fail.wav";
+        description = "Path to a custom WAV file played on successful command execution (client‑side).";
       };
 
       awakeCmd = mkOption {
@@ -293,9 +324,9 @@ in {
 
   config = lib.mkMerge [
     (lib.mkIf (cfg.server.enable || cfg.client.enable) {
-      systemd.tmpfiles.rules = mkIf cfg.server.enable [
-        "d /var/lib/yo-rs/models 0755 root root -"
-      ];
+      networking.firewall.allowedTCPPorts =
+        lib.mkIf cfg.openFirewall [ cfg.port ];
+
 
       systemd.user.services = {
         yo-rs-server = mkIf cfg.server.enable {
@@ -326,7 +357,7 @@ in {
             in lib.mapAttrsToList (name: value: "${name}=${value}") envVars;
           
             ExecStart = lib.escapeShellArgs (
-              [ (getExe cfg.package) "--host" cfg.server.host ]
+              [ "${yo-rs-with-models}/bin/yo-rs" "--host" cfg.server.host ]
               ++ optionals (cfg.server.wakeWordPath != null)
                   [ "--wake-word" cfg.server.wakeWordPath ]
               ++ [ "--threshold" (toString cfg.server.threshold) ]
@@ -375,7 +406,7 @@ in {
             in lib.mapAttrsToList (name: value: "${name}=${value}") envVars;
 
             ExecStart = lib.escapeShellArgs (
-              [ "${cfg.package}/bin/yo-client" "--uri" cfg.client.uri ]
+              [ "${yo-rs-with-models}/bin/yo-client" "--uri" cfg.client.uri ]
               ++ optionals (cfg.client.awakeSound != null) [ "--awake-sound" cfg.client.awakeSound ]
               ++ optionals (cfg.client.doneSound != null) [ "--done-sound" cfg.client.doneSound ]
               ++ optionals (cfg.client.awakeCmd != null) [ "--awake-cmd" cfg.client.awakeCmd ]
