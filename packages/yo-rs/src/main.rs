@@ -121,7 +121,6 @@ impl ClientRegistry {
     }
 }
 
-// 🦆 says ⮞ RMS helper
 fn rms_f32(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -1208,7 +1207,6 @@ fn print_usage(program_name: &str) {
         program_name
     );
 }
-
 
 
 // MAIN

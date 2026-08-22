@@ -980,11 +980,11 @@ in {
   
       # Environment variables pointing to generated files
       environment.variables = {
-        YO_SPLIT_WORDS = splitWordsFile;
-        YO_SORRY_PHRASES = sorryPhrasesFile;
-        YO_INTENT_DATA = intentDataFile;
-        YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
-        "YO_FUZZY_INDEX" = fuzzyIndexFlatFile;
+      #  YO_SPLIT_WORDS = splitWordsFile;
+      #  YO_SORRY_PHRASES = sorryPhrasesFile;
+      #  YO_INTENT_DATA = intentDataFile;
+      #  YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
+      #  "YO_FUZZY_INDEX" = fuzzyIndexFlatFile;
         MATCHER_DIR = matcherDir;
         MATCHER_SOURCE = matcherSourceScript;
       };
@@ -1204,11 +1204,14 @@ in {
         logLevel = "WARNING";
         parameters = [
           { name = "text"; description = "Input text that should be spoken"; optional = false; }      
-          { name = "model"; description = "File name of the model"; default = config.services.yo-rs.server.textToSpeechModelPath; }
+          { name = "model"; description = "File name of the model"; default = config.services.yo-rs.server.onnxPath; }
           { name = "blocking"; type = "bool"; description = "Wait for TTS playback to finish"; default = false; }
-          { name = "path"; description = "Specify a file path where wav will be saved to disk"; optional = true; }
-          { name = "length-scale"; description = "Speech speed"; default = "1.3"; optional = true; }                    
-        ];      
+          ({ name = "path"; description = "Specify a file path where wav will be saved to disk"; optional = true; }
+           // lib.optionalAttrs (config.services.yo-rs.server.ttsSavePath != null) {
+             default = config.services.yo-rs.server.ttsSavePath;
+           })
+          { name = "length-scale"; description = "Speech speed"; optional = true; default = config.services.yo-rs.server.ttsSpeed; }                    
+        ];
       };
     })
     

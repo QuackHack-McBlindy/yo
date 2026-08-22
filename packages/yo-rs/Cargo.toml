@@ -2,19 +2,17 @@
 # PACKAFGE INFO
 [package]
 name    = "yo-rs"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 # ───────────────────────────────────────────────────────────────────────
 description = """
-  yo-rs is a multi-client wake word detection and transcription server with shell command translation and execution. 
-  Including microphone client. All communication is over TCP with a simple binary protocol. 
-  yo-rs is a full-stack voice assistant."""
+  yo-rs is a multi-client wake word detection and transcription server with a deterministic natural-language command engine and an offline voice interface. All communication is over TCP with a simple binary protocol. """
 # ───────────────────────────────────────────────────────────────────────
 authors    = ["QuackHack-McBlindy"]
 repository = "https://github.com/QuackHack-McBlindy/yo"
 license    = "MIT"
 readme     = "README.md"
-keywords   = ["wakeword", "speech-to-text", "shell-translator", "multi-client"]
+keywords   = ["wakeword", "speech-to-text", "interpreter", "multi-client"]
 
 # ───────────────────────────────────────────────────────────────────────
 # DEPENDENCIES
@@ -46,34 +44,35 @@ colored          = "2.1"
 hound            = "3.5"
 
 # ───────────────────────────────────────────────────────────────────────
-# Shell translator dependencies (yo-do)
+# Shell translator dependencies
 chrono = { version = "0.4", features = ["serde", "clock"] }
 regex  = "1.0"
 rand   = "0.8"
 
 # ───────────────────────────────────────────────────────────────────────
-# Compiler
-toml = "0.8"
-
-# ───────────────────────────────────────────────────────────────────────
 # EXECUTABLES
+# Server
 [[bin]]
 name = "yo-rs"
 path = "src/main.rs"
 
+# Microphone client
 [[bin]]
 name = "yo-client"
 path = "src/yo-client.rs"
 
+# Interpreter
 [[bin]]
 name = "yo-do"
 path = "src/yo-do.rs"
 
-[[bin]]
-name = "yo-tests"
-path = "src/yo-tests.rs"
-
+# Text-to-speech
 [[bin]]
 name = "yo-say"
 path = "src/yo-say.rs"
 
+
+# Sentences testing
+[[bin]]
+name = "yo-tests"
+path = "src/yo-tests.rs"

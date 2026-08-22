@@ -2,11 +2,12 @@
 #![allow(unused)]
 use std::{
     env,
-    io::{self, Write},
+    io::{self, Read, Write},
     process::{Command, Stdio},
     os::unix::net::UnixStream,
 };
 use ducktrace_logger::*;
+use std::net::TcpStream;
 
 struct Args {
     text: String,
@@ -140,8 +141,6 @@ fn convert_and_replace(path: &str) -> io::Result<()> {
     Ok(())
 }
 
-
-
 fn get_esp_ips() -> Vec<String> {
     let home = std::env::var("HOME").unwrap_or_default();
     let path = format!("{}/.config/yo/clients.json", home);
@@ -158,6 +157,82 @@ fn get_esp_ips() -> Vec<String> {
         .filter(|c| c.get("room").and_then(|v| v.as_str()) == Some("esp"))
         .filter_map(|c| c.get("ip").and_then(|v| v.as_str()).map(|s| s.to_string()))
         .collect()
+}
+
+fn get_client_ips() -> Vec<String> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let path = format!("{}/.config/yo/clients.json", home);
+    let data = match std::fs::read_to_string(&path) {
+        Ok(d) => d,
+        Err(_) => return vec![],
+    };
+    let clients: Vec<serde_json::Value> = match serde_json::from_str(&data) {
+        Ok(c) => c,
+        Err(_) => return vec![],
+    };
+    clients
+        .iter()
+        .filter(|c| {
+            let room = c.get("room").and_then(|v| v.as_str());
+            room != Some("esp") && room != Some("local")
+        })
+        .filter_map(|c| c.get("ip").and_then(|v| v.as_str()).map(|s| s.to_string()))
+        .collect()
+}
+
+fn stream_to_client(model: &str, text: &str, client_ip: &str) -> io::Result<()> {
+    let mut stream = TcpStream::connect(format!("{}:12345", client_ip))?;
+
+    let escaped_text = text.replace('\'', "'\\''");
+    let cmd = format!(
+        "echo '{}' | piper -m '{}' --output-raw | \
+         ffmpeg -f s16le -ar 22050 -ac 1 -i - -ar 16000 -ac 1 -f f32le -",
+        escaped_text, model
+    );
+
+    let mut child = Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()?;
+
+    let mut stdout = child.stdout.take().unwrap();
+    let mut all_samples: Vec<f32> = Vec::new();
+    let mut buf = [0u8; 4096];
+
+    loop {
+        let n = stdout.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        for chunk in buf[..n].chunks_exact(4) {
+            let sample = f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            all_samples.push(sample);
+        }
+    }
+    child.wait()?;
+
+    if all_samples.is_empty() {
+        dt_error!("No audio generated for TTS");
+        return Ok(());
+    }
+
+    const CHUNK_SIZE: usize = 1024;
+    for chunk in all_samples.chunks(CHUNK_SIZE) {
+        stream.write_all(&[0x20])?;
+        stream.write_all(&(chunk.len() as u32).to_le_bytes())?;
+
+        let mut bytes = Vec::with_capacity(chunk.len() * 4);
+        for &s in chunk {
+            bytes.extend_from_slice(&s.to_le_bytes());
+        }
+        stream.write_all(&bytes)?;
+    }
+    stream.flush()?;
+    
+    dt_info!("Streamed TTS to client {}", client_ip);
+    Ok(())
 }
 
 fn stream_to_esp(model: &str, text: &str, esp_ip: &str) -> io::Result<()> {
@@ -187,6 +262,13 @@ fn main() -> io::Result<()> {
         if let Err(e) = stream_to_esp(&args.model, &args.text, &esp_ip) {
             dt_debug!("Failed to start ESP stream to {}: {}", esp_ip, e);
         } else { dt_info!("Streaming TTS to ESP device at {}", esp_ip); }
+    }
+    
+    let client_ips = get_client_ips();
+    for client_ip in client_ips {
+        if let Err(e) = stream_to_client(&args.model, &args.text, &client_ip) {
+            dt_debug!("Failed to start client stream to {}: {}", client_ip, e);
+        } else { dt_info!("Streaming TTS to client device at {}", client_ip); }
     }
 
     if try_broadcast(&args.text) {
