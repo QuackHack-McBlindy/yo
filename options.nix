@@ -238,21 +238,6 @@ in {
       readOnly = true;
       description = "The final yo scripts package";
     };
-    language = lib.mkOption {
-      type = lib.types.string;
-      default = "english";
-      description = "Voice commands language for example scripts.";
-    };    
-    legacy = lib.mkOption {
-      type = lib.types.bool;
-      default = false;
-      description = "Use the legacy version of the shell translator in Bash instead of Rust";
-    };
-    scripts = lib.mkOption {
-      type = lib.types.attrsOf scriptType;
-      default = {};
-      description = "Attribute set of scripts to be made available";
-    };
     sorryPhrases = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
@@ -268,6 +253,21 @@ in {
       type = lib.types.listOf lib.types.str;
       default = [ "also" ];
       description = "Words used for command chaining, i.e. multiple executions";
+    };
+    language = lib.mkOption {
+      type = lib.types.string;
+      default = "english";
+      description = "Voice commands language for example scripts.";
+    };   
+    legacy = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Use the legacy version of the shell translator in Bash instead of Rust";
+    };
+    scripts = lib.mkOption {
+      type = lib.types.attrsOf scriptType;
+      default = {};
+      description = "Attribute set of scripts to be made available";
     };
     generatedPatterns = lib.mkOption {
       type = lib.types.int;

@@ -3,7 +3,7 @@
 use std::{
     env,
     io::{Cursor, Read, Write},
-    net::TcpStream,
+    net::{TcpStream, TcpListener},
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, Mutex,
@@ -32,9 +32,10 @@ use oww_rs::{
 };
 
 const DEFAULT_SERVER_ADDR: &str = "127.0.0.1:12345";
-const DING_WAV: &[u8] = include_bytes!("../ding.wav");
-const DONE_WAV: &[u8] = include_bytes!("../done.wav");
-const FAIL_WAV: &[u8] = include_bytes!("../fail.wav");
+const DING_WAV: &[u8] = include_bytes!("./../ding.wav");
+const DONE_WAV: &[u8] = include_bytes!("./../done.wav");
+const FAIL_WAV: &[u8] = include_bytes!("./../fail.wav");
+const SERVER_AUDIO: u8 = 0x20;
 
 fn print_usage(program_name: &str) {
   dt_error!(
@@ -42,6 +43,7 @@ fn print_usage(program_name: &str) {
   Options:
     --uri <ADDRESS>              Server address (default: {})
     --room <ROOM>                Room identifier sent to server (optional)
+    --no-bind                    Disable the TTS audio listener (don't bind port 12345)
     --awake-sound <PATH>         Path to WAV file to play on wake (default: embedded ding.wav)
     --done-sound <PATH>          Path to WAV file to play after successful command (default: embedded done.wav)
     --fail-sound <PATH>          Path to WAV file to play after failed command (default: embedded fail.wav)
@@ -65,6 +67,52 @@ fn rms_f32(samples: &[f32]) -> f32 {
     (sum_squares / samples.len() as f32).sqrt()
 }
 
+fn handle_tts_connection(mut stream: TcpStream) {
+    loop {
+        let mut type_byte = [0u8; 1];
+        if let Err(e) = stream.read_exact(&mut type_byte) {
+            dt_error!("TTS connection closed: {}", e);
+            break;
+        }
+
+        if type_byte[0] != SERVER_AUDIO {
+            dt_error!("Unexpected TTS message type: 0x{:02x}", type_byte[0]);
+            break;
+        }
+
+        let mut len_buf = [0u8; 4];
+        if let Err(e) = stream.read_exact(&mut len_buf) {
+            dt_error!("Failed to read TTS length: {}", e);
+            break;
+        }
+        let num_samples = u32::from_le_bytes(len_buf) as usize;
+
+        let mut audio_bytes = vec![0u8; num_samples * 4];
+        if let Err(e) = stream.read_exact(&mut audio_bytes) {
+            dt_error!("Failed to read TTS samples: {}", e);
+            break;
+        }
+        let samples: Vec<f32> = audio_bytes
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect();
+
+        play_audio_samples(&samples);
+    }
+}
+
+fn play_audio_samples(samples: &[f32]) {
+    let samples = samples.to_vec();
+    thread::spawn(move || {
+        let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+        let source = rodio::buffer::SamplesBuffer::new(1, 16000, samples);
+        if let Ok(sink) = rodio::Sink::try_new(&handle) {
+            sink.append(source);
+            sink.sleep_until_end();
+        }
+    });
+}
+
 fn main() -> Result<()> {
     env_logger::init();
     let args: Vec<String> = env::args().collect();
@@ -85,6 +133,7 @@ fn main() -> Result<()> {
     let mut fail_sound_path: Option<String> = None;
     let mut awake_cmd: Option<String> = None;
     let mut done_cmd: Option<String> = None;
+    let mut stream_tts = true;
 
     let mut i = 1;
     while i < args.len() {
@@ -98,6 +147,10 @@ fn main() -> Result<()> {
                     print_usage(&args[0]);
                     std::process::exit(1);
                 }
+            }
+            "--no-bind" => {
+                stream_tts = false;
+                i += 1;
             }
             "--room" => {
                 if i + 1 < args.len() {
@@ -355,8 +408,36 @@ fn main() -> Result<()> {
     };
 
     stream.play()?;
-    dt_info!("Streaming audio to detector. Press Enter to stop.");
+    dt_info!("Streaming microphone audio to server.");
 
+    
+    if stream_tts {
+        let tts_listener = match TcpListener::bind("0.0.0.0:12345") {
+            Ok(l) => l,
+            Err(e) => {
+                dt_error!("Failed to bind TTS listener on 12345: {}", e);
+                return Err(e.into());
+            }
+        };
+
+        thread::spawn(move || {
+            for stream in tts_listener.incoming() {
+                match stream {
+                    Ok(s) => { thread::spawn(|| handle_tts_connection(s)); }
+                    Err(e) => {
+                        dt_error!("TTS listener accept error: {}", e);
+                        thread::sleep(Duration::from_secs(1));
+                    }
+                }
+            }
+        });      
+    }
+    
+
+    if !stream_tts { 
+        dt_info!("Local TTS audio output only");
+    } else { dt_info!("TTS audio listener started on 0.0.0.0:12345"); }
+    
     loop {
         dt_info!("Connecting to {}...", server_addr);
         let mut stream = loop {
@@ -477,7 +558,29 @@ fn main() -> Result<()> {
                         break;
                     }
                     match read_stream.read_exact(&mut buf) {
-                        Ok(()) => {
+                        Ok(()) => {                        
+                            if buf[0] == SERVER_AUDIO {
+                                let mut len_buf = [0u8; 4];
+                                if let Err(e) = read_stream.read_exact(&mut len_buf) {
+                                    dt_error!("failed to read audio length: {}", e);
+                                    break;
+                                }
+                                let num_samples = u32::from_le_bytes(len_buf) as usize;
+
+                                let mut audio_bytes = vec![0u8; num_samples * 4];
+                                if let Err(e) = read_stream.read_exact(&mut audio_bytes) {
+                                    dt_error!("failed to read audio samples: {}", e);
+                                    break;
+                                }
+                                let samples: Vec<f32> = audio_bytes
+                                    .chunks_exact(4)
+                                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                                    .collect();
+
+                                play_audio_samples(&samples);
+                                continue;
+                            }
+                        
                             if buf[0] == 0x01 {
                                 if receiver_is_transcribing.load(Ordering::SeqCst) {
                                     continue;
@@ -610,14 +713,36 @@ fn main() -> Result<()> {
                                     }
 
                                     match read_stream.read_exact(&mut response_buf) {
-                                        Ok(()) => { // 🎉
+                                        Ok(()) => {
+                                            if response_buf[0] == SERVER_AUDIO {
+                                                let mut len_buf = [0u8; 4];
+                                                if let Err(e) = read_stream.read_exact(&mut len_buf) {
+                                                    dt_error!("Failed to read audio length: {}", e);
+                                                    break;
+                                                }
+                                                let num_samples = u32::from_le_bytes(len_buf) as usize;
+                                        
+                                                let mut audio_bytes = vec![0u8; num_samples * 4];
+                                                if let Err(e) = read_stream.read_exact(&mut audio_bytes) {
+                                                    dt_error!("Failed to read audio samples: {}", e);
+                                                    break;
+                                                }
+                                                let samples: Vec<f32> = audio_bytes
+                                                    .chunks_exact(4)
+                                                    .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                                                    .collect();
+                                        
+                                                play_audio_samples(&samples);
+                                                continue;
+                                            }
+                                        
                                             match response_buf[0] {
                                                 0x03 => {
                                                     dt_info!("🎉 Command execution successful");
                                                     timer.lap("command executed sucessfully");
                                                     timer.complete();
                                                     server_timer.complete();
-
+                                        
                                                     let sound_data = receiver_done_sound.clone();
                                                     thread::spawn(move || {
                                                         let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -626,7 +751,7 @@ fn main() -> Result<()> {
                                                             sink.sleep_until_end();
                                                         }
                                                     });
-
+                                        
                                                     if let Some(cmd) = &receiver_done_cmd {
                                                         let cmd = cmd.clone();
                                                         thread::spawn(move || {
@@ -650,7 +775,7 @@ fn main() -> Result<()> {
                                                     }                            
                                                 } // 💩
                                                 0x04 => { 
-                                                    dt_debug!("Command execution failed – check server logs");
+                                                    dt_info!("💩 failed – empty transcription?");
                                                     // play fail sound
                                                     let sound_data = receiver_fail_sound.clone();
                                                     thread::spawn(move || {

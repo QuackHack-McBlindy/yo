@@ -8,6 +8,16 @@
 } : let
   cfg = config.services.yo-rs;
   inherit (lib) types mkOption mkEnableOption mkIf optional optionals getExe;
+  languageToVoice = {
+    "en" = "en_US-amy-medium";
+    "sv" = "sv_SE-lisa-medium";
+  };
+
+  defaultVoice = "en_US-amy-medium";
+  selectedVoice = languageToVoice.${cfg.server.language} or defaultVoice;
+
+  yo-rs-with-voice = cfg.package.override { voice = selectedVoice; };
+  yo-rs-with-models = cfg.package.override { language = cfg.server.language; model = cfg.server.whisper; };
 in {
 
   options.services.yo-rs = {
@@ -19,6 +29,18 @@ in {
       defaultText = lib.literalExpression "inputs.yo.packages.${pkgs.system}.yo-rs";
       description = "The yo-rs package containing both server and client binaries.";
     };
+
+    port = mkOption {
+      type = types.str;
+      default = "12345";
+      description = "Listening port for yo.";
+    };
+    
+    openFirewall = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Wether to open the firewall for the configured port.";
+    };    
 
     server = {
       enable = mkEnableOption "yo-rs server (wake word detection & transcription)";
@@ -59,9 +81,14 @@ in {
         description = "Detection threshold (0.0–1.0).";
       };
 
-      whisperModelPath = mkOption {
+      whisper = mkOption {
+        type = types.enum [ "tiny" "base" "small" "medium" "large" ];
+        default = "base";
+        description = "Speech to text Whisper GGML model size.";
+      };
+      whisperPath = mkOption {
         type = types.path;
-        default = "${cfg.package}/share/yo-rs/models/stt/ggml-small.bin";
+        default = "${yo-rs-with-models}/share/yo-rs/models/stt/ggml-" + cfg.server.whisper + ".bin";
         description = "Path to the Whisper GGML model.";
       };
 
@@ -73,7 +100,7 @@ in {
 
       beamSize = mkOption {
         type = types.int;
-        default = 5;
+        default = 0;
         description = "Beam size for Whisper (0 = greedy).";
       };
 
@@ -87,8 +114,7 @@ in {
         type = types.nullOr types.str;
         default = "en";
         description = ''
-          Language code (e.g., `sv`, `en`) or `"auto"`.
-          Use `null` for automatic detection (equivalent to `auto`).
+          Language code (e.g., `sv` or `en`)
         '';
       };
 
@@ -108,16 +134,22 @@ in {
         '';
       };
       
-      textToSpeechModelPath = mkOption {
+      onnxPath = mkOption {
         type = types.nullOr types.path;
-        default = "${cfg.package}/share/yo-rs/models/tts/en_US-amy-medium.onnx";
+        default = "${yo-rs-with-models}/share/yo-rs/models/tts/${selectedVoice}.onnx";
         description = "Path to the text-to-speech ONNX model.";
       };
-
-      demo = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable example yo scripts";
+      
+      ttsSavePath = mkOption {
+        type = types.nullOr types.path;
+        default = null;
+        description = "Location to save the text-to-speech audio as a wav file (optional).";
+      };
+      
+      ttsSpeed = mkOption {
+        type = types.str;
+        default = "1.0";
+        description = "Length scale used when synthesizing text-to-speech audio. This controls the speech speed.";
       };
 
       debug = mkOption {
@@ -206,6 +238,15 @@ in {
           The command is run in a background thread; output is logged.
         '';
       };
+      
+      failCmd = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        description = ''
+          Command to execute if a voice command execution has failed.
+          The command is run in a background thread; output is logged.
+        '';
+      };
 
       silenceThreshold = mkOption {
         type = types.float;
@@ -237,7 +278,7 @@ in {
         description = ''
           Path to a custom log file path.
           Use absolute path.
-          If `null`, default logging file path is `~/yo-rs-server.log`.
+          If `null`, default logging file path is `~/yo-rs-client.log`.
         '';
       };
       debug = mkOption {
@@ -289,7 +330,7 @@ in {
               ++ optionals (cfg.server.wakeWordPath != null)
                   [ "--wake-word" cfg.server.wakeWordPath ]
               ++ [ "--threshold" (toString cfg.server.threshold) ]
-              ++ [ "--model" cfg.server.whisperModelPath ]
+              ++ [ "--model" cfg.server.whisperPath ]
               ++ [ "--beam-size" (toString cfg.server.beamSize) ]
               ++ [ "--temperature" (toString cfg.server.temperature) ]
               ++ [ "--threads" (toString cfg.server.threads) ]
@@ -298,7 +339,7 @@ in {
               ++ optionals (cfg.server.language != null) [ "--language" cfg.server.language ]
               ++ optionals (cfg.server.execCommand != null) [ "--exec-command" cfg.server.execCommand ]
               ++ optionals cfg.server.shellTranslate [ "--translate-to-shell" ]
-              ++ optionals (cfg.server.textToSpeechModelPath != null) [ "--tts-model" cfg.server.textToSpeechModelPath ]
+              ++ optionals (cfg.server.onnxPath != null) [ "--tts-model" cfg.server.onnxPath ]
               ++ optionals cfg.server.debug [ "--debug" ]
               ++ cfg.server.extraArgs
             );
@@ -342,8 +383,11 @@ in {
               ++ [ "--silence-threshold" (toString cfg.client.silenceThreshold) ]
               ++ [ "--silence-timeout" (toString cfg.client.silenceTimeout) ]
               ++ [ "--max-duration" (toString cfg.client.maxDuration) ]
-              ++ optionals (cfg.client.room != null) [ "--room" cfg.client.room ]
+              ++ (if (cfg.client.room != null) then [ "--room" cfg.client.room ]
+                  else if (cfg.server.enable && cfg.client.enable) then [ "--room" "local" ]
+                  else [])
               ++ optionals cfg.client.debug [ "--debug" ]
+              ++ optionals ((cfg.server.enable && cfg.client.enable)) [ "--no-bind" ]
               ++ cfg.client.extraArgs
             );
           };

@@ -113,14 +113,17 @@ struct RangeConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ListConfig {
+    #[serde(default)]
     wildcard: bool,
     values: Vec<ListValue>,
+    #[serde(default)]
     range: Option<RangeConfig>,
 }
 
 // 🦆 says ⮞ entity resolution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EntityValue {
+    #[serde(rename = "in")]
     r#in: String, // 🦆 says ⮞ "in" is a keyword so we use raw identifier
     out: String,
 }
@@ -147,6 +150,7 @@ struct ScriptIntentData {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ListValue {
+    #[serde(rename = "in")]
     r#in: String,
     out: String,
 }
@@ -398,7 +402,22 @@ impl YoDo {
             .map(|list| list.wildcard)
             .unwrap_or(false)
     }
+    
+    fn is_valid_param_value(&self, script_name: &str, param_name: &str, value: &str) -> bool {
+        if self.is_wildcard_param(script_name, param_name) {
+            return true;
+        }
 
+        if let Some(intent) = self.intent_data.get(script_name) {
+            if let Some(list) = intent.lists.get(param_name) {
+                if !list.values.is_empty() {
+                    return list.values.iter().any(|v| v.out.as_str() == value);
+                }
+            }
+        }
+        true
+    }
+    
     // 🦆 says ⮞ memory loader (from files)
     fn load_memory_data() -> Result<MemoryData, Box<dyn std::error::Error>> {
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
@@ -630,11 +649,28 @@ impl YoDo {
             .collect()
     }
 
-    // 🦆 says ⮞ ENTITY RESOLVER - duck translation matrix!
+    // 🦆 says ⮞ ENTITY RESOLVER - duck translation matrix!    
     fn resolve_entity(&self, script_name: &str, param_name: &str, param_value: &str) -> String {
         if self.is_wildcard_param(script_name, param_name) {
             return param_value.to_string();
         }
+    
+        if let Some(intent) = self.intent_data.get(script_name) {
+            if let Some(list_config) = intent.lists.get(param_name) {
+                let normalized_input = param_value.to_lowercase();
+    
+                for entry in &list_config.values {
+                    for alt in entry.r#in.split('|') {
+                        if alt.trim().to_lowercase() == normalized_input {
+                            dt_debug(&format!("      List match: {} → {}", param_value, entry.out));
+                            return entry.out.clone();
+                        }
+                    }
+                }
+            }
+        }
+    
+
         if let Some(intent) = self.intent_data.get(script_name) {
             let normalized_input = param_value.to_lowercase();
             
@@ -860,53 +896,70 @@ impl YoDo {
     }
 
     // 🦆 says ⮞ EXACT MATCHIN'        
+    
+    // 🦆 says ⮞ EXACT MATCHIN'
     fn exact_match(&self, text: &str) -> Option<MatchResult> {
         let global_start = Instant::now();
         let text = text.to_lowercase();
         dt_debug(&format!("Starting EXACT match for: '{}'", text));
-
+    
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
             let script_name = &script_priority.name;
-            dt_debug(&format!("Trying script [{}/{}]: {}", 
-                script_index + 1, self.processing_order.len(), script_name));
-
-            let (resolved_text, substitutions) = self.apply_real_time_substitutions(script_name, &text);
+            dt_debug(&format!(
+                "Trying script [{}/{}]: {}",
+                script_index + 1,
+                self.processing_order.len(),
+                script_name
+            ));
+    
+            let (resolved_text, substitutions) =
+                self.apply_real_time_substitutions(script_name, &text);
             dt_debug(&format!("After substitutions: '{}'", resolved_text));
-
+    
             if let Some(patterns) = self.compiled_patterns.get(script_name) {
                 for pattern in patterns {
                     if let Some(captures) = pattern.regex.captures(&resolved_text) {
                         let mut args = Vec::new();
-
+                        let mut valid_pattern = true;
+    
                         for (i, param_name) in pattern.param_names.iter().enumerate() {
                             if let Some(matched) = captures.get(i + 1) {
-                                let mut param_value = matched.as_str().to_string();
-
-                                let entity_resolved = self.resolve_entity(script_name, param_name, &param_value);
-                                if entity_resolved != param_value {
-                                    param_value = entity_resolved;
-                                }
-
+                                let raw_value = matched.as_str().to_string();
+    
+                                let entity_resolved =
+                                    self.resolve_entity(script_name, param_name, &raw_value);
+                                let mut param_value = entity_resolved;
+    
                                 if let Some(sub) = substitutions.get(&param_value) {
                                     param_value = sub.clone();
                                 }
-
+    
+                                if !self.is_valid_param_value(script_name, param_name, &param_value) {
+                                    dt_debug(&format!(
+                                        "Skipping pattern because param '{}' value '{}' is not allowed",
+                                        param_name, param_value
+                                    ));
+                                    valid_pattern = false;
+                                    break;
+                                }
+    
                                 args.push(format!("--{}", param_name));
                                 args.push(param_value);
                             }
                         }
-
-                        return Some(MatchResult {
-                            script_name: script_name.clone(),
-                            args,
-                            matched_sentence: text.clone(),
-                            processing_time: global_start.elapsed(),
-                        });
+    
+                        if valid_pattern {
+                            return Some(MatchResult {
+                                script_name: script_name.clone(),
+                                args,
+                                matched_sentence: text.clone(),
+                                processing_time: global_start.elapsed(),
+                            });
+                        }
                     }
                 }
             }
         }
-
         None
     }
              
@@ -995,12 +1048,15 @@ impl YoDo {
                     };
     
                     let resolved_value = self.resolve_entity(&script_name, param_name, &param_value);
-    
-                    dt_debug(&format!(
-                        "      Fuzzy argument: --{} {} (raw: '{}')",
-                        param_name, resolved_value, param_value
-                    ));
-    
+
+                    if !self.is_valid_param_value(&script_name, param_name, &resolved_value) {
+                        dt_debug(&format!(
+                            "Skipping fuzzy match because param '{}' value '{}' is not allowed",
+                            param_name, resolved_value
+                        ));
+                        return None;
+                    }
+
                     args.push(format!("--{}", param_name));
                     args.push(resolved_value);
                 }
