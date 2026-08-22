@@ -9,14 +9,13 @@
 
    
 It takes declarative sentence templates with optional parameters and entity lists, expands them into all possible variants generates optimized regular expressions. <br>
-This can easily create a combinational explosion - this should be concidered a **feature! Users should define their sentences to get the perfect exploision!**, because at runtime Rust can leverage very high accuracy gain at the cost of extremely low speed reduction. *(see stack overflow - then you pushed it too hard)* <br>
-It takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
+Runtime takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
 
 
 `yo` is a **full-stack voice assistant** that's:  
 - **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
 - **Lightweight** - CLI can be used using only `pkgs.jq` and `pkgs.coreutils`.  
-- **Simple** - Bash or Rust - Everything neatly packaged and runs on single port.  
+- **Simple** - Bash or Rust - Everything neatly packaged and runs on a single port.  
 - **Safe** - Rule based, user defines the rules. Strong validation supported.    
 - **Offline** - No internet required after setup.
 - **Easy to deploy** - Using the NixOS flake.  
@@ -152,7 +151,6 @@ yo.legacy = true;
 <br>
 
 
-
 ## **2. Usage**
 
 <details><summary><strong>
@@ -163,13 +161,13 @@ Full usage example:
 
 ```nix
   services.yo-rs = {
-    port = "12345";
+    port = 12345;
     openFirewall = true;
   
     server = {
       enable         = true;
       shellTranslate = true;     # true = executes yo scripts
-      language       = "sv";     # controls the transcription language + TTS model
+      language       = "sv";     # controls the transcription language + TTS model (default = `"en"`)
       whisper        = "medium"; # (tiny, base, small, medium, large) 
       threshold      = 0.8;      # wake word detection trigger threshold
       beamSize       = 0;        # 0 = greedy (often faster)
@@ -178,7 +176,7 @@ Full usage example:
       ttsSpeed       = 1.3M #
       
       # additional optional settings:
-      # host                  = "0.0.0.0";
+      # host                  = "0.0.0.0:12345";
       # wakeWordPath          = "/path/to/custom/model.onnx";
       # awakeSound            = "/path/to/custom/awake.wav";
       # doneSound             = "/path/to/custom/done.wav";
@@ -228,7 +226,13 @@ Full usage example:
 Example yo.script.<name>.voice definition
 </strong></summary>
 
-You can see real yo.scripts in [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.  
+```nix
+(these|are|alternative|words)  
+[these|are|optional|words]  
+{parameters}
+```
+
+You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.  
 
 ```nix
     yo.script.timer.voice = {
@@ -286,47 +290,36 @@ Commandline usage
 Exact matches are blazing fast. 
 Fyzzy matching has great coverage/accuracy.  
 
+Adding `\?` at the end of your command will run it with `DEBUG` logging.  
+
 Run `yo --help` to see all your defined yo scripts as a table.    
 
-To get the **perfect combinational explosion** - it's best practice to check the `--help` command for the script your writing voice commands for to see how many patterns and phrases you are actually generating:  
+`yo <script> --help` shows the generated patterns and phrases for the defined voice commands.  
+The ratio could be a good way to messure potential combinational explosion as you can see below.  
 
 ```bash
-🦆🏠  HOME via 🐍 via 🦀 v1.98.0 
-16:29:42 ❯ yo timer -h
-
-   🚀🦆 yo timer                                                              
-                                                                              
-  Set a timer                                                                 
-  Usage:  yo timer [OPTIONS]                                                  
-                                                                              
-  ## Parameters                                                               
-                                                                              
-  ...
-  
+❄️ DOTFILES  on  main [!] 
+00:41:44 ❯ yo tv -h
+  ...                                                                           
   ## Voice Commands                                                           
                                                                               
-  Patterns: 921                                                              
-  Phrases: 262010985                                                          
+  Patterns: 245                                                               
+  Phrases: 1608                                                               
+  Ratio: 6                                                                              
+```
 
-  ...  
+```bash
+❄️ DOTFILES  on  main [!] 
+00:41:52 ❯ yo timer -h
+  ...                                                                                                                                
+  ## Voice Commands                                                           
+                                                                              
+  Patterns: 921                                                               
+  Phrases: 262010985                                                          
+  Ratio: 284485
 ```
 
 <br>
-
-**Patterns to Phrases ratio:**  
-
-```
-921
------------ ≈ 0.000003515
-262,010,985​
-```
-
-That means:  
-**1** pattern for every **284,485** phrases.  
-As a percentage: **0.0003515%**     
-
-
-There is a actually a sweet spot based on logic here, it's recommend to experiment around until you find it.  
 
 
 **Text-To-Speech**  
@@ -337,7 +330,7 @@ If you would run for example:
 yo say "this is my spoken text"
 ```
 
-From your yo server, you would hear `this is my spoken text` on all your clients.  
+From your yo server, you would hear `this is my spoken text` on all your clients speakers.  
 
 <br>
 

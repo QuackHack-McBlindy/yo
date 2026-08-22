@@ -66,7 +66,6 @@ let
     }];
   }) scriptsWithFuzzy));
 
- 
   # 🦆 says ⮞ where da magic dynamic regex iz at 
   makePatternMatcher = scriptName: let
     dataList = generatedIntents.${scriptName}.data;    
@@ -654,7 +653,8 @@ let
         voiceSentencesHelp = if script.voice != null && script.voice.sentences != [] then
           let
             patterns = countGeneratedPatterns script;
-            phrases = countUnderstoodPhrases script;
+            phrases  = countUnderstoodPhrases script;
+            ratio    = if patterns == 0 then 0 else builtins.div phrases patterns;
 
             replaceParamsWithValues = sentence: voiceData:
               let
@@ -696,7 +696,7 @@ let
               "- \"${escapeMD sentence}\"\n"
             ) processedSentences;
           in
-            "## Voice Commands\n\nPatterns: ${toString patterns}  \nPhrases: ${toString phrases}  \n\n${sentencesMarkdown}"
+            "## Voice Commands\n\nPatterns: ${toString patterns}  \nPhrases: ${toString phrases}  \nRatio: ${toString ratio}  \n\n${sentencesMarkdown}"
         else "";
        
         param_usage = lib.concatMapStringsSep " " (param:
@@ -961,7 +961,7 @@ EOF
     ) cfg.scripts;
   };
 
-
+  yo-rs-with-models = config.services.yo-rs.package.override { language = config.services.yo-rs.server.language; model = config.services.yo-rs.server.whisper; };
 in {
   imports = [
     ./options.nix
@@ -1173,7 +1173,7 @@ in {
     (mkIf (!cfg.legacy) {      
       yo.scripts.do = {
         description = "do is a Natural Language to Shell script translator that generates dynamic regex patterns at build time for defined yo.script sentences. It runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
-        binary = "${config.services.yo-rs.package}/bin/yo-do";
+        binary = "${yo-rs-with-models}/bin/yo-do";
         category = "🗣️ Voice";
         logLevel = "INFO";
         parameters = [
@@ -1185,7 +1185,7 @@ in {
   
       yo.scripts.tests = {
         description = "Extensive automated sentence testing for the yo do"; 
-        binary = "${config.services.yo-rs.package}/bin/yo-tests";      
+        binary = "${yo-rs-with-models}/bin/yo-tests";      
         category = "🗣️ Voice";
         parameters = [
           { name = "input"; description = "Text to test as a single  sentence test"; optional = true; }
@@ -1199,7 +1199,7 @@ in {
   
       yo.scripts.say = {
         description = "Text to speech with built in language detection and automatic model downloading";
-        binary = "${config.services.yo-rs.package}/bin/yo-say";
+        binary = "${yo-rs-with-models}/bin/yo-say";
         category = "🗣️ Voice";
         logLevel = "WARNING";
         parameters = [

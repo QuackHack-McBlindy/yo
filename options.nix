@@ -78,6 +78,11 @@
         internal = true;
         readOnly = true;
       };
+      voiceRatio = lib.mkOption {
+        type = lib.types.int;
+        internal = true;
+        readOnly = true;
+      };      
       parameters = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {
@@ -183,7 +188,9 @@
         config.voice.sentences != null
       );
       voicePatterns = lib.mkDefault (countGeneratedPatterns config);
-      voicePhrases = lib.mkDefault (countUnderstoodPhrases config);
+      voicePhrases  = lib.mkDefault (countUnderstoodPhrases config);
+      voiceRatio    = if config.yo.generatedPatterns == 0 then 0.0
+                        else (builtins.toFloat config.yo.understandsPhrases) / (builtins.toFloat config.yo.generatedPatterns);
     };
   });
 
@@ -254,11 +261,6 @@ in {
       default = [ "also" ];
       description = "Words used for command chaining, i.e. multiple executions";
     };
-    language = lib.mkOption {
-      type = lib.types.string;
-      default = "english";
-      description = "Voice commands language for example scripts.";
-    };   
     legacy = lib.mkOption {
       type = lib.types.bool;
       default = false;
