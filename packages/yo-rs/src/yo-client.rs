@@ -49,6 +49,7 @@ fn print_usage(program_name: &str) {
     --fail-sound <PATH>          Path to WAV file to play after failed command (default: embedded fail.wav)
     --awake-cmd <COMMAND>        Command to execute on wake (optional)
     --done-cmd <COMMAND>         Command to execute after successful command (optional)
+    --fail-cmd <COMMAND>         Command to execute after failed command (optional)
     --silence-threshold <FLOAT>  RMS threshold for silence detection (default: 0.005)
     --silence-timeout <SECONDS>  Seconds of silence before stopping (default: 1.0)
     --max-duration <SECONDS>     Maximum recording length (default: 5.0)
@@ -133,6 +134,7 @@ fn main() -> Result<()> {
     let mut fail_sound_path: Option<String> = None;
     let mut awake_cmd: Option<String> = None;
     let mut done_cmd: Option<String> = None;
+    let mut fail_cmd: Option<String> = None;
     let mut stream_tts = true;
 
     let mut i = 1;
@@ -211,7 +213,17 @@ fn main() -> Result<()> {
                     print_usage(&args[0]);
                     std::process::exit(1);
                 }
-            }            
+            }
+            "--fail-cmd" => {
+                if i + 1 < args.len() {
+                    fail_cmd = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    dt_error!("Error: --fail-cmd requires a command string");
+                    print_usage(&args[0]);
+                    std::process::exit(1);
+                }
+            }
             "--debug" => {
                 debug = true;
                 i += 1;
@@ -275,9 +287,10 @@ fn main() -> Result<()> {
 
     let awake_cmd_display = awake_cmd.as_deref().unwrap_or("none");
     let done_cmd_display = done_cmd.as_deref().unwrap_or("none");
-
+    let fail_cmd_display = fail_cmd.as_deref().unwrap_or("none");
+    
     dt_info!(
-        "Settings: debug={}, silence_threshold={}, silence_timeout={}s, max_duration={}s, awake_sound={}, done_sound={}, fail_sound={}, awake_cmd={}, done_cmd={}",
+        "Settings: debug={}, silence_threshold={}, silence_timeout={}s, max_duration={}s, awake_sound={}, done_sound={}, fail_sound={}, awake_cmd={}, done_cmd={} fail_cmd={}",
         debug,
         silence_threshold,
         silence_timeout_secs,
@@ -286,7 +299,8 @@ fn main() -> Result<()> {
         done_sound_path.as_deref().unwrap_or("embedded done.wav"),
         fail_sound_path.as_deref().unwrap_or("embedded fail.wav"),
         awake_cmd_display,
-        done_cmd_display
+        done_cmd_display,
+        fail_cmd_display
     );
 
     let awake_sound_data = if let Some(ref path) = awake_sound_path {
@@ -547,7 +561,7 @@ fn main() -> Result<()> {
         let receiver_fail_sound = fail_sound_data.clone();
         let receiver_awake_cmd = awake_cmd.clone();
         let receiver_done_cmd = done_cmd.clone();
-
+        let receiver_fail_cmd = fail_cmd.clone();
 
         let receiver_handle = thread::spawn(move || {
             let _ = std::panic::catch_unwind(|| {
@@ -785,6 +799,28 @@ fn main() -> Result<()> {
                                                             sink.sleep_until_end();
                                                         }
                                                     });
+                                                    
+                                                    if let Some(cmd) = &receiver_fail_cmd {
+                                                        let cmd = cmd.clone();
+                                                        thread::spawn(move || {
+                                                            let parts: Vec<&str> = cmd.split_whitespace().collect();
+                                                            if parts.is_empty() {
+                                                                dt_error!("empty fail command");
+                                                                return;
+                                                            }
+                                                            let status = std::process::Command::new(parts[0])
+                                                                .args(&parts[1..])
+                                                                .status();
+                                                            match status {
+                                                                Ok(status) => {
+                                                                    if status.success() {
+                                                                        dt_debug!("Fail command executed successfully");
+                                                                    } else { dt_error!("Fail command failed with exit code: {:?}", status.code()); }
+                                                                }
+                                                                Err(e) => dt_error!("Failed to execute fail command: {}", e),
+                                                            }
+                                                        });
+                                                    }
                                                 }
                                                 _ => { dt_warning!("Unknown response from server: {}", response_buf[0]); }
                                             }
@@ -794,7 +830,7 @@ fn main() -> Result<()> {
                                             continue;
                                         }
                                         Err(e) => {
-                                            dt_error!("Error reading server response: {}", e);
+                                            dt_error!("error reading server response: {}", e);
                                             break;
                                         }
                                     }

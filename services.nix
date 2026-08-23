@@ -10,44 +10,86 @@
   inherit (lib) types mkOption mkEnableOption mkIf optional optionals getExe;
 
   languageToVoice = {
-    "ar" = "ar_JO-kareem-medium";
-    "ca" = "ca_ES-upc_ona-medium";
-    "cs" = "cs_CZ-jirka-medium";
-    "cy" = "cy_GB-bu_tts-medium";
-    "da" = "da_DK-talesyntese-medium";
-    "de" = "de_DE-thorsten-medium";
-    "el" = "el_GR-rapunzelina-low";
-    "en" = "en_US-amy-medium";
-    "es" = "es_ES-davefx-medium";
-    "fa" = "fa_IR-amir-medium";
-    "fi" = "fi_FI-harri-medium";
-    "fr" = "fr_FR-mls-medium";
-    "hi" = "hi_IN-pratham-medium";
-    "hu" = "hu_HU-anna-medium";
-    "is" = "is_IS-bui-medium";
-    "it" = "it_IT-paola-medium";
-    "ka" = "ka_GE-natia-medium";
-    "kk" = "kk_KZ-issai-high";
-    "lb" = "lb_LU-marylux-medium";
-    "lv" = "lv_LV-aivars-medium";
-    "ml" = "ml_IN-arjun-medium";
-    "ne" = "ne_NP-chitwan-medium";
-    "nl" = "nl_NL-mls-medium";
-    "no" = "no_NO-talesyntese-medium";
-    "pl" = "pl_PL-darkman-medium";
-    "pt" = "pt_PT-tugao-medium";
-    "ro" = "ro_RO-mihai-medium";
-    "ru" = "ru_RU-denis-medium";
-    "sk" = "sk_SK-lili-medium";
-    "sl" = "sl_SI-artur-medium";
-    "sr" = "sr_RS-serbski_institut-medium";
-    "sv" = "sv_SE-lisa-medium";
-    "sw" = "sw_CD-lanfrica-medium";
-    "tr" = "tr_TR-dfki-medium";
-    "uk" = "uk_UA-ukrainian_tts-medium";
-    "vi" = "vi_VN-vais1000-medium";
-    "zh" = "zh_CN-huayan-medium";
+    "arabic" = "ar_JO-kareem-medium";
+    "catalan" = "ca_ES-upc_ona-medium";
+    "czech" = "cs_CZ-jirka-medium";
+    "welsh" = "cy_GB-bu_tts-medium";
+    "danish" = "da_DK-talesyntese-medium";
+    "german" = "de_DE-thorsten-medium";
+    "greek" = "el_GR-rapunzelina-low";
+    "english" = "en_US-amy-medium";
+    "spanish" = "es_ES-davefx-medium";
+    "persian" = "fa_IR-amir-medium";
+    "finnish" = "fi_FI-harri-medium";
+    "french" = "fr_FR-mls-medium";
+    "hindi" = "hi_IN-pratham-medium";
+    "hungarian" = "hu_HU-anna-medium";
+    "icelandic" = "is_IS-bui-medium";
+    "italian" = "it_IT-paola-medium";
+    "georgian" = "ka_GE-natia-medium";
+    "kazakh" = "kk_KZ-issai-high";
+    "luxembourgish" = "lb_LU-marylux-medium";
+    "latvian" = "lv_LV-aivars-medium";
+    "malayalam" = "ml_IN-arjun-medium";
+    "nepali" = "ne_NP-chitwan-medium";
+    "dutch" = "nl_NL-mls-medium";
+    "norwegian" = "no_NO-talesyntese-medium";
+    "polish" = "pl_PL-darkman-medium";
+    "portuguese" = "pt_PT-tugao-medium";
+    "romanian" = "ro_RO-mihai-medium";
+    "russian" = "ru_RU-denis-medium";
+    "slovak" = "sk_SK-lili-medium";
+    "slovenian" = "sl_SI-artur-medium";
+    "serbian" = "sr_RS-serbski_institut-medium";
+    "swedish" = "sv_SE-lisa-medium";
+    "swahili" = "sw_CD-lanfrica-medium";
+    "turkish" = "tr_TR-dfki-medium";
+    "ukrainian" = "uk_UA-ukrainian_tts-medium";
+    "vietnamese" = "vi_VN-vais1000-medium";
+    "chinese" = "zh_CN-huayan-medium";
   };
+
+  languageToCode = {
+    "arabic" = "ar";
+    "catalan" = "ca";
+    "czech" = "cs";
+    "welsh" = "cy";
+    "danish" = "da";
+    "german" = "de";
+    "greek" = "el";
+    "english" = "en";
+    "spanish" = "es";
+    "persian" = "fa";
+    "finnish" = "fi";
+    "french" = "fr";
+    "hindi" = "hi";
+    "hungarian" = "hu";
+    "icelandic" = "is";
+    "italian" = "it";
+    "georgian" = "ka";
+    "kazakh" = "kk";
+    "luxembourgish" = "lb";
+    "latvian" = "lv";
+    "malayalam" = "ml";
+    "nepali" = "ne";
+    "dutch" = "nl";
+    "norwegian" = "no";
+    "polish" = "pl";
+    "portuguese" = "pt";
+    "romanian" = "ro";
+    "russian" = "ru";
+    "slovak" = "sk";
+    "slovenian" = "sl";
+    "serbian" = "sr";
+    "swedish" = "sv";
+    "swahili" = "sw";
+    "turkish" = "tr";
+    "ukrainian" = "uk";
+    "vietnamese" = "vi";
+    "chinese" = "zh";
+  };
+
+  languageCode = languageToCode.${cfg.server.language} or "en";
 
   selectedVoice = languageToVoice.${cfg.server.language} or "en_US-amy-medium";
   yo-rs-with-models = cfg.package.override { language = cfg.server.language; model = cfg.server.whisper; };
@@ -145,8 +187,8 @@ in {
 
       language = mkOption {
         type = types.enum (lib.attrNames languageToVoice);
-        default = "en";
-        description = "Language code (e.g., `sv` or `en`)";
+        default = "english";
+        description = "Language to use for transcription and text-to-speech";
       };
 
       threads = mkOption {
@@ -367,7 +409,8 @@ in {
               ++ [ "--threads" (toString cfg.server.threads) ]
               ++ optionals (cfg.server.awakeSound != null) [ "--awake-sound" cfg.server.awakeSound ]
               ++ optionals (cfg.server.doneSound != null) [ "--done-sound" cfg.server.doneSound ]
-              ++ optionals (cfg.server.language != null) [ "--language" cfg.server.language ]
+              ++ optionals (cfg.server.failSound != null) [ "--fail-sound" cfg.server.failSound ]
+              ++ optionals (cfg.server.language != null) [ "--language" languageCode ]
               ++ optionals (cfg.server.execCommand != null) [ "--exec-command" cfg.server.execCommand ]
               ++ optionals cfg.server.shellTranslate [ "--translate-to-shell" ]
               ++ optionals (cfg.server.onnxPath != null) [ "--tts-model" cfg.server.onnxPath ]
@@ -409,8 +452,10 @@ in {
               [ "${yo-rs-with-models}/bin/yo-client" "--uri" cfg.client.uri ]
               ++ optionals (cfg.client.awakeSound != null) [ "--awake-sound" cfg.client.awakeSound ]
               ++ optionals (cfg.client.doneSound != null) [ "--done-sound" cfg.client.doneSound ]
+              ++ optionals (cfg.client.failSound != null) [ "--fail-sound" cfg.client.failSound ]
               ++ optionals (cfg.client.awakeCmd != null) [ "--awake-cmd" cfg.client.awakeCmd ]
               ++ optionals (cfg.client.doneCmd != null) [ "--done-cmd" cfg.client.doneCmd ]
+              ++ optionals (cfg.client.failCmd != null) [ "--fail-cmd" cfg.client.failCmd ]
               ++ [ "--silence-threshold" (toString cfg.client.silenceThreshold) ]
               ++ [ "--silence-timeout" (toString cfg.client.silenceTimeout) ]
               ++ [ "--max-duration" (toString cfg.client.maxDuration) ]
