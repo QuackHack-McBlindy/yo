@@ -304,6 +304,7 @@ fn save_audio_to_file(audio: &[f32], client_id: &str) -> std::io::Result<()> {
 const LISTEN_ADDR: &str = "0.0.0.0:12345";
 const DING_WAV: &[u8] = include_bytes!("./../ding.wav");
 const DONE_WAV: &[u8] = include_bytes!("./../done.wav");
+const FAIL_WAV: &[u8] = include_bytes!("./../fail.wav");
 
 const DEFAULT_WAKE_MODEL: &[u8] = include_bytes!("./../models/wake-words/yo_bitch.onnx");
 
@@ -347,6 +348,7 @@ fn handle_client(
     threads: i32,
     sound_data: Vec<u8>,
     done_sound_data: Vec<u8>,
+    fail_sound_data: Vec<u8>,
     exec_command: Option<String>,
     translate_to_shell: bool,
     room: String,
@@ -567,7 +569,9 @@ fn handle_client(
                 }
                 
                 // 🦆 says ⮞ Play done sound locally on success
-                if command_succeeded { play_done_sound(done_sound_data.clone(), client_id.clone(), debug); }                
+                if command_succeeded {
+                    play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
+                } else { play_fail_sound(fail_sound_data.clone(), client_id.clone(), debug); }             
                 // send to client
                 // 0x03 = WIN 🎉 0x04 = FAIL! 💩
                 let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
@@ -617,6 +621,7 @@ fn handle_ptt(
     room: String,
     sound_data: Vec<u8>,
     done_sound_data: Vec<u8>,
+    fail_sound_data: Vec<u8>,
     sender_ip: String,
 ) -> Result<()> {
     let mut audio_buffer: Vec<f32> = Vec::new();
@@ -781,7 +786,7 @@ fn handle_ptt(
 
                 if command_succeeded {
                     play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
-                }
+                } else { play_fail_sound(fail_sound_data.clone(), client_id.clone(), debug); }
 
                 // Notify client
                 let notification_byte = if command_succeeded { 0x03 } else { 0x04 };
@@ -820,6 +825,7 @@ fn handle_client_esp(
     threads: i32,
     sound_data: Vec<u8>,
     done_sound_data: Vec<u8>,
+    fail_sound_data: Vec<u8>,    
     exec_command: Option<String>,
     translate_to_shell: bool,
     room: String,
@@ -1114,7 +1120,7 @@ fn handle_client_esp(
                         // PLAY DONE SOUND
                         if command_succeeded {
                             play_done_sound(done_sound_data.clone(), client_id.clone(), debug);
-                        }
+                        } else { play_fail_sound(fail_sound_data.clone(), client_id.clone(), debug); }
                     }
 
                     // NOTIFY CLIENT (0x03 == SUCCESS, 0x04 == FAILURE)
@@ -1182,6 +1188,17 @@ fn play_done_sound(done_sound_data: Vec<u8>, client_id: String, debug: bool) {
     });
 }
 
+fn play_fail_sound(fail_sound_data: Vec<u8>, client_id: String, debug: bool) {
+    thread::spawn(move || {
+        let (_stream, handle) = OutputStream::try_default().unwrap();
+        let cursor = Cursor::new(fail_sound_data);
+        if let Ok(sink) = handle.play_once(cursor) {
+            sink.sleep_until_end();
+        }
+        if debug { dt_debug!("[{}] played fail sound", client_id); }
+    });
+}
+
 
 
 
@@ -1193,6 +1210,7 @@ fn print_usage(program_name: &str) {
          --awake-sound <PATH>     Path to WAV file to play on wake (default: ding)\n\
          --wake-word <PATH>       Path to wake word model (default: yo_bitch.onnx)\n\
          --done-sound <PATH>      Path to WAV file to play after successful command execution (default: done)\n\
+         --fail-sound <PATH>      Path to WAV file to play after failed command execution (default: fail)\n\
          --threshold <FLOAT>      Detection threshold (default: 0.5)\n\
          --model <PATH>           Path to Whisper model (default: ./ggml-tiny.bin)\n\
          --cooldown <SECONDS>     Cooldown between detections (default: auto)\n\
@@ -1226,6 +1244,7 @@ fn main() -> Result<()> {
     let mut host = LISTEN_ADDR.to_string();
     let mut sound_path: Option<String> = None;
     let mut done_sound_path: Option<String> = None;
+    let mut fail_sound_path: Option<String> = None;
     let mut wake_word_path = String::new();
     let mut custom_wake_word_provided = false;  
     let mut threshold = 0.5;
@@ -1272,6 +1291,15 @@ fn main() -> Result<()> {
                     i += 2;
                 } else {
                     dt_error!("Missing value for --done-sound");
+                    std::process::exit(1);
+                }
+            }
+            "--fail-sound" => {
+                if i + 1 < args.len() {
+                    fail_sound_path = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    dt_error!("Missing value for --fail-sound");
                     std::process::exit(1);
                 }
             }
@@ -1413,7 +1441,21 @@ fn main() -> Result<()> {
                 DONE_WAV.to_vec()
             }
         }
-    } else { DONE_WAV.to_vec() };    
+    } else { DONE_WAV.to_vec() };  
+    
+    let fail_sound_data = if let Some(ref path) = fail_sound_path {
+        match std::fs::read(path) {
+            Ok(data) => {
+                dt_info!("Loaded custom fail sound from {}", path);
+                data
+            }
+            Err(e) => {
+                dt_error!("Failed to read fail sound file '{}': {}. Using embedded sound.", path, e);
+                FAIL_WAV.to_vec()
+            }
+        }
+    } else { FAIL_WAV.to_vec() };
+    
     // awake sound
     let sound_data = if let Some(ref path) = sound_path {
         match std::fs::read(&path) {
@@ -1432,6 +1474,7 @@ fn main() -> Result<()> {
  
     // 🦆 says ⮞ Print current settings
     let done_sound_display = done_sound_path.as_deref().unwrap_or("done.wav (embedded)");
+    let fail_sound_display = fail_sound_path.as_deref().unwrap_or("fail.wav (embedded)");
     let awake_sound_display = sound_path.as_deref().unwrap_or("ding.wav (embedded)");
     let exec_display = exec_command.as_deref().unwrap_or("none");
     let wake_word_display = if custom_wake_word_provided {
@@ -1451,6 +1494,7 @@ fn main() -> Result<()> {
       Threads:        {}
       Awake sound:    {}
       Done sound:     {}   
+      Fail sound:     {}
       Exec command:   {}
       Translate to shell: {}"#,
         host,
@@ -1464,6 +1508,7 @@ fn main() -> Result<()> {
         threads,
         awake_sound_display,
         done_sound_display,
+        fail_sound_display,
         exec_display,
         translate_to_shell,
     );
@@ -1537,6 +1582,7 @@ fn main() -> Result<()> {
                     }
                     let sound_data = sound_data.clone();
                     let done_sound_data = done_sound_data.clone();
+                    let fail_sound_data = fail_sound_data.clone();
                     let exec_command = exec_command.clone();
                     let whisper_ctx = Arc::clone(&whisper_ctx);
                     let language = language.clone();
@@ -1564,6 +1610,7 @@ fn main() -> Result<()> {
                             room_for_handler,
                             sound_data,
                             done_sound_data,
+                            fail_sound_data,
                             sender_ip,
                         ) {
                             dt_error!("[{}] PTT handler error: {}", display_id, e);
@@ -1589,6 +1636,7 @@ fn main() -> Result<()> {
                 
                 let sound_data = sound_data.clone();
                 let done_sound_data = done_sound_data.clone();
+                let fail_sound_data = fail_sound_data.clone();
                 let exec_command = exec_command.clone();
                 let whisper_ctx = Arc::clone(&whisper_ctx);
                 let language = language.clone();
@@ -1627,6 +1675,7 @@ fn main() -> Result<()> {
                                 threads,
                                 sound_data,
                                 done_sound_data,
+                                fail_sound_data,
                                 exec_command,
                                 translate_to_shell,
                                 room_clone.clone(),
@@ -1646,6 +1695,7 @@ fn main() -> Result<()> {
                                 threads,
                                 sound_data,
                                 done_sound_data,
+                                fail_sound_data,
                                 exec_command,
                                 translate_to_shell,
                                 room_clone.clone(),
