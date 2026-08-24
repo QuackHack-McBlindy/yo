@@ -1,36 +1,12 @@
-# **Yo!**
 
 [![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
 
+# **It's Nix & deterministic, `yo`!**
 
-`yo` is:  
-- *50%* **Nix: compile-time grammar compiler**  
-- *50%* **Rust: run-time deterministic interpreter with some optional fuzz on top**    
-
-   
-It takes declarative sentence templates with optional parameters and entity lists, expands them into all possible variants generates optimized regular expressions. <br>
-Runtime takes input, runs it through exact and fuzzy matching against the pre‑compiled patterns, extracts any parameter, and executes the corresponding script  with those arguments – effectively translating plain‑language commands into system shell actions.
-
-
-`yo` is a **full-stack voice assistant** that's:  
-- **Very Fast** - Pre-compiled indexing, smartt priority ordering & Rust high performance makes it super fast.  
-- **Lightweight** - Legacy Bash CLI requires only `pkgs.jq` and `pkgs.coreutils`.  
-- **Testable** - Exact/fuzzy matching at compile-time detects conflicts.  
-- **Simple** - Bash or Rust - Everything neatly packaged and runs on a single port.  
-- **Safe** - Rule based, user defines the rules. Strong validation supported.    
-- **Offline** - No internet required after setup.
-- **Deployable** - Using the NixOS flake.  
-
-<br>
-
-`yo` is **NOT**:    
-- **❌ An LLM with shell access!**  
-
-<br>
-
-## **Runtime Example**  
-
-Thanks to fuzzy parameter resolution, not a single word needs to be correct for `yo` to find and execute the right script.  
+`yo` is:
+- **Nix: compile-time command-language compiler & verifier**  
+- **Rust: deterministic run-time interpreter, matcher & dispatcher**  
+- **Lightweight: Legacy CLI requires only `pkgs.bash` + `pkgs.jq` & `pkgs.coreutils`!**   
 
 ``` 
 🦆🏠  HOME via 🐍 via 🦀 v1.98.0 took 1m31s 
@@ -48,6 +24,41 @@ Thanks to fuzzy parameter resolution, not a single word needs to be correct for 
 ```
 
 <br>
+
+**Nix Build Time**
+▶ declarative command definitions  
+▶ grammar expansion  
+▶ parameter/entity expansion  
+▶ pattern & phrase generation  
+▶ command index generation  
+▶ conflict detection  
+▶ test generation  
+▶ compile-time verification  
+
+
+>  **Rust Run Time**  
+>  At runtime, `yo do` normalizes the input and concurrently evaluates exact and fuzzy matches against the pre-compiled command index.  
+>  Exact matching always takes precedence; the fuzzy matcher waits for the exact result before it is allowed to dispatch a command.  
+>  Once a match is selected, parameters are extracted and the corresponding `yo` script is dispatched with those arguments.  
+
+
+`yo` is a **full-stack voice assistant** that's:  
+- **Very Fast** - Pre-compiled indexes, priority-ordered exact matching, parallel fuzzy evaluation & Rust performance.  
+- **Simple** - Everything neatly packaged and runs on a single port.  
+- **Safe** - Rule based, user defines the rules. Strong validation included.     
+- **Configurable** - Optimize fuzzy threshold per script.   
+- **Offline** - No internet required after setup.  
+- **Ready** - Voice commands are exact/fuzzy tested for conflicts before service starts.  
+- **Deployable** - 100% reproducible using the NixOS flake.  
+
+
+<br>
+
+`yo` is **NOT**:    
+- **❌ An LLM with shell access!**  
+
+<br>
+
   
 ## **1. Installation**
 
@@ -525,6 +536,9 @@ The ratio could be a good way to measure potential combinatorial explosion as yo
 
 <br>
 
+> **Note:** for **legacy** that timer script becomes **6.66 MB**, while for Rust version only a kilobytes.    
+
+<br>
 
 **Text-To-Speech**  
 
