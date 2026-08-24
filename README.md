@@ -25,7 +25,7 @@
 
 <br>
 
-**Nix Build Time**
+**Nix Build Time**  
 ▶ declarative command definitions  
 ▶ grammar expansion  
 ▶ parameter/entity expansion  
