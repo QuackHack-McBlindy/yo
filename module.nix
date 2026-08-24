@@ -302,7 +302,7 @@ let
     (script.voice.fuzzy.enable or true)  # 🦆 Must explicitly allow fuzzy
   ) config.yo.scripts;
 
-  splitWordsFile = pkgs.writeText "split-words.json" (builtins.toJSON config.yo.SplitWords);
+  splitWordsFile = pkgs.writeText "split-words.json" (builtins.toJSON config.yo.splitWords);
   sorryPhrasesFile = pkgs.writeText "sorry-phrases.json" (builtins.toJSON config.yo.sorryPhrases);
   fuzzyIndexFile = pkgs.writeText "fuzzy-index.json" (builtins.toJSON fuzzyIndex);
   fuzzyIndexFlatFile = pkgs.writeText "fuzzy-rust-index.json" (builtins.toJSON fuzzyFlatIndex);  
@@ -1178,7 +1178,7 @@ in {
         logLevel = "INFO";
         parameters = [
           { name = "input"; description = "Text to translate"; optional = true; } 
-          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = 25; }
+          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = builtins.floor (config.yo.fuzzy.threshold * 100); }
           { name = "room"; type = "string"; description = "Optional client area (used for context)"; optional = true; }
         ];
       };
@@ -1190,7 +1190,7 @@ in {
         parameters = [
           { name = "input"; description = "Text to test as a single  sentence test"; optional = true; }
           { name = "stats"; type = "bool"; description = "Flag to display voice commands information like generated regex patterns, generated phrases and ratio"; optional = true; }    
-          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = 30; }
+          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = builtins.floor (config.yo.fuzzy.threshold * 100); }
           { name = "script"; type = "string"; description = "Extensive sentence testing of the specified script"; optional = true; }
           { name = "max-variants"; type = "int"; description = "Maximum number of variants tested peer sentence."; optional = true; default = 50; }
         ];

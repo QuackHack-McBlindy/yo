@@ -191,114 +191,229 @@
         "No sentence conflicts found.";
   };
 
+  # entity list ambiguity
+  listAmbiguities = lib.flatten (lib.mapAttrsToList (scriptName: intent:
+    lib.flatten (lib.mapAttrsToList (listName: listConfig:
+      let
+        values = listConfig.values or [];
+        grouped = lib.groupBy (v: v.${"in"}) values;
+        ambiguous = lib.filterAttrs (input: entries:
+          lib.length (lib.unique (map (e: e.out) entries)) > 1
+        ) grouped;
+      in
+        lib.mapAttrsToList (input: entries:
+          {
+            script = scriptName;
+            list = listName;
+            input = input;
+            outputs = lib.unique (map (e: e.out) entries);
+          }
+        ) ambiguous
+    ) (intent.lists or {}))
+  ) generatedIntents);
+
+  hasListAmbiguities = listAmbiguities != [];
+
+  listAmbiguityAssertion = {
+    assertion = !hasListAmbiguities;
+    message =
+      if hasListAmbiguities then
+        "Entity list ambiguities detected:\n" +
+        lib.concatStringsSep "\n" (map (amb:
+          "  Script '${amb.script}', list '${amb.list}': input '${amb.input}' maps to multiple outputs: " +
+          lib.concatStringsSep ", " amb.outputs
+        ) listAmbiguities)
+      else
+        "No entity list ambiguities.";
+  };
+
+
+  # fuzzy duplicate detection
+  tokenize = s:
+    let
+      chars = lib.stringToCharacters (lib.toLower s);
+      allowed = c: (c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c == " ";
+      cleanedChars = lib.filter allowed chars;
+      cleaned = lib.concatStrings cleanedChars;
+      words = lib.splitString " " cleaned;
+    in
+      lib.unique (lib.filter (w: w != "") words);
+
+  jaccardPercent = a: b:
+    let
+      inter = lib.length (lib.intersectLists a b);
+      union = lib.length (lib.unique (a ++ b));
+    in
+      if union == 0 then 100 else (inter * 100) / union;
+
+  
+  fuzzyDuplicates = let
+    n = builtins.length allExpandedSentences;
+    indices = lib.range 0 (n - 1);
+    pairs = lib.concatMap (i:
+      lib.concatMap (j:
+        if i < j then
+          let
+            itemI = builtins.elemAt allExpandedSentences i;
+            itemJ = builtins.elemAt allExpandedSentences j;
+            scriptI = itemI.scriptName;
+            scriptJ = itemJ.scriptName;
+            sentI = itemI.sentence;
+            sentJ = itemJ.sentence;
+            toksI = tokenize sentI;
+            toksJ = tokenize sentJ;
+            simPercent = jaccardPercent toksI toksJ;
+          in
+            if scriptI != scriptJ && simPercent > cfg.fuzzy.conflict.threshold &&
+               !(sentI == sentJ) &&
+               !(itemI.hasWildcardAtEnd && lib.hasPrefix (sentI + " ") sentJ) &&
+               !(itemJ.hasWildcardAtEnd && lib.hasPrefix (sentJ + " ") sentI)
+            then
+              [{
+                script1 = scriptI;
+                sentence1 = sentI;
+                script2 = scriptJ;
+                sentence2 = sentJ;
+                similarity = simPercent;
+              }]
+            else
+              []
+        else
+          []
+      ) indices
+    ) indices;
+  in pairs;
+
+
+  hasfuzzyDuplicates = fuzzyDuplicates != [];
+
+  fuzzyDuplicateAssertion = {
+    assertion = !hasfuzzyDuplicates;
+    message =
+      if hasfuzzyDuplicates then
+        "🦆 duck say ⮞ fuck ❌ Fuzzy index may contain near-duplicate sentences (token similarity > ${toString cfg.fuzzy.conflict.threshold}%):\n" +
+        lib.concatStringsSep "\n" (map (conf:
+          "  '${conf.sentence1}' (${conf.script1}) vs '${conf.sentence2}' (${conf.script2}) [${toString conf.similarity}%]"
+        ) fuzzyDuplicates)
+      else
+        "No fuzzy duplicates detected.";
+  };
+
 in {
-  config.assertions = let
-    # Errors for runAt (scheduled times)
-    runAtErrors = lib.mapAttrsToList (name: script:
-      if script.runAt != null then
-        let
-          missingParams = lib.filter (p: !p.optional && p.default == null) script.parameters;
-        in
-          if missingParams != [] then
-            "🦆 duck say ⮞ fuck ❌ Cannot schedule '${name}' at ${lib.concatStringsSep ", " script.runAt} - missing defaults for: " +
-            lib.concatMapStringsSep ", " (p: p.name) missingParams
-          else null
-      else null
-    ) scripts;
-    actualRunAtErrors = lib.filter (e: e != null) runAtErrors;
 
-    # build alias > script names map
-    aliasMap = lib.foldl' (acc: script:
-      lib.foldl' (acc': alias:
-        acc' // { ${alias} = (acc'.${alias} or []) ++ [script.name]; }
-      ) acc script.aliases
-    ) {} (lib.attrValues scripts);
+  config = {
+    assertions = let
+      # Errors for runAt (scheduled times)
+      runAtErrors = lib.mapAttrsToList (name: script:
+        if script.runAt != null then
+          let
+            missingParams = lib.filter (p: !p.optional && p.default == null) script.parameters;
+          in
+            if missingParams != [] then
+              "🦆 duck say ⮞ fuck ❌ Cannot schedule '${name}' at ${lib.concatStringsSep ", " script.runAt} - missing defaults for: " +
+              lib.concatMapStringsSep ", " (p: p.name) missingParams
+            else null
+        else null
+      ) scripts;
+      actualRunAtErrors = lib.filter (e: e != null) runAtErrors;
 
-    # conflicts: alias equals a script name
-    scriptNameConflicts = lib.filterAttrs (alias: _: lib.elem alias scriptNames) aliasMap;
+      # build alias > script names map
+      aliasMap = lib.foldl' (acc: script:
+        lib.foldl' (acc': alias:
+          acc' // { ${alias} = (acc'.${alias} or []) ++ [script.name]; }
+        ) acc script.aliases
+      ) {} (lib.attrValues scripts);
 
-    # duplicate aliases (same alias used by multiple scripts)
-    duplicateAliases = lib.filterAttrs (_: scrs: lib.length scrs > 1) aliasMap;
+      # conflicts: alias equals a script name
+      scriptNameConflicts = lib.filterAttrs (alias: _: lib.elem alias scriptNames) aliasMap;
 
-    # auto‑start scripts missing defaults for required parameters
-    autoStartErrors = lib.mapAttrsToList (name: script:
-      if script.autoStart then
-        let
-          missingParams = lib.filter (p: !p.optional && p.default == null) script.parameters;
-        in
-          if missingParams != [] then
-            "🦆 duck say ⮞ fuck ❌ Cannot auto-start '${name}' - missing defaults for: " +
-            lib.concatMapStringsSep ", " (p: p.name) missingParams
-          else null
-      else null
-    ) scripts;
-    actualAutoStartErrors = lib.filter (e: e != null) autoStartErrors;
+      # duplicate aliases (same alias used by multiple scripts)
+      duplicateAliases = lib.filterAttrs (_: scrs: lib.length scrs > 1) aliasMap;
 
-    # Parameters that have a `values` list but are not of type `string`
-    valueTypeErrors = lib.concatMap (script:
-      lib.concatMap (param:
-        if param.values != null && param.type != "string" then
-          [ "🦆 duck say ⮞ fuck ❌ Parameter '${param.name}' in script '${script.name}' has 'value' defined but type is '${param.type}' (only 'string' type allowed)" ]
-        else []
-      ) script.parameters
-    ) (lib.attrValues scripts);
+      # auto‑start scripts missing defaults for required parameters
+      autoStartErrors = lib.mapAttrsToList (name: script:
+        if script.autoStart then
+          let
+            missingParams = lib.filter (p: !p.optional && p.default == null) script.parameters;
+          in
+            if missingParams != [] then
+              "🦆 duck say ⮞ fuck ❌ Cannot auto-start '${name}' - missing defaults for: " +
+              lib.concatMapStringsSep ", " (p: p.name) missingParams
+            else null
+        else null
+      ) scripts;
+      actualAutoStartErrors = lib.filter (e: e != null) autoStartErrors;
 
-  in [
-    # Alias conflicts with script names
-    {
-      assertion = scriptNameConflicts == {};
-      message = "🦆 duck say ⮞ fuck ❌ Alias/script name conflicts:\n" +
-        lib.concatStringsSep "\n" (lib.mapAttrsToList formatConflict scriptNameConflicts);
-    }
-
-    # Duplicate aliases
-    {
-      assertion = duplicateAliases == {};
-      message = "🦆 duck say ⮞ fuck ❌ Duplicate aliases:\n" +
-        lib.concatStringsSep "\n" (lib.mapAttrsToList formatDuplicate duplicateAliases);
-    }
-
-    # Code/binary exclusivity (first check)
-    {
-      assertion = failingScripts == [];
-      message = "The following scripts do not have exactly one of `code` or `binary` defined (non‑empty): " +
-        lib.concatStringsSep ", " (lib.map (s: s.name) failingScripts);
-    }
-
-    # Auto‑start scripts with missing defaults
-    {
-      assertion = actualAutoStartErrors == [];
-      message = "Auto-start errors:\n" + lib.concatStringsSep "\n" actualAutoStartErrors;
-    }
-
-    # scheduled scripts (runAt) with missing defaults
-    {
-      assertion = actualRunAtErrors == [];
-      message = "runAt scheduling errors:\n" + lib.concatStringsSep "\n" actualRunAtErrors;
-    }
-
-    # cannot have both runEvery and runAt
-    {
-      assertion = lib.all (script: !(script.runEvery != null && script.runAt != null)) (lib.attrValues scripts);
-      message = "🦆 duck say ⮞ fuck ❌ Script cannot have both runEvery and runAt set";
-    }
-
-    # `values` only allowed for string parameters
-    {
-      assertion = valueTypeErrors == [];
-      message = "Value type errors:\n" + lib.concatStringsSep "\n" valueTypeErrors;
-    }
-
-    # Code/binary exclusivity
-    {
-      assertion = lib.all (script:
-        (script.code != null && script.code != "" && script.binary == null) ||
-        (script.binary != null && (script.code == null || script.code == ""))
+      # Parameters that have a `values` list but are not of type `string`
+      valueTypeErrors = lib.concatMap (script:
+        lib.concatMap (param:
+          if param.values != null && param.type != "string" then
+            [ "🦆 duck say ⮞ fuck ❌ Parameter '${param.name}' in script '${script.name}' has 'value' defined but type is '${param.type}' (only 'string' type allowed)" ]
+          else []
+        ) script.parameters
       ) (lib.attrValues scripts);
-      message = "Each script must have exactly one of `code` or `binary` defined (non‑empty).";
-    }
 
-    # Voice sentence conflict assertion
-    voiceConflictAssertion
+    in [
+      # Alias conflicts with script names
+      {
+        assertion = scriptNameConflicts == {};
+        message = "🦆 duck say ⮞ fuck ❌ Alias/script name conflicts:\n" +
+          lib.concatStringsSep "\n" (lib.mapAttrsToList formatConflict scriptNameConflicts);
+      }
 
-  ];}
+      # Duplicate aliases
+      {
+        assertion = duplicateAliases == {};
+        message = "🦆 duck say ⮞ fuck ❌ Duplicate aliases:\n" +
+          lib.concatStringsSep "\n" (lib.mapAttrsToList formatDuplicate duplicateAliases);
+      }
+
+      # Code/binary exclusivity (first check)
+      {
+        assertion = failingScripts == [];
+        message = "The following scripts do not have exactly one of `code` or `binary` defined (non‑empty): " +
+          lib.concatStringsSep ", " (lib.map (s: s.name) failingScripts);
+      }
+
+      # Auto‑start scripts with missing defaults
+      {
+        assertion = actualAutoStartErrors == [];
+        message = "Auto-start errors:\n" + lib.concatStringsSep "\n" actualAutoStartErrors;
+      }
+
+      # scheduled scripts (runAt) with missing defaults
+      {
+        assertion = actualRunAtErrors == [];
+        message = "runAt scheduling errors:\n" + lib.concatStringsSep "\n" actualRunAtErrors;
+      }
+
+      # cannot have both runEvery and runAt
+      {
+        assertion = lib.all (script: !(script.runEvery != null && script.runAt != null)) (lib.attrValues scripts);
+        message = "🦆 duck say ⮞ fuck ❌ Script cannot have both runEvery and runAt set";
+      }
+
+      # `values` only allowed for string parameters
+      {
+        assertion = valueTypeErrors == [];
+        message = "Value type errors:\n" + lib.concatStringsSep "\n" valueTypeErrors;
+      }
+
+      # Code/binary exclusivity
+      {
+        assertion = lib.all (script:
+          (script.code != null && script.code != "" && script.binary == null) ||
+          (script.binary != null && (script.code == null || script.code == ""))
+        ) (lib.attrValues scripts);
+        message = "Each script must have exactly one of `code` or `binary` defined (non‑empty).";
+      }
+
+      # Voice sentence conflict assertion (always enabled)
+      voiceConflictAssertion
+    ] ++ lib.optionals cfg.fuzzy.conflict.detection [
+      # Fuzzy checks (opt‑in)
+      listAmbiguityAssertion
+      fuzzyDuplicateAssertion
+    ];
+
+  };}

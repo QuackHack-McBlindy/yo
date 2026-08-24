@@ -39,6 +39,26 @@ let
         url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large.bin";
         sha256 = lib.fakeSha256;
       }
+    else if model == "large-v1" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v1.bin";
+        sha256 = "sha256-fZn0GhBSXQIGvdrdhnYBgfqSBDi2szI34xGP9sg7tT0=";
+      }
+    else if model == "large-v2" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v2.bin";
+        sha256 = "sha256-mkI/5NQMgndLavNBFbi5NfNBUiRusZ6A43YHHT+ZlIc=";
+      }
+    else if model == "large-v3" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin";
+        sha256 = "sha256-ZNGCtEC5jVIDxPm9VBVE2ExgUZbE97hF36EfsjWU0eI=";
+      }
+    else if model == "large-v3-turbo" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin";
+        sha256 = "sha256-H8cPd0046xaZk6w5Huo1fvR8iHV+9y7llDh5t+jivGk=";
+      }      
     else
       pkgs.fetchurl {
         url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin";

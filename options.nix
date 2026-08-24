@@ -3,7 +3,7 @@
   lib,
   ...
 } : let
-
+  cfg = config.yo;
   utils = import ./lib { inherit lib; };
   inherit (utils) countGeneratedPatterns countUnderstoodPhrases;
 
@@ -79,10 +79,11 @@
         readOnly = true;
       };
       voiceRatio = lib.mkOption {
-        type = lib.types.int;
-        internal = true;
-        readOnly = true;
-      };      
+       type = lib.types.float;
+       internal = true;
+       readOnly = true;
+        default = 0.0;
+      };    
       parameters = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {
@@ -125,8 +126,14 @@
             fuzzy = lib.mkOption {
               type = lib.types.submodule {
                 options = {
-                  enable = lib.mkOption { type = lib.types.bool; default = true; };
-                  threshold = lib.mkOption { type = lib.types.float; default = 0.8; };
+                  enable = lib.mkOption {
+                    type = lib.types.bool;
+                    default = cfg.fuzzy.enable;          # ← direct value
+                  };
+                  threshold = lib.mkOption {
+                    type = lib.types.float;
+                    default = cfg.fuzzy.threshold;       # ← direct value
+                  };
                 };
               };
               default = {};
@@ -189,8 +196,8 @@
       );
       voicePatterns = lib.mkDefault (countGeneratedPatterns config);
       voicePhrases  = lib.mkDefault (countUnderstoodPhrases config);
-      voiceRatio    = if config.yo.generatedPatterns == 0 then 0.0
-                        else (builtins.toFloat config.yo.understandsPhrases) / (builtins.toFloat config.yo.generatedPatterns);
+      voiceRatio = if config.voicePatterns == 0 then 0.0
+                     else (builtins.toFloat config.voicePhrases) / (builtins.toFloat config.voicePatterns);
     };
   });
 
@@ -256,7 +263,7 @@ in {
       ];
       description = "List of phrases for TTS when no match is found";
     };
-    SplitWords = lib.mkOption {
+    splitWords = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ "also" ];
       description = "Words used for command chaining, i.e. multiple executions";
@@ -265,6 +272,29 @@ in {
       type = lib.types.bool;
       default = false;
       description = "Use the legacy version of the shell translator in Bash instead of Rust";
+    };
+
+    fuzzy = lib.mkOption {
+      type = lib.types.submodule {
+        options = {
+          enable = lib.mkOption { type = lib.types.bool; default = true; };
+          threshold = lib.mkOption { type = lib.types.float; default = 0.8; };
+          conflict = lib.mkOption {
+            type = lib.types.submodule {
+              options = {
+                detection = lib.mkEnableOption "deep build-time conflict detection ...";
+                threshold = lib.mkOption {
+                  type = lib.types.int;
+                  default = 80;
+                  description = "Token Jaccard similarity percentage ...";
+                };
+              };
+            };
+            default = {};
+          };
+        };
+      };
+      default = {};
     };
     scripts = lib.mkOption {
       type = lib.types.attrsOf scriptType;
