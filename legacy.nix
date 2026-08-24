@@ -1,7 +1,8 @@
 { 
-  config,
   lib,
   pkgs,
+  matcherDir,
+  matcherSourceScript,
   ...
 } : let 
   commonHelpers = ''
@@ -91,6 +92,12 @@
     }
   '';
 in {
+
+  environment.etc = {
+    "yo/matchers" = { source = matcherDir; };
+    "yo/matcher-loader.sh".source = matcherSourceScript;
+  };
+
 
   yo.scripts = {
     do = {
@@ -695,20 +702,5 @@ in {
         exit 1
       '';
     };
-
-    say = {
-      description = "Text to speech with built in language detection and automatic model downloading";
-      category = "🗣️ Voice";
-      logLevel = "WARNING";
-      parameters = [
-        { name = "text"; description = "Input text that should be spoken"; optional = false; }      
-        { name = "model"; description = "File name of the model"; default = config.services.yo-rs.server.textToSpeechModelPath; }
-        { name = "blocking"; type = "bool"; description = "Wait for TTS playback to finish"; default = false; }
-        { name = "path"; description = "Specify a file path where wav will be saved to disk"; optional = true; }
-      ];
-      code = ''
-      
-      '';
-    };
-        
+ 
   };}

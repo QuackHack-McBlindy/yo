@@ -978,17 +978,6 @@ in {
       yo.understandsPhrases = countTotalUnderstoodPhrases cfg.scripts;
   
   
-      # Environment variables pointing to generated files
-      environment.variables = {
-      #  YO_SPLIT_WORDS = splitWordsFile;
-      #  YO_SORRY_PHRASES = sorryPhrasesFile;
-      #  YO_INTENT_DATA = intentDataFile;
-      #  YO_FUZZY_ENTITY_DICT = fuzzyEntityDictFile;
-      #  "YO_FUZZY_INDEX" = fuzzyIndexFlatFile;
-        MATCHER_DIR = matcherDir;
-        MATCHER_SOURCE = matcherSourceScript;
-      };
-
       # Generate configuration files in /etc/yo  
       environment.etc = {
         "yo/split-words.json".source = splitWordsFile;
@@ -996,8 +985,6 @@ in {
         "yo/intent-data.json".source = intentDataFile;
         "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
         "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
-        "yo/matchers" = { source = matcherDir; };
-        "yo/matcher-loader.sh".source = matcherSourceScript;
       };
   
       environment.systemPackages = [
@@ -1222,5 +1209,7 @@ in {
               fuzzyIndexFile matcherDir matcherSourceScript
               yoScriptsPackage;
     }))    
+
+
   
   ];}
