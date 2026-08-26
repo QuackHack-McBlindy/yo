@@ -543,6 +543,10 @@ The ratio could be a good way to measure potential combinatorial explosion as yo
 
 <br>
 
+To see a total of generated patterns/phrases and a averge processing time run: `yo do --help`.  
+
+<br>
+
 **Text-To-Speech**  
 
 If you would run for example:  

@@ -46,25 +46,27 @@ let
     }];
   }) scriptsWithVoice;
 
-  fuzzyFlatIndex = lib.flatten (lib.mapAttrsToList (scriptName: intent:
-    lib.concatMap (data:
-      lib.concatMap (sentence:
-        map (expanded: {
-          script = scriptName;
-          sentence = expanded;
-          signature = let
-            words = lib.splitString " " (lib.toLower expanded);
-            sorted = lib.sort (a: b: a < b) words;
-          in builtins.concatStringsSep "|" sorted;
-        }) (expandOptionalWords sentence)
-      ) data.sentences
-    ) intent.data
-  ) (lib.mapAttrs (name: script: {
-    priority = script.voice.priority or 3;
-    data = [{
-      inherit (script.voice) sentences lists;
-    }];
-  }) scriptsWithFuzzy));
+  fuzzyFlatIndex = lib.flatten (lib.mapAttrsToList (scriptName: script:
+    let
+      voice = script.voice;
+      dataList = [{ inherit (voice) sentences lists; }];
+      fuzzyThreshold = voice.fuzzy.threshold or config.yo.fuzzy.threshold;
+    in
+      lib.concatMap (data:
+        lib.concatMap (sentence:
+          map (expanded: {
+            script = scriptName;
+            sentence = expanded;
+            signature = let
+              words = lib.splitString " " (lib.toLower expanded);
+              sorted = lib.sort (a: b: a < b) words;
+            in builtins.concatStringsSep "|" sorted;
+            fuzzy_threshold = fuzzyThreshold;
+            fuzzy_enabled = true;   # scriptsWithFuzzy already filters enabled scripts
+          }) (expandOptionalWords sentence)
+        ) data.sentences
+      ) dataList
+  ) scriptsWithFuzzy);
 
   # 🦆 says ⮞ where da magic dynamic regex iz at 
   makePatternMatcher = scriptName: let
@@ -962,6 +964,11 @@ EOF
   };
 
   yo-rs-with-models = config.services.yo-rs.package.override { language = config.services.yo-rs.server.language; model = config.services.yo-rs.server.whisper; };
+  
+  totalPatterns = config.yo.generatedPatterns;
+  totalPhrases = config.yo.understandsPhrases;
+  ratio = if totalPatterns == 0 then "N/A"
+          else toString (builtins.div totalPhrases totalPatterns);
 in {
   imports = [
     ./options.nix
@@ -1163,6 +1170,16 @@ in {
         binary = "${yo-rs-with-models}/bin/yo-do";
         category = "🗣️ Voice";
         logLevel = "INFO";
+        helpFooter = ''
+          printf '%s\n' \
+            '**Total generated patterns:** ${toString totalPatterns}' \
+            '**Total generated phrases:** ${toString totalPhrases}' \
+            '**Ratio (phrases / patterns):** ${ratio}'
+          if [ -f "$HOME/.config/yo/exec.txt" ]; then
+            first_line=$(head -n 1 "$HOME/.config/yo/exec.txt")
+            printf '%s\n' "$first_line"
+          fi
+        '';
         parameters = [
           { name = "input"; description = "Text to translate"; optional = true; } 
           { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = builtins.floor (config.yo.fuzzy.threshold * 100); }
