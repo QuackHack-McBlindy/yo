@@ -347,14 +347,18 @@ fn main() -> io::Result<()> {
             dt_error!("Failed to start ESP stream to {}: {}", esp_ip, e);
         } else { dt_info!("Successfully initiated ESP stream to {}", esp_ip); }
     }
-
+    
     let client_ips = get_client_ips();
     for client_ip in client_ips {
-        if let Err(e) = stream_to_client(&args.model, &args.text, &client_ip) {
-            dt_error!("Failed to stream TTS to client {}: {}", client_ip, e);
-        } else { dt_info!("successfully streamed TTS to client {}", client_ip); }
+        let model = args.model.clone();
+        let text = args.text.clone();
+        std::thread::spawn(move || {
+            if let Err(e) = stream_to_client(&model, &text, &client_ip) {
+                dt_error!("Failed to stream TTS to client {}: {}", client_ip, e);
+            } else { dt_info!("successfully streamed TTS to client {}", client_ip); }
+        });
     }
-
+    
     if try_broadcast(&args.text) {
         return Ok(());
     }
@@ -372,9 +376,9 @@ fn main() -> io::Result<()> {
         }
     };
 
-    run_piper_to_file(&args.model, &args.text, &path, args.length_scale)?;
-
+    
     if args.blocking {
+        run_piper_to_file(&args.model, &args.text, &path, args.length_scale)?;
         play_file(&path, true)?;
         convert_and_replace(&path)?;
         if is_temp {
@@ -382,30 +386,34 @@ fn main() -> io::Result<()> {
             dt_info!("Removed temporary file: {}", path);
         }
     } else {
-        let mut cmd = if is_temp {
-            Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}' && rm '{0}'",
-                    path
-                ))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()?
+        let escaped_text = args.text.replace('\'', "'\\''");
+        let piper_cmd = format!(
+            "piper --length-scale {} -m '{}' -f '{}' '{}'",
+            args.length_scale, args.model, path, escaped_text
+        );
+        let play_convert_cmd = if is_temp {
+            format!(
+                "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}' && rm '{0}'",
+                path
+            )
         } else {
-            Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}'",
-                    path
-                ))
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()?
+            format!(
+                "aplay '{0}' && ffmpeg -y -i '{0}' -ar 16000 -ac 2 -sample_fmt s16 '{0}.tmp' && mv '{0}.tmp' '{0}'",
+                path
+            )
         };
-        dt_debug!("Playing and converting in background (file: {})", path);
+        let full_cmd = format!("{} && {}", piper_cmd, play_convert_cmd);
+    
+        Command::new("sh")
+            .arg("-c")
+            .arg(full_cmd)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()?;
+    
+        dt_debug!("Piper + playback + conversion running in background (file: {})", path);
     }
-
+    
     Ok(())
 }
 

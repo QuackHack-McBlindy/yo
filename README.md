@@ -48,6 +48,7 @@
 - **Safe** - Rule based, user defines the rules. Strong validation included.     
 - **Configurable** - Optimize fuzzy threshold per script.   
 - **Offline** - No internet required after setup.  
+- **Embeddable** - ESP32 based clients in Rust using the [yo-esp](https://github.com/QuackHack-McBlindy/yo-esp) library.  
 - **Ready** - Voice commands are exact/fuzzy tested for conflicts before service starts.  
 - **Deployable** - 100% reproducible using the NixOS flake.  
 
@@ -380,7 +381,7 @@ You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McB
 ```nix
   yo.scripts.timer = {
     voice = {
-      priority = 1;           # (1-5) 5 is priorities last
+      priority = 5;           # (1-5) 5 is priorities last
       fuzzy.enabled = true;   # script specific
       fuzzy.threshold = 0.8;  # script specific 
       sentences = [
@@ -537,6 +538,8 @@ The ratio could be a good way to measure potential combinatorial explosion as yo
 <br>
 
 > **Note:** for **legacy** that timer script becomes **6.66 MB**, while for Rust version only a kilobytes.    
+
+> **Hint:** Tte timer script is a perfect example of when priority `5` should be defined.  
 
 <br>
 
