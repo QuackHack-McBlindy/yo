@@ -2,7 +2,7 @@
 # PACKAFGE INFO
 [package]
 name    = "yo-rs"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 # ───────────────────────────────────────────────────────────────────────
 description = """
@@ -48,6 +48,7 @@ hound            = "3.5"
 chrono = { version = "0.4", features = ["serde", "clock"] }
 regex  = "1.0"
 rand   = "0.8"
+rayon = "1.10"
 
 # ───────────────────────────────────────────────────────────────────────
 # EXECUTABLES

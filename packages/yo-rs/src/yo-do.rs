@@ -173,7 +173,14 @@ struct FuzzyIndexEntry {
     script: String,
     sentence: String,
     signature: String,
+    #[serde(default = "default_fuzzy_threshold")]
+    fuzzy_threshold: f32,
+    #[serde(default = "default_fuzzy_enabled")]
+    fuzzy_enabled: bool,
 }
+
+fn default_fuzzy_threshold() -> f32 { 0.8 }
+fn default_fuzzy_enabled() -> bool { true }
 
 // 🦆 says ⮞ script priority for da optimized processing yo
 #[derive(Debug, Clone)]
@@ -990,47 +997,34 @@ impl YoDo {
     }
 
     fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, String, i32)> {
+        use rayon::prelude::*;
+    
         let normalized_input = text.to_lowercase();
-        let mut best_score = 0;
-        let mut best_match = None;
         dt_debug(&format!("Fuzzy matching against {} entries", self.fuzzy_index.len()));
-
-        for entry in &self.fuzzy_index {
-            let normalized_sentence = entry.sentence.to_lowercase();            
-            let distance = self.levenshtein_distance(&normalized_input, &normalized_sentence);
-            let max_len = normalized_input.len().max(normalized_sentence.len());
     
-            if max_len == 0 { continue; }      
-            let score = 100 - (distance * 100 / max_len) as i32;
-    
-            dt_debug(&format!("  '{}' vs '{}' -> {}%", normalized_input, normalized_sentence, score));
-    
-            if score >= self.fuzzy_threshold {
-                if score > best_score {
-                    best_score = score;
-                    best_match = Some((entry.script.clone(), entry.sentence.clone(), score));
-                    dt_debug(&format!("  🦆 NEW BEST: {}%", score));
+        self.fuzzy_index
+            .par_iter()
+            .filter(|entry| entry.fuzzy_enabled)
+            .filter_map(|entry| {
+                let normalized_sentence = entry.sentence.to_lowercase();
+                let distance = self.levenshtein_distance(&normalized_input, &normalized_sentence);
+                let max_len = normalized_input.len().max(normalized_sentence.len());
+                if max_len == 0 {
+                    return None;
                 }
-            }
-        }
-        best_match
+                let score = 100 - (distance * 100 / max_len) as i32;
+                let threshold = (entry.fuzzy_threshold * 100.0) as i32;
+                if score >= threshold {
+                    Some((entry.script.clone(), entry.sentence.clone(), score))
+                } else { None }
+            })
+            .max_by_key(|&(_, _, score)| score)
     }
-
-    // 🦆 says ⮞ fuzzy permission check
-    fn is_fuzzy_allowed(&self, script_name: &str) -> bool {
-        self.fuzzy_index.iter().any(|entry| entry.script == script_name)
-    }    
-
-    
+        
     fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
     
-        if let Some((script_name, sentence, score)) = self.find_best_fuzzy_match(text) {
-            if !self.is_fuzzy_allowed(&script_name) {
-                dt_debug(&format!("Fuzzy matching disabled for script: {}", script_name));
-                return None;
-            }
-    
+        if let Some((script_name, sentence, score)) = self.find_best_fuzzy_match(text) {  
             dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
     
             let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
@@ -1240,12 +1234,14 @@ impl YoDo {
     }
     
     // 🦆 says ⮞ process command
+    
     fn process_single_input(&self, input: &str, total_start: Instant) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
-        let normalized = Self::normalize_input(input);         
-               
-        // 🦆 says ⮞ collect fuzzy candidates for logging
+        let normalized = Self::normalize_input(input);
+    
+        
         let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
+            .filter(|entry| entry.fuzzy_enabled)
             .filter_map(|entry| {
                 let normalized_input = input.to_lowercase();
                 let normalized_sentence = entry.sentence.to_lowercase();
@@ -1253,32 +1249,41 @@ impl YoDo {
                 let max_len = normalized_input.len().max(normalized_sentence.len());
                 if max_len == 0 { return None; }
                 let score = 100 - (distance * 100 / max_len) as i32;
-                if score >= 10 {
+                let threshold = (entry.fuzzy_threshold * 100.0) as i32;
+                if score >= threshold {
                     Some((entry.script.clone(), entry.sentence.clone(), score))
                 } else {
                     None
                 }
             })
             .collect();
-               
-        // 🦆 says ⮞ exact matchin'
+        
+
+    
+        let yo_do_clone = self.clone();
+        let normalized_clone = normalized.clone();
+        let (fuzzy_tx, fuzzy_rx) = std::sync::mpsc::channel();
+        let fuzzy_handle = std::thread::spawn(move || {
+            let result = yo_do_clone.fuzzy_match(&normalized_clone);
+            let _ = fuzzy_tx.send(result);
+        });
+    
         if let Some(match_result) = self.exact_match(&normalized) {
             let part_elapsed = part_start.elapsed();
             let _ = self.log_intent_time(part_elapsed.as_millis());
             dt_debug(&format!("Exact match found: {}", match_result.script_name));
-            let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);    
+            let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
             let final_result = MatchResult {
                 script_name: match_result.script_name,
                 args: match_result.args,
                 matched_sentence: match_result.matched_sentence,
                 processing_time: part_elapsed,
-            };    
+            };
             self.execute_script(&final_result)?;
             return Ok(());
         }
     
-        // 🦆 says ⮞ fallback yo go fuzzy matchin' i choose u!
-        if let Some(match_result) = self.fuzzy_match(&normalized) {
+        if let Ok(Some(match_result)) = fuzzy_rx.recv() {
             let part_elapsed = part_start.elapsed();
             let _ = self.log_intent_time(part_elapsed.as_millis());
             dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
@@ -1287,13 +1292,12 @@ impl YoDo {
                 args: match_result.args,
                 matched_sentence: match_result.matched_sentence,
                 processing_time: part_elapsed,
-            };    
-            let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time); 
+            };
+            let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time);
             self.execute_script(&final_result)?;
             return Ok(());
         }
-        
-        // 🦆 says ⮞ NO MATCH
+    
         let part_elapsed = part_start.elapsed();
         println!("   ┌─(yo-do)");
         println!("   │🦆 qwack! {}", input);
@@ -1310,16 +1314,13 @@ impl YoDo {
             }
         }
         println!("   └─⏰ do took {:?}", part_elapsed);
-        
-        // 🦆 says ⮞ speak no match
+    
         self.say_no_match();
-        
-        // 🦆 says ⮞ log failed command with analysis data
+    
         dt_debug("No match found for part, logging statistics...");
         let _ = self.log_failed_command(input, &fuzzy_candidates);
         Err("No match found for this part".into())
     }
-    
 }
 
 fn load_split_words() -> Vec<String> {
