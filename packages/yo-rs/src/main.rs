@@ -27,7 +27,7 @@ use oww_rs::{
     oww::{OwwModel, OWW_MODEL_CHUNK_SIZE},
 };
 
-use whisper_rs::{WhisperContext, FullParams, SamplingStrategy};
+use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 use serde::{Serialize, Deserialize};
 
 lazy_static::lazy_static! {
@@ -206,6 +206,81 @@ fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f3
     Ok(cleaned)
 }
 
+
+// ───────────────────────────────────────────────────────────────────────
+// BENCHMARK
+fn log_transcription_time(
+    client_id: &str,
+    start: Instant,
+    audio_samples: usize,
+    sample_rate: u32,
+    model: &str,
+    beam_size: i32,
+    threads: i32,
+) {
+    let elapsed = start.elapsed();
+    let audio_secs = audio_samples as f64 / sample_rate as f64;
+    dt_info!(
+        "[{}] Transcription finished: audio={:.2}s, proc={:.3}s (model={}, beam={}, threads={})",
+        client_id,
+        audio_secs,
+        elapsed.as_secs_f64(),
+        model,
+        beam_size,
+        threads
+    );
+}
+
+fn log_transcription_benchmark(time_secs: f64, model: &str) {
+    let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    let dir = PathBuf::from(&home).join(".config/yo");
+    let file_path = dir.join("whisper-bench.txt");
+
+    if let Err(e) = fs::create_dir_all(&dir) {
+        dt_error!("Failed to create config dir for benchmark: {}", e);
+        return;
+    }
+
+    let mut entries: Vec<(f64, String)> = Vec::new();
+    if let Ok(content) = fs::read_to_string(&file_path) {
+        for line in content.lines().skip(1) {
+            let trimmed = line.trim();
+            if let Some(parts) = trimmed.split_once(" s (") {
+                if let Ok(secs) = parts.0.trim().parse::<f64>() {
+                    let model_part = parts.1.trim_end_matches(')').to_string();
+                    entries.push((secs, model_part));
+                }
+            }
+        }
+    }
+    let model_name = std::path::Path::new(model)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(model)
+        .to_string();
+    entries.push((time_secs, model_name));
+    
+    let latest_model = entries
+        .last()
+        .map(|(_, m)| m.clone())
+        .unwrap_or_else(|| model.to_string());
+
+    let (sum, count) = entries
+        .iter()
+        .filter(|(_, m)| *m == latest_model)
+        .fold((0.0_f64, 0_u64), |(acc, cnt), (t, _)| (acc + t, cnt + 1));
+    let average = if count > 0 { sum / count as f64 } else { 0.0 };
+
+    let header = format!("{:.2} s average using model: {} ({} entries)", average, latest_model, count);
+    let mut output = header + "\n";
+    for (secs, model_entry) in &entries {
+        output.push_str(&format!("{:.3} s ({})\n", secs, model_entry));
+    }
+    if let Err(e) = fs::write(&file_path, output) {
+        dt_error!("Failed to write benchmark file: {}", e);
+    }
+}
+
 // ───────────────────────────────────────────────────────────────────────
 fn handle_intercom(
     mut stream: TcpStream,
@@ -353,6 +428,7 @@ fn handle_client(
     translate_to_shell: bool,
     room: String,
     sender_ip: String,     
+    whisper_model_path: String,
 ) -> Result<()> {  
     let mut last_detection: Option<Instant> = None;
 
@@ -465,7 +541,7 @@ fn handle_client(
             };
 
             
-            let perf_start = if debug { Some(Instant::now()) } else { None };
+            let perf_start = Instant::now(); 
 
             // 🦆 says ⮞ Transcribe
             let sampling_strategy = if beam_size > 0 {
@@ -484,30 +560,26 @@ fn handle_client(
             whisper_params.set_print_timestamps(false);
             whisper_params.set_temperature(temperature);
             whisper_params.set_suppress_blank(true);
-            whisper_params.set_suppress_non_speech_tokens(true);
+            whisper_params.set_suppress_nst(true);
             // whisper_params.set_token_timestamps(true);
 
             let mut state = whisper_ctx.create_state().expect("failed to create state");
             if let Err(e) = state.full(whisper_params, &transcription_audio) {
                 dt_error!("[{}] Whisper transcription failed: {}", client_id, e);
             } else {
-                let num_segments = state.full_n_segments()? as usize;
+                let num_segments = state.full_n_segments() as usize;
                 let mut transcription = String::new();
                 for i in 0..num_segments {
-                    let segment = state.full_get_segment_text(i as i32)?;
-                    transcription.push_str(&segment);
+                    if let Some(segment) = state.get_segment(i as i32) {
+                        transcription.push_str(&segment.to_string());
+                    } else { dt_warning!("[{}] Missing segment {}", client_id, i); }
                 }
                 dt_info!("[{}] Transcription: {}", client_id, transcription);
                 write_last_sender_ip(&sender_ip);
                 
-
-                // 🦆 says ⮞ if --debug
-                if debug { // 🦆 says ⮞ print transcription timer
-                    if let Some(start) = perf_start {
-                        let elapsed = start.elapsed();
-                        dt_debug!("[{}] Transcription took {:.3}s", client_id, elapsed.as_secs_f64());
-                    }
-                }
+                log_transcription_time(&client_id, perf_start, transcription_audio.len(), 16000, &whisper_model_path, beam_size, threads);
+                let elapsed_secs = perf_start.elapsed().as_secs_f64();
+                log_transcription_benchmark(elapsed_secs, &whisper_model_path);
 
                 let normalized = normalize_transcription(&transcription);
                 if debug { dt_debug!("[{}] Normalized: {}", client_id, normalized); }
@@ -623,6 +695,7 @@ fn handle_ptt(
     done_sound_data: Vec<u8>,
     fail_sound_data: Vec<u8>,
     sender_ip: String,
+    whisper_model_path: String,
 ) -> Result<()> {
     let mut audio_buffer: Vec<f32> = Vec::new();
 
@@ -709,15 +782,18 @@ fn handle_ptt(
                 params.set_print_timestamps(false);
                 params.set_temperature(temperature);
                 params.set_suppress_blank(true);
-                params.set_suppress_non_speech_tokens(true);
+                params.set_suppress_nst(true);
 
+                let perf_start = Instant::now();
                 let mut state = whisper_ctx.create_state()?;
                 let transcription = match state.full(params, &cleaned_audio) {         
                     Ok(_) => {
-                        let n = state.full_n_segments()?;
+                        let n = state.full_n_segments() as usize;
                         let mut text = String::new();
                         for i in 0..n {
-                            text.push_str(&state.full_get_segment_text(i)?);
+                            if let Some(segment) = state.get_segment(i as i32) {
+                                text.push_str(&segment.to_string());
+                            }
                         }
                         text
                     }
@@ -729,6 +805,10 @@ fn handle_ptt(
                     }
                 };
 
+                log_transcription_time(&client_id, perf_start, cleaned_audio.len(), 16000, &whisper_model_path, beam_size, threads);
+                let elapsed_secs = perf_start.elapsed().as_secs_f64();
+                log_transcription_benchmark(elapsed_secs, &whisper_model_path);
+                
                 let normalized = normalize_transcription(&transcription);
                 dt_info!("[{}] PTT transcription: {}", client_id, normalized);
                 write_last_sender_ip(&sender_ip);
@@ -748,9 +828,7 @@ fn handle_ptt(
                                 if status.success() {
                                     dt_info!("🎉 {} Shell translation successful!", client_id);
                                     command_succeeded = true;
-                                } else {
-                                    dt_error!("[{}] Shell translator failed with exit code: {:?}", client_id, status.code());
-                                }
+                                } else { dt_error!("[{}] Shell translator failed with exit code: {:?}", client_id, status.code()); }
                             }
                             Err(e) => dt_error!("[{}] Failed to execute yo do: {}", client_id, e),
                         }
@@ -797,9 +875,7 @@ fn handle_ptt(
                 // SAVE RECORDING TO DISK FOR DEBUG
                 if let Err(e) = save_audio_to_file(&cleaned_audio, &client_id) {
                     dt_error!("[{}] failed to save audio: {}", client_id, e);
-                }
-
-                
+                }                
             }
             _ => {
                 dt_error!("[{}] unexpected PTT message type 0x{:02x}", client_id, msg_type);
@@ -831,6 +907,7 @@ fn handle_client_esp(
     room: String,
     //audio_out: Option<Arc<Mutex<TcpStream>>>,
     sender_ip: String,
+    whisper_model_path: String,
 ) -> Result<()> {
     enum State {
         Normal,
@@ -997,7 +1074,7 @@ fn handle_client_esp(
 
                     // TRANSCRIBE
                     //let transcription_audio = buffer;
-                    let perf_start = if debug { Some(Instant::now()) } else { None };
+                    let perf_start = Instant::now();
                     dt_info!("[{}] Sending to Whisper: {} samples ({:.2}s)",
                         client_id, transcription_audio.len(),
                         transcription_audio.len() as f64 / SAMPLE_RATE as f64);
@@ -1016,28 +1093,26 @@ fn handle_client_esp(
                     whisper_params.set_print_timestamps(false);
                     whisper_params.set_temperature(temperature);
                     whisper_params.set_suppress_blank(true);
-                    whisper_params.set_suppress_non_speech_tokens(true);
+                    whisper_params.set_suppress_nst(true);
 
                     let mut whisper_state = whisper_ctx.create_state().expect("failed to create state");
                     let mut command_succeeded = false;
                     if let Err(e) = whisper_state.full(whisper_params, &transcription_audio) {
                         dt_error!("[{}] Whisper transcription failed: {}", client_id, e);
                     } else {
-                        let num_segments = whisper_state.full_n_segments()? as usize;
+                        let num_segments = whisper_state.full_n_segments() as usize;
                         let mut transcription = String::new();
                         for i in 0..num_segments {
-                            let segment = whisper_state.full_get_segment_text(i as i32)?;
-                            transcription.push_str(&segment);
+                            if let Some(segment) = whisper_state.get_segment(i as i32) {
+                                transcription.push_str(&segment.to_string());
+                            }
                         }
                         dt_info!("TRANSCRIPTION: {}", transcription);
 
                         write_last_sender_ip(&sender_ip);
-                        if debug {
-                            if let Some(start) = perf_start {
-                                let elapsed = start.elapsed();
-                                dt_debug!("[{}] Transcription took {:.3}s", client_id, elapsed.as_secs_f64());
-                            }
-                        }
+                        log_transcription_time(&client_id, perf_start, transcription_audio.len(), 16000, &whisper_model_path, beam_size, threads);
+                        let elapsed_secs = perf_start.elapsed().as_secs_f64();
+                        log_transcription_benchmark(elapsed_secs, &whisper_model_path);
 
                         // 🦆 says ⮞ optionally cut transcription at first punctuation (enable if hallucination is a big problem)
                         let mut transcription = transcription;
@@ -1513,7 +1588,7 @@ fn main() -> Result<()> {
         translate_to_shell,
     );
 
-    let whisper_ctx = Arc::new(WhisperContext::new(&whisper_model_path)?);
+    let whisper_ctx = Arc::new(WhisperContext::new_with_params(&whisper_model_path, WhisperContextParameters::default())?);
   
     let client_registry = Arc::new(Mutex::new(ClientRegistry::new()));  
   
@@ -1594,6 +1669,7 @@ fn main() -> Result<()> {
                     //let room_for_handler = room_for_thread.clone();
                     let display_for_handler = display_id.clone();
                     let room_for_removal = registry_room;
+                    let whisper_model_path_for_ptt = whisper_model_path.clone();
                     
                     thread::spawn(move || {
                         if let Err(e) = handle_ptt(
@@ -1612,6 +1688,7 @@ fn main() -> Result<()> {
                             done_sound_data,
                             fail_sound_data,
                             sender_ip,
+                            whisper_model_path_for_ptt.clone(),
                         ) {
                             dt_error!("[{}] PTT handler error: {}", display_id, e);
                         }
@@ -1640,7 +1717,8 @@ fn main() -> Result<()> {
                 let exec_command = exec_command.clone();
                 let whisper_ctx = Arc::clone(&whisper_ctx);
                 let language = language.clone();
-                
+                let whisper_model_path_for_thread = whisper_model_path.clone();              
+              
                 let wake_model = if custom_wake_word_provided {
                     match OwwModel::from_path(&wake_word_path, threshold) {
                         Ok(m) => m,
@@ -1658,7 +1736,7 @@ fn main() -> Result<()> {
                         }
                     }
                 };
-                
+                                
                 thread::spawn(move || {
                     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         if room_clone == "esp" {
@@ -1679,7 +1757,8 @@ fn main() -> Result<()> {
                                 exec_command,
                                 translate_to_shell,
                                 room_clone.clone(),
-                                ip_clone, 
+                                ip_clone,
+                                whisper_model_path_for_thread.clone(),
                             );
                         } else {
                             let _ = handle_client(
@@ -1700,6 +1779,7 @@ fn main() -> Result<()> {
                                 translate_to_shell,
                                 room_clone.clone(),
                                 ip_clone,
+                                whisper_model_path_for_thread.clone(),
                             );
                         }
                     }));

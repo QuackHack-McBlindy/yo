@@ -15,7 +15,6 @@ use std::fs;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
 use std::sync::Arc;
@@ -197,6 +196,7 @@ struct MatchResult {
     args: Vec<String>,
     matched_sentence: String,
     processing_time: std::time::Duration,
+    match_type: String,
 }
 
 #[derive(Clone)]     
@@ -282,7 +282,7 @@ impl YoDo {
         entries.push(format!("{} ms", ms));
 
         let average = if count > 0 { sum as f64 / count as f64 } else { 0.0 };
-        let header = format!("Average: {:.2} ms ({} entries)", average, count);
+        let header = format!("{:.2} ms average ({} entries)", average, count);
         let mut output = header + "\n";
         for entry in &entries {
             output.push_str(entry);
@@ -293,7 +293,7 @@ impl YoDo {
     }
 
     fn normalize_input(input: &str) -> String {
-        input.replace(['?', '!', '.', ',', '&', '/'], "").to_lowercase()
+        input.replace(['?', '!', '.', ',', '&', '/', '\''], "").to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
     fn is_param_token(word: &str) -> Option<&str> {
@@ -323,9 +323,9 @@ impl YoDo {
                     0
                 } else { 1 };
 
-                dp[i][j] = (dp[i - 1][j] + 1)        // deletion
-                    .min(dp[i][j - 1] + 1)          // insertion
-                    .min(dp[i - 1][j - 1] + cost); // match/substitute
+                dp[i][j] = (dp[i - 1][j] + 1)
+                    .min(dp[i][j - 1] + 1)
+                    .min(dp[i - 1][j - 1] + cost);
             }
         }
 
@@ -462,19 +462,6 @@ impl YoDo {
         }; 
         Ok(MemoryData { context, history })
     }
-
-    async fn process_transcription(&self, text: &str) -> Result<(), Box<dyn std::error::Error>> {
-        dt_info(&format!("Real-time transcription: {}", text));
-        
-        if let Some(match_result) = self.exact_match(text) {
-            self.execute_script(&match_result)?;
-        } else if let Some(match_result) = self.fuzzy_match(text) {
-            self.execute_script(&match_result)?;
-        } else { dt_debug(&format!("No command found for: {}", text)); }
-        
-        Ok(())
-    }
-    
 
     // 🦆 says ⮞ never fail but log failz anywayz
     fn log_failed_command(&self, input: &str, fuzzy_candidates: &[(String, String, i32)]) -> Result<(), Box<dyn std::error::Error>> {
@@ -961,6 +948,7 @@ impl YoDo {
                                 args,
                                 matched_sentence: text.clone(),
                                 processing_time: global_start.elapsed(),
+                                match_type: "exact".to_string(),
                             });
                         }
                     }
@@ -1021,57 +1009,76 @@ impl YoDo {
             .max_by_key(|&(_, _, score)| score)
     }
         
+    
     fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
     
-        if let Some((script_name, sentence, score)) = self.find_best_fuzzy_match(text) {  
-            dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
+        let (script_name, _sentence, score) = self.find_best_fuzzy_match(text)?;
+        dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
     
-            let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
-            let sentence_words: Vec<String> = sentence.split_whitespace().map(|s| s.to_string()).collect();
+        let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
+        let intent = self.intent_data.get(&script_name)?;
     
-            let alignment = self.align_words(&sentence_words, &input_words);
+        for sentence in &intent.sentences {
+            for pattern_str in self.expand_optional_words(sentence) {
+                let pattern_words: Vec<String> = pattern_str
+                    .split_whitespace()
+                    .map(|s| s.to_string())
+                    .collect();
     
-            let mut args = Vec::new();
+                let alignment = self.align_words(&pattern_words, &input_words);
     
-            for (i, word) in sentence_words.iter().enumerate() {
-                if let Some(param_name) = Self::is_param_token(word) {
-                    let param_value = match alignment[i] {
-                        Some(idx) => input_words[idx].clone(),
-                        None => String::new(),
-                    };
+                let mut args = Vec::new();
+                let mut valid = true;
     
-                    let resolved_value = self.resolve_entity(&script_name, param_name, &param_value);
-
-                    if !self.is_valid_param_value(&script_name, param_name, &resolved_value) {
-                        dt_debug(&format!(
-                            "Skipping fuzzy match because param '{}' value '{}' is not allowed",
-                            param_name, resolved_value
-                        ));
-                        return None;
+                for (i, word) in pattern_words.iter().enumerate() {
+                    if let Some(param_name) = Self::is_param_token(word) {
+                        let raw_value = match alignment[i] {
+                            Some(idx) => input_words[idx].clone(),
+                            None => {
+                                valid = false;
+                                break;
+                            }
+                        };
+    
+                        let resolved = self.resolve_entity(&script_name, param_name, &raw_value);
+                        if !self.is_valid_param_value(&script_name, param_name, &resolved) {
+                            valid = false;
+                            break;
+                        }
+    
+                        args.push(format!("--{}", param_name));
+                        args.push(resolved);
                     }
-
-                    args.push(format!("--{}", param_name));
-                    args.push(resolved_value);
+                }
+    
+                if valid {
+                    return Some(MatchResult {
+                        script_name,
+                        args,
+                        matched_sentence: text.to_string(),
+                        processing_time: std::time::Duration::default(),
+                        match_type: "fuzzy".to_string(),
+                    });
                 }
             }
-    
-            Some(MatchResult {
-                script_name,
-                args,
-                matched_sentence: text.to_string(),
-                processing_time: std::time::Duration::default(),
-            })
-        } else {
-            dt_debug("No fuzzy match found");
-            None
         }
+    
+        Some(MatchResult {
+            script_name,
+            args: Vec::new(),
+            matched_sentence: text.to_string(),
+            processing_time: std::time::Duration::default(),
+            match_type: "fuzzy".to_string(),
+        })
     }
-
+    
     // 🦆 says ⮞ UPDATE CONTEXT AFTER COMMAND EXECUTION
     fn update_memory_context(&self, script_name: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
         let context_path = format!("{}/current_context.json", stats_dir);
+        std::fs::create_dir_all(&stats_dir)?;
+
         let mut context = self.memory_data.context.clone();
         // 🦆says ⮞update da last action
         context.last_action = script_name.to_string();
@@ -1117,7 +1124,7 @@ impl YoDo {
         dt_debug!("🦆MEMORY:SCRIPT:{}", result.script_name);
         dt_debug!("🦆MEMORY:ARGS:{}", result.args.join(" "));
         dt_debug!("🦆MEMORY:SENTENCE:{}", result.matched_sentence);
-        dt_debug!("🦆MEMORY:TYPE:exact");
+        dt_debug!("🦆MEMORY:TYPE:{}", result.match_type);
 
         // 🦆 says ⮞ UPDATE MEMORY CONTEXT
         if let Err(e) = self.update_memory_context(&result.script_name, &result.args) {
@@ -1126,7 +1133,10 @@ impl YoDo {
                
         // 🦆 says ⮞ execution duck tree climber
         println!("   ┌─(yo-{})", result.script_name);
-        println!("   │🦆 qwack!? {}", result.matched_sentence);       
+        let quack = if result.match_type == "exact" {
+            "quack!"
+        } else { "quack?!" };
+        println!("   │🦆 {} {}", quack, result.matched_sentence);
         if result.args.is_empty() {
             println!("   └─🦆 says ⮞ no parameters yo");
         } else {
@@ -1278,6 +1288,7 @@ impl YoDo {
                 args: match_result.args,
                 matched_sentence: match_result.matched_sentence,
                 processing_time: part_elapsed,
+                match_type: "exact".to_string(),
             };
             self.execute_script(&final_result)?;
             return Ok(());
@@ -1292,6 +1303,7 @@ impl YoDo {
                 args: match_result.args,
                 matched_sentence: match_result.matched_sentence,
                 processing_time: part_elapsed,
+                match_type: "fuzzy".to_string(),
             };
             let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time);
             self.execute_script(&final_result)?;
@@ -1326,19 +1338,19 @@ impl YoDo {
 fn load_split_words() -> Vec<String> {
     let path = std::env::var("YO_SPLIT_WORDS")
         .unwrap_or_else(|_| DEFAULT_SPLIT_WORDS_PATH.to_string());
-    let content = fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("Failed to read split words file from {}: {}", path, e));
-    serde_json::from_str(&content)
-        .unwrap_or_else(|e| panic!("Invalid JSON in split words file {}: {}", path, e))
+    match fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
 }
 
 fn load_sorry_phrases() -> Vec<String> {
     let path = std::env::var("YO_SORRY_PHRASES")
         .unwrap_or_else(|_| DEFAULT_SORRY_PHRASES_PATH.to_string());
-    let content = fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("Failed to read sorry phrases file from {}: {}", path, e));
-    serde_json::from_str(&content)
-        .unwrap_or_else(|e| panic!("Invalid JSON in sorry phrases file {}: {}", path, e))
+    match fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
 }
 
 
@@ -1419,4 +1431,368 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     yo_do.run(&input, cli.fuzzy)
+}
+
+
+
+
+// TESTS
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    const TEST_INTENT_JSON: &str = r#"
+    {
+      "timer": {
+        "sentences": [
+          "set a timer for {minutes} minutes and {seconds} seconds",
+          "start timer {minutes} minutes"
+        ],
+        "lists": {
+          "minutes": { "wildcard": false, "values": [ {"in": "5", "out": "5"}, {"in": "10", "out": "10"} ] },
+          "seconds": { "wildcard": false, "values": [ {"in": "30", "out": "30"}, {"in": "45", "out": "45"} ] }
+        },
+        "substitutions": []
+      },
+      "reminder": {
+        "sentences": [
+          "set a reminder for {time} to {task}"
+        ],
+        "lists": {
+          "time": { "wildcard": false, "values": [ {"in": "8am", "out": "08:00"} ] },
+          "task": { "wildcard": true, "values": [] }
+        },
+        "substitutions": []
+      },
+      "play": {
+        "sentences": [
+          "play [some] music by {artist}",
+          "play {song} by {artist}"
+        ],
+        "lists": {
+          "artist": { "wildcard": false, "values": [] },
+          "song": { "wildcard": true, "values": [] }
+        },
+        "substitutions": [
+          { "pattern": "beatles", "value": "beatles_band" },
+          { "pattern": "queen", "value": "queen" }
+        ]
+      }
+    }
+    "#;
+
+    const TEST_FUZZY_INDEX_JSON: &str = r#"
+    [
+      {
+        "script": "timer",
+        "sentence": "set a timer for 5 minutes and 30 seconds",
+        "signature": "timer_5_30",
+        "fuzzy_threshold": 0.8,
+        "fuzzy_enabled": true
+      },
+      {
+        "script": "reminder",
+        "sentence": "set a reminder for 8am to buy milk",
+        "signature": "reminder_8am_buy milk",
+        "fuzzy_threshold": 0.8,
+        "fuzzy_enabled": true
+      },
+      {
+        "script": "play",
+        "sentence": "play some music by the beatles",
+        "signature": "play_beatles",
+        "fuzzy_threshold": 0.75,
+        "fuzzy_enabled": true
+      }
+    ]
+    "#;
+
+    fn create_test_yodo() -> YoDo {
+        let mut yodo = YoDo::new();
+        yodo.intent_data = serde_json::from_str(TEST_INTENT_JSON).unwrap();
+        yodo.fuzzy_index = serde_json::from_str(TEST_FUZZY_INDEX_JSON).unwrap();
+        yodo.precompile_patterns();
+        yodo.calculate_processing_order();
+        yodo
+    }
+
+    struct TempHomeGuard {
+        original_home: Option<String>,
+        temp_dir: std::path::PathBuf,
+    }
+
+    impl TempHomeGuard {
+        fn new() -> Self {
+            let original_home = std::env::var("HOME").ok();
+            let temp_dir = std::env::temp_dir().join(format!(
+                "yo_do_test_{}_{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&temp_dir).unwrap();
+            std::env::set_var("HOME", &temp_dir);
+            Self {
+                original_home,
+                temp_dir,
+            }
+        }
+    }
+
+    impl Drop for TempHomeGuard {
+        fn drop(&mut self) {
+            if let Some(orig) = &self.original_home {
+                std::env::set_var("HOME", orig);
+            } else {
+                std::env::remove_var("HOME");
+            }
+            let _ = std::fs::remove_dir_all(&self.temp_dir);
+        }
+    }
+
+    #[test]
+    fn test_levenshtein_distance() {
+        let yodo = YoDo::new();
+        assert_eq!(yodo.levenshtein_distance("kitten", "sitting"), 3);
+        assert_eq!(yodo.levenshtein_distance("", "abc"), 3);
+        assert_eq!(yodo.levenshtein_distance("abc", "abc"), 0);
+        assert_eq!(yodo.levenshtein_distance("flaw", "lawn"), 2);
+    }
+
+    #[test]
+    fn test_normalize_input() {
+        assert_eq!(YoDo::normalize_input("Hello, World!"), "hello world");
+        assert_eq!(YoDo::normalize_input("What's up?"), "whats up");
+        assert_eq!(YoDo::normalize_input("  Multiple   Spaces  "), "multiple spaces");
+        assert_eq!(YoDo::normalize_input("UPPER lower MiXeD"), "upper lower mixed");
+        assert_eq!(YoDo::normalize_input("Punctuation! & symbols/"), "punctuation symbols");
+    }
+
+    #[test]
+    fn test_expand_optional_words() {
+        let yodo = YoDo::new();
+        let variants = yodo.expand_optional_words("turn [on|off] the light");
+        assert!(variants.contains(&"turn on the light".to_string()));
+        assert!(variants.contains(&"turn off the light".to_string()));
+        assert!(variants.contains(&"turn the light".to_string()));
+        let variants2 = yodo.expand_optional_words("play [some] music");
+        assert!(variants2.contains(&"play some music".to_string()));
+        assert!(variants2.contains(&"play music".to_string()));
+        let variants3 = yodo.expand_optional_words("set (high|low) volume");
+        assert!(variants3.contains(&"set high volume".to_string()));
+        assert!(variants3.contains(&"set low volume".to_string()));
+        assert!(!variants3.contains(&"set volume".to_string()));
+    }
+
+    #[test]
+    fn test_build_pattern_matcher_simple() {
+        let yodo = create_test_yodo();
+        let (regex, params) = yodo.build_pattern_matcher("timer", "set a timer for {minutes} minutes").unwrap();
+        assert_eq!(params, vec!["minutes".to_string()]);
+        assert!(regex.is_match("set a timer for 5 minutes"));
+        assert!(!regex.is_match("set a timer for minutes"));
+    }
+
+    #[test]
+    fn test_build_pattern_matcher_wildcard() {
+        let yodo = create_test_yodo();
+        let (regex, params) = yodo.build_pattern_matcher("reminder", "set a reminder for {time} to {task}").unwrap();
+        assert_eq!(params, vec!["time".to_string(), "task".to_string()]);
+        assert!(regex.is_match("set a reminder for 8am to buy milk"));
+        assert!(regex.is_match("set a reminder for 8am to anything with spaces"));
+        assert!(!regex.is_match("set a reminder for to buy milk"));
+    }
+
+    #[test]
+    fn test_align_words_exact() {
+        let yodo = YoDo::new();
+        let pattern = vec!["set".to_string(), "{param}".to_string(), "timer".to_string()];
+        let text = vec!["set".to_string(), "a".to_string(), "timer".to_string()];
+        let alignment = yodo.align_words(&pattern, &text);
+        assert_eq!(alignment, vec![Some(0), Some(1), Some(2)]);
+    }
+
+    #[test]
+    fn test_align_words_with_extra_words() {
+        let yodo = YoDo::new();
+        let pattern = vec!["play".to_string(), "{song}".to_string()];
+        let text = vec!["play".to_string(), "the".to_string(), "beatles".to_string()];
+        let alignment = yodo.align_words(&pattern, &text);
+        assert!(alignment[1].is_some());
+    }
+
+    #[test]
+    fn test_exact_match_timer() {
+        let yodo = create_test_yodo();
+        let result = yodo.exact_match("set a timer for 10 minutes and 45 seconds").unwrap();
+        assert_eq!(result.script_name, "timer");
+        assert_eq!(result.args, vec!["--minutes", "10", "--seconds", "45"]);
+        assert_eq!(result.match_type, "exact");
+    }
+
+    #[test]
+    fn test_exact_match_reminder_wildcard() {
+        let yodo = create_test_yodo();
+        let result = yodo.exact_match("set a reminder for 8am to buy milk and eggs").unwrap();
+        assert_eq!(result.script_name, "reminder");
+        assert_eq!(result.args, vec!["--time", "08:00", "--task", "buy milk and eggs"]);
+    }
+
+    #[test]
+    fn test_exact_match_with_substitution() {
+        let yodo = create_test_yodo();
+        let result = yodo.exact_match("play some music by beatles").unwrap();
+        assert_eq!(result.script_name, "play");
+        assert!(result.args.contains(&"--artist".to_string()));
+        assert!(result.args.contains(&"beatles_band".to_string()));
+    }
+
+    #[test]
+    fn test_exact_match_optional_variant() {
+        let yodo = create_test_yodo();
+        let result = yodo.exact_match("play music by queen").unwrap();
+        assert_eq!(result.script_name, "play");
+        assert_eq!(result.args, vec!["--artist", "queen"]);
+    }
+
+    #[test]
+    fn test_exact_match_no_match() {
+        let yodo = create_test_yodo();
+        assert!(yodo.exact_match("this does not match anything").is_none());
+    }
+
+    #[test]
+    fn test_fuzzy_match_typo() {
+        let yodo = create_test_yodo();
+        let result = yodo.fuzzy_match("set a timr for 5 minuts and 30 secnds").unwrap();
+        assert_eq!(result.script_name, "timer");
+        assert!(result.args.contains(&"--minutes".to_string()));
+        assert!(result.args.contains(&"--seconds".to_string()));
+    }
+
+    #[test]
+    fn test_fuzzy_match_distinguishes_timer_reminder() {
+        let yodo = create_test_yodo();
+        let result = yodo.fuzzy_match("set a remindr for 8am to buy milk").unwrap();
+        assert_eq!(result.script_name, "reminder");
+    }
+
+    #[test]
+    fn test_fuzzy_match_threshold() {
+        let mut yodo = create_test_yodo();
+        yodo.fuzzy_index[0].fuzzy_threshold = 0.99;
+        assert!(yodo.fuzzy_match("completely unrelated sentence").is_none());
+    }
+
+    #[test]
+    fn test_find_best_fuzzy_match() {
+        let yodo = create_test_yodo();
+        let best = yodo.find_best_fuzzy_match("set a timr for 5 minuts and 30 secnds");
+        assert!(best.is_some());
+        let (script, _sentence, score) = best.unwrap();
+        assert_eq!(script, "timer");
+        assert!(score >= 70);
+    }
+
+    #[test]
+    fn test_resolve_entity_list_exact() {
+        let yodo = create_test_yodo();
+        assert_eq!(yodo.resolve_entity("timer", "minutes", "5"), "5");
+        assert_eq!(yodo.resolve_entity("timer", "minutes", "10"), "10");
+        assert_eq!(yodo.resolve_entity("timer", "minutes", "15"), "15");
+    }
+
+    #[test]
+    fn test_resolve_entity_wildcard() {
+        let yodo = create_test_yodo();
+        assert_eq!(yodo.resolve_entity("reminder", "task", "buy milk"), "buy milk");
+    }
+
+    #[test]
+    fn test_resolve_entity_substitution() {
+        let yodo = create_test_yodo();
+        assert_eq!(yodo.resolve_entity("play", "artist", "beatles"), "beatles_band");
+        assert_eq!(yodo.resolve_entity("play", "artist", "queen"), "queen");
+    }
+
+    #[test]
+    fn test_is_wildcard_param() {
+        let yodo = create_test_yodo();
+        assert!(!yodo.is_wildcard_param("timer", "minutes"));
+        assert!(yodo.is_wildcard_param("reminder", "task"));
+        assert!(!yodo.is_wildcard_param("play", "artist"));
+        assert!(yodo.is_wildcard_param("play", "song"));
+    }
+
+    #[test]
+    fn test_is_valid_param_value() {
+        let yodo = create_test_yodo();
+        assert!(yodo.is_valid_param_value("timer", "minutes", "5"));
+        assert!(yodo.is_valid_param_value("timer", "minutes", "10"));
+        assert!(!yodo.is_valid_param_value("timer", "minutes", "15"));
+        assert!(yodo.is_valid_param_value("reminder", "task", "anything"));
+        assert!(yodo.is_valid_param_value("play", "artist", "the beatles"));
+    }
+
+    #[test]
+    fn test_fuzzy_resolve_entity() {
+        let mut yodo = create_test_yodo();
+        let mut param_dict = HashMap::new();
+        param_dict.insert(
+            "artist".to_string(),
+            vec![
+                EntityMapping { input: "the beatles".to_string(), output: "the beatles".to_string() },
+                EntityMapping { input: "beetles".to_string(), output: "the beatles".to_string() },
+            ],
+        );
+        yodo.fuzzy_entity_dict.insert("play".to_string(), param_dict);
+        assert_eq!(yodo.fuzzy_resolve_entity("play", "artist", "beetles", 80), Some("the beatles".to_string()));
+        assert_eq!(yodo.fuzzy_resolve_entity("play", "artist", "rolling stones", 80), None);
+    }
+
+    #[test]
+    fn test_apply_real_time_substitutions() {
+        let yodo = create_test_yodo();
+        let (resolved, subs) = yodo.apply_real_time_substitutions("play", "play music by beatles");
+        assert_eq!(resolved, "play music by beatles_band");
+        assert_eq!(subs.get("beatles"), Some(&"beatles_band".to_string()));
+    }
+
+    #[test]
+    fn test_update_memory_context() {
+        let _guard = TempHomeGuard::new();
+        let yodo = create_test_yodo();
+        let script = "timer";
+        let args = vec!["--minutes".to_string(), "5".to_string()];
+        let result = yodo.update_memory_context(script, &args);
+        assert!(result.is_ok());
+        let memory = YoDo::load_memory_data().unwrap();
+        assert_eq!(memory.context.last_action, script);
+    }
+
+    #[test]
+    fn test_empty_input_exact_match() {
+        let yodo = create_test_yodo();
+        assert!(yodo.exact_match("").is_none());
+    }
+
+    #[test]
+    fn test_empty_input_fuzzy_match() {
+        let yodo = create_test_yodo();
+        assert!(yodo.fuzzy_match("").is_none());
+    }
+
+    #[test]
+    fn test_no_patterns_compiled() {
+        let mut yodo = YoDo::new();
+        yodo.intent_data = serde_json::from_str("{}").unwrap();
+        yodo.precompile_patterns();
+        yodo.calculate_processing_order();
+        assert!(yodo.exact_match("anything").is_none());
+        assert!(yodo.fuzzy_match("anything").is_none());
+    }
 }

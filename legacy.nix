@@ -419,6 +419,8 @@ in {
         fi
         exit
       '';
+      voice.fuzzy.enable = false;
+      voice.fuzzy.threshold = 0.0;
     };
     
     
@@ -701,6 +703,8 @@ in {
         dt_info "Test completed with results: $passed_tests/$total_tests ''${percent}%"
         exit 1
       '';
+      voice.fuzzy.enable = false;
+      voice.fuzzy.threshold = 0.0;
     };
  
   };}

@@ -658,6 +658,21 @@ let
             phrases  = countUnderstoodPhrases script;
             ratio    = if patterns == 0 then 0 else builtins.div phrases patterns;
 
+            formatNumber = n:
+              let
+                s = toString n;
+                go = str: acc:
+                  if str == "" then acc
+                  else
+                    let
+                      start = lib.max 0 (builtins.stringLength str - 3);
+                      chunk = builtins.substring start 3 str;
+                      rest  = builtins.substring 0 start str;
+                    in
+                      go rest (if acc == "" then chunk else chunk + "," + acc);
+              in
+                go s "";
+
             replaceParamsWithValues = sentence: voiceData:
               let
                 processToken = token:
@@ -698,7 +713,7 @@ let
               "- \"${escapeMD sentence}\"\n"
             ) processedSentences;
           in
-            "## Voice Commands\n\nPatterns: ${toString patterns}  \nPhrases: ${toString phrases}  \nRatio: ${toString ratio}  \n\n${sentencesMarkdown}"
+            "## Voice Commands\n\nPatterns: ${formatNumber patterns}  \nPhrases: ${formatNumber phrases}  \nRatio: ${formatNumber ratio}  \n\n"
         else "";
        
         param_usage = lib.concatMapStringsSep " " (param:
@@ -767,11 +782,12 @@ let
                 fi
                 
                 cat <<EOF | ${pkgs.glow}/bin/glow --width "$width" - # Render as markdown 
-# 🚀🦆 yo ${escapeMD script.name}
+# yo ${escapeMD script.name}
 ${script.description}
 **Usage:** \`yo ${escapeMD script.name}''${usage_suffix}\`
 ${lib.optionalString (script.parameters != []) ''
-## Parameters
+
+# ▶ Parameters
 ${lib.concatStringsSep "\n\n" (map (param: ''
 **\`--${param.name}\`**  
 ${param.description}  
@@ -969,6 +985,7 @@ EOF
   totalPhrases = config.yo.understandsPhrases;
   ratio = if totalPatterns == 0 then "N/A"
           else toString (builtins.div totalPhrases totalPatterns);
+          
 in {
   imports = [
     ./options.nix
@@ -992,6 +1009,7 @@ in {
         "yo/intent-data.json".source = intentDataFile;
         "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
         "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
+        "yo/table.md".source = terminalScriptsTableFile; 
       };
   
       environment.systemPackages = [
@@ -1004,16 +1022,16 @@ in {
           show_help() {
             width=130
             cat <<EOF | ${pkgs.glow}/bin/glow --width $width -
-          ### ──────⋆⋅☆☆☆⋅⋆────── ##
+          # ──────⋆⋅☆☆☆⋅⋆──────
           **Usage:** \`yo <command> [arguments]\`
-          ### ──────⋆⋅☆☆☆⋅⋆────── ##
-          ### 🦆✨ Available Commands
+          # ──────⋆⋅☆☆☆⋅⋆────── 
+          ## 🦆✨ Available Commands
           Parameters inside brackets are [optional]
           | Command Syntax               | Aliases    | Description |
           |------------------------------|------------|-------------|
           ${terminalScriptsTable}
-          ### ──────⋆⋅☆☆☆⋅⋆────── ##
-          ### 🦆❓ Detailed Help
+          # ──────⋆⋅☆☆☆⋅⋆────── 
+          ## Detailed Help
           For specific command help: \`yo <command> --help\`
           \`yo do --help\` will list all defined voice intents.
           EOF
@@ -1166,29 +1184,45 @@ in {
       
     (mkIf (!cfg.legacy) {      
       yo.scripts.do = {
-        description = "do is a Natural Language to Shell script translator that generates dynamic regex patterns at build time for defined yo.script sentences. It runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
+        description = "do is a natural language to shell script translator thIt runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
         binary = "${yo-rs-with-models}/bin/yo-do";
         category = "🗣️ Voice";
         logLevel = "INFO";
         helpFooter = ''
-          printf '%s\n' \
-            '**Total generated patterns:** ${toString totalPatterns}' \
-            '**Total generated phrases:** ${toString totalPhrases}' \
-            '**Ratio (phrases / patterns):** ${ratio}'
+          group_number() {
+            local n="$1"
+            printf '%s' "$n" | rev | sed 's/.\{3\}/&,/g' | rev | sed 's/^,//'
+          }
+          printf '# ▶ Voice\n\n'
+          printf '**Total generated patterns:** %s\n' \
+            "$(group_number ${toString totalPatterns})"
+          printf '**Total generated phrases:** %s\n' \
+            "$(group_number ${toString totalPhrases})"
+          if (( ${toString totalPatterns} > 0 )); then
+            printf '**Ratio (phrases / patterns):** %s\n' \
+              "$(group_number ${toString (totalPhrases / totalPatterns)})"
+          else
+            printf '**Ratio (phrases / patterns):** N/A\n'
+          fi          
           if [ -f "$HOME/.config/yo/exec.txt" ]; then
             first_line=$(head -n 1 "$HOME/.config/yo/exec.txt")
-            printf '%s\n' "$first_line"
+            printf '**Execution time:** %s\n' "$first_line"
           fi
+          if [ -f "$HOME/.config/yo/whisper-bench.txt" ]; then
+            first_line=$(head -n 1 "$HOME/.config/yo/whisper-bench.txt")
+            printf '**Transcription time:** %s\n' "$first_line"
+          fi          
         '';
         parameters = [
           { name = "input"; description = "Text to translate"; optional = true; } 
-          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = builtins.floor (config.yo.fuzzy.threshold * 100); }
           { name = "room"; type = "string"; description = "Optional client area (used for context)"; optional = true; }
         ];
+        voice.fuzzy.enable = false;
+        voice.fuzzy.threshold = 0.0;
       };
   
       yo.scripts.tests = {
-        description = "Extensive automated sentence testing for the yo do"; 
+        description = "Extensive automated run-time sentence testing for the yo do"; 
         binary = "${yo-rs-with-models}/bin/yo-tests";      
         category = "🗣️ Voice";
         parameters = [
@@ -1198,11 +1232,13 @@ in {
           { name = "script"; type = "string"; description = "Extensive sentence testing of the specified script"; optional = true; }
           { name = "max-variants"; type = "int"; description = "Maximum number of variants tested peer sentence."; optional = true; default = 50; }
         ];
+        voice.fuzzy.enable = false;
+        voice.fuzzy.threshold = 0.0;
       };  
   
   
       yo.scripts.say = {
-        description = "Text to speech with built in language detection and automatic model downloading";
+        description = "Text to speech with baked in model and full duplex audio streaming";
         binary = "${yo-rs-with-models}/bin/yo-say";
         category = "🗣️ Voice";
         logLevel = "WARNING";
@@ -1216,6 +1252,8 @@ in {
            })
           { name = "length-scale"; description = "Speech speed"; optional = true; default = config.services.yo-rs.server.ttsSpeed; }                    
         ];
+        voice.fuzzy.enable = false;
+        voice.fuzzy.threshold = 0.0;
       };
     })
     
