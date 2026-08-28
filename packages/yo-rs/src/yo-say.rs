@@ -141,30 +141,37 @@ fn convert_and_replace(path: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn get_esp_ips() -> Vec<String> {
+fn read_clients() -> Option<Vec<serde_json::Value>> {
     let home = std::env::var("HOME").unwrap_or_else(|_| {
         dt_warning!("HOME environment variable not set, using empty");
         String::new()
     });
-    let path = format!("{}/.config/yo/clients.json", home);
 
-    let data = match std::fs::read_to_string(&path) {
-        Ok(d) => {
-            dt_debug!("Read clients.json from {}", path);
-            d
-        }
-        Err(e) => {
-            dt_warning!("Could not read {}: {}", path, e);
-            return vec![];
-        }
-    };
+    let paths = vec![
+        format!("{}/.config/yo/clients.json", home),
+        "/etc/yo/clients.json".to_string(),
+    ];
 
-    let clients: Vec<serde_json::Value> = match serde_json::from_str(&data) {
-        Ok(c) => c,
-        Err(e) => {
-            dt_warning!("Could not parse {} as JSON: {}", path, e);
-            return vec![];
+    for path in paths {
+        match std::fs::read_to_string(&path) {
+            Ok(data) => {
+                dt_debug!("Read clients.json from {}", path);
+                match serde_json::from_str(&data) {
+                    Ok(clients) => return Some(clients),
+                    Err(e) => { dt_warning!("Could not parse {} as JSON: {}", path, e); }
+                }
+            }
+            Err(e) => { dt_warning!("Could not read {}: {}", path, e); }
         }
+    }
+    dt_warning!("No valid clients.json found in any standard location");
+    None
+}
+
+fn get_esp_ips() -> Vec<String> {
+    let clients = match read_clients() {
+        Some(c) => c,
+        None => return vec![],
     };
 
     let ips: Vec<String> = clients
@@ -174,35 +181,15 @@ fn get_esp_ips() -> Vec<String> {
         .collect();
 
     if ips.is_empty() {
-        dt_debug!("No ESP devices found in {}", path);
+        dt_debug!("No ESP devices found in clients.json");
     } else { dt_info!("Found {} ESP device(s): {:?}", ips.len(), ips); }
     ips
 }
 
 fn get_client_ips() -> Vec<String> {
-    let home = std::env::var("HOME").unwrap_or_else(|_| {
-        dt_warning!("HOME environment variable not set, using empty");
-        String::new()
-    });
-    let path = format!("{}/.config/yo/clients.json", home);
-
-    let data = match std::fs::read_to_string(&path) {
-        Ok(d) => {
-            dt_debug!("Read clients.json from {}", path);
-            d
-        }
-        Err(e) => {
-            dt_warning!("could not read {}: {}", path, e);
-            return vec![];
-        }
-    };
-
-    let clients: Vec<serde_json::Value> = match serde_json::from_str(&data) {
-        Ok(c) => c,
-        Err(e) => {
-            dt_warning!("could not parse {} as JSON: {}", path, e);
-            return vec![];
-        }
+    let clients = match read_clients() {
+        Some(c) => c,
+        None => return vec![],
     };
 
     let ips: Vec<String> = clients
@@ -215,7 +202,7 @@ fn get_client_ips() -> Vec<String> {
         .collect();
 
     if ips.is_empty() {
-        dt_debug!("No non‑ESP clients found in {}", path);
+        dt_debug!("No non‑ESP clients found in clients.json");
     } else { dt_info!("Found {} client device(s): {:?}", ips.len(), ips); }
     ips
 }

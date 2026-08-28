@@ -339,6 +339,12 @@ in {
         description = "Maximum recording length (fallback).";
       };
 
+      ttsClients = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        description = "optional list of hardcoded client IP addresses for text-to-spech streams.";
+      };      
+
       extraArgs = mkOption {
         type = types.listOf types.str;
         default = [ ];
@@ -459,8 +465,8 @@ in {
               ++ [ "--silence-threshold" (toString cfg.client.silenceThreshold) ]
               ++ [ "--silence-timeout" (toString cfg.client.silenceTimeout) ]
               ++ [ "--max-duration" (toString cfg.client.maxDuration) ]
-              ++ (if (cfg.client.room != null) then [ "--room" cfg.client.room ]
-                  else if (cfg.server.enable && cfg.client.enable) then [ "--room" "local" ]
+              ++ (if (cfg.server.enable && cfg.client.enable) then [ "--room" "local" ]
+                  else if (cfg.client.room != null) then [ "--room" cfg.client.room ]
                   else [])
               ++ optionals cfg.client.debug [ "--debug" ]
               ++ optionals ((cfg.server.enable && cfg.client.enable)) [ "--no-bind" ]
@@ -469,6 +475,17 @@ in {
           };
         };
       };
+      
+      environment.etc."yo/clients.json" = {
+        text = builtins.toJSON (
+          map (ip: {
+            room = "client";
+            ip = ip;
+            connected_at = 0;
+          }) cfg.client.ttsClients
+        );
+      };
+      
     })
        
   ];}

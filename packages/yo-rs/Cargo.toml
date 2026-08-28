@@ -2,7 +2,7 @@
 # PACKAFGE INFO
 [package]
 name    = "yo-rs"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 # ───────────────────────────────────────────────────────────────────────
 description = """
@@ -21,7 +21,8 @@ clap        = { version = "4.0", features = ["derive"] }
 tokio       = { version = "1", features   = ["full"] }
 serde       = { version = "1.0", features = ["derive"] }
 oww-rs      = { path = "vendor/oww-rs" }
-whisper-rs  = "0.8"
+#whisper-rs  = "0.8"
+whisper-rs  = "0.16"
 serde_json  = "1.0"
 cpal        = "0.16"
 anyhow      = "1.0"
@@ -50,6 +51,8 @@ regex  = "1.0"
 rand   = "0.8"
 rayon = "1.10"
 
+[dev-dependencies]
+tempfile = "3"
 # ───────────────────────────────────────────────────────────────────────
 # EXECUTABLES
 # Server
@@ -73,7 +76,7 @@ name = "yo-say"
 path = "src/yo-say.rs"
 
 
-# Sentences testing
+# Run-time Sentences testing
 [[bin]]
 name = "yo-tests"
 path = "src/yo-tests.rs"
