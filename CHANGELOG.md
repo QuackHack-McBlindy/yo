@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.2.5] - 08-30-2026
+
+### Added
+- `voice.speak` option per script to send stdout to text‑to‑speech after execution.
+- `TranscriptionProcessor` in `transcription.rs` encapsulating transcription and command execution.
+- Helper functions for sound playback, async notifications, and IP persistence.
+
+### Changed
+- `yo-rs` main server rewritten with Tokio async runtime; network handlers now use async streams.
+- Default Whisper model changed from `small` to `tiny` in `packages/yo-rs.nix`.
+- Changed `lib.foldl` to strict `lib.foldl'` in `assertions.nix` for prefix conflict detection to reduce the risk of stack overflow.
+
+### Fixed
+
+### Removed
+
 ## [0.2.4] - 08-28-2026
 
 ### Added

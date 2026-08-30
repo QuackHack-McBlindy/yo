@@ -4,7 +4,7 @@
   pkgs,
   rustPlatform,
   language ? "english",
-  model ? "small",
+  model ? "tiny",
   ...
 }:
 let

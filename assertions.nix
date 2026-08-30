@@ -101,19 +101,19 @@
     ) intent.data
   ) generatedIntents);
 
-  # Check for prefix conflicts (shorter wildcard pattern is prefix of longer)
+  # Check for prefix conflicts (shorter wildcard pattern is prefix of longer)  
   checkPrefixConflicts = sentences:
     let
       sortedSentences = lib.sort (a: b:
         lib.stringLength a.sentence < lib.stringLength b.sentence
       ) sentences;
-      conflicts = lib.foldl (acc: shorterItem:
+      conflicts = lib.foldl' (acc: shorterItem:
         let
           shorter = shorterItem.sentence;
           shorterScript = shorterItem.scriptName;
           shorterHasWildcard = shorterItem.hasWildcardAtEnd;
         in
-          acc ++ (lib.foldl (innerAcc: longerItem:
+          acc ++ (lib.foldl' (innerAcc: longerItem:
             let
               longer = longerItem.sentence;
               longerScript = longerItem.scriptName;
@@ -133,8 +133,8 @@
                 innerAcc
           ) [] sortedSentences)
       ) [] sortedSentences;
-    in
-      conflicts;
+    in conflicts;
+  
 
   # Find exact duplicates
   sentencesByText = lib.groupBy (item: item.sentence) allExpandedSentences;

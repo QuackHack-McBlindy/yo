@@ -383,7 +383,7 @@ fn main() -> Result<()> {
                     let chunks = resample_into_chunks(data, &buffer_clone, channels, &mut resampler);
                     if let Some(tx) = chunk_tx_global.lock().unwrap().as_ref() {
                         for chunk in chunks {
-                            let _ = tx.try_send(chunk.data_f32[0].clone()); // 🦆 says ⮞ IGNORE full errors
+                            let _ = tx.try_send(chunk.data_f32[0].clone());
                         }
                     }
                     if recording_active.load(Ordering::Relaxed) {
@@ -447,7 +447,6 @@ fn main() -> Result<()> {
         });      
     }
     
-
     if !stream_tts { 
         dt_info!("Local TTS audio output only");
     } else { dt_info!("TTS audio listener started on 0.0.0.0:12345"); }
@@ -565,7 +564,7 @@ fn main() -> Result<()> {
 
         let receiver_handle = thread::spawn(move || {
             let _ = std::panic::catch_unwind(|| {
-                let mut read_stream = read_stream; // 🦆 say ⮞ take ownership
+                let mut read_stream = read_stream;
                 let mut buf = [0u8; 1];
                 loop {
                     if receiver_shutdown.load(Ordering::SeqCst) {
@@ -787,10 +786,9 @@ fn main() -> Result<()> {
                                                             }
                                                         });
                                                     }                            
-                                                } // 💩
-                                                0x04 => { 
+                                                }
+                                                0x04 => {
                                                     dt_info!("💩 failed – empty transcription?");
-                                                    // play fail sound
                                                     let sound_data = receiver_fail_sound.clone();
                                                     thread::spawn(move || {
                                                         let (_stream, handle) = OutputStream::try_default().unwrap();
@@ -856,9 +854,7 @@ fn main() -> Result<()> {
         });
 
         let _ = exit_rx.recv();
-
         shutdown.store(true, Ordering::SeqCst);
-
         *chunk_tx_global.lock().unwrap() = None;
 
         let _ = sender_handle.join();

@@ -279,13 +279,13 @@ You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McB
 ```nix
 yo.scripts.timer = {
   description = "What this script does";
-  category = "Home Automation";       # used for grouping in `yo --help`
+  category = "Home Automation";            # used for grouping in `yo --help`
   aliases = [ "tim" ];                     # alternative CLI names
-  autoStart = false;                      # start at boot? (requires defaults for required parameters)
-  runEvery = "55";                       # run periodically (systemd timer)
-  runAt = [ "08:00" "20:00" ];            # run at specific times daily
-  logLevel = "INFO";                      # DEBUG, INFO, WARNING, ERROR, CRITICAL
-  helpFooter = "Additional help text";
+  autoStart = false;                       # start at boot? (requires defaults for required parameters)
+  runEvery = "55";                         # run periodically (systemd timer)
+  runAt = [ "08:00" "20:00" ];             # run at specific times daily
+  logLevel = "INFO";                       # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  helpFooter = "Additional help text";     # additional data shown in the scripts `--help` command
   parameters = [  
     { name = "minutes"; type = "int"; description = "Minutes to set the timer on"; default = 0;  }     
     { name = "seconds"; type = "int"; description = "Seconds to set the timer on"; default = 0; }     
@@ -293,6 +293,8 @@ yo.scripts.timer = {
     { name = "list"; type = "bool"; description = "Lists active timers"; default = false;  }
     { name = "sound"; type = "path"; description = "Soundfile to be played on finished timer"; default = "/path/to/finished.wav"; }
   ];
+  # binary = /path/to/executable;  
+  # write your own code or just link to a executable binary
   code = ''
       SOUNDFILE="$sound"
       HOURS="$hours"
@@ -369,8 +371,6 @@ yo.scripts.timer = {
       echo "$pid $end_time" > "$LOGFILE_DIR/$pid.pid"
       disown "$pid"
   '';
-  # or use a pre-built binary:
-  # binary = /path/to/executable;  
 };
 
 ```
@@ -399,9 +399,11 @@ You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McB
 ```nix
   yo.scripts.timer = {
     voice = {
-      priority = 5;           # (1-5) 5 is priorities last
-      fuzzy.enabled = true;   # script specific
-      fuzzy.threshold = 0.8;  # script specific 
+      enabled         = true;   # wether to enable matching this script 
+      speak           = false;  # wether to automatically send script output to text-to-speech
+      priority        = 5;      # (1-5) 5 is priorities last
+      fuzzy.enabled   = true;   # script specific
+      fuzzy.threshold = 0.8;    # script specific 
       sentences = [
         "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {hours} (timme|timmar) {minutes} (minut|minuter) {seconds} (sekund|sekunder)"
         "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {minutes} (minut|minuter) [och] {seconds} (sekund|sekunder)"
