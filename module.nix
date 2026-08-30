@@ -240,12 +240,15 @@ let
               else []
             ) lists)
           ) allData);
-          # 🦆 says ⮞ CRITICAL: Include the lists data for wildcard detection
+          # 🦆 says ⮞ include the lists data for wildcard detection
           lists = lib.foldl (acc: d: acc // (d.lists or {})) {} intentList.data;
+          # 🦆 says ⮞ tts output
+          speak = cfg.scripts.${_scriptName}.voice.speak or false;
         in {
           inherit substitutions;
           sentences = expandedSentences;
           inherit lists;
+          inherit speak;
         }
       ) generatedIntents
     ));

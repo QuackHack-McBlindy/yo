@@ -21,5 +21,3 @@ jobs:
       - name: Build flake
         run: nix flake check --all-systems
         
-      #- name: Run Rust tests
-      #  run: nix develop -c cargo test
