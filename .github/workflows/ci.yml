@@ -133,7 +133,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
+          latest_tag="$(
+            git ls-remote --tags --refs origin 'v*' |
+              awk '{print $2}' |
+              sed 's#refs/tags/##' |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+              sort -V |
+              tail -n 1
+          )"
 
           if [[ -z "$latest_tag" ]]; then
             echo "error: no existing version tag found"
@@ -154,7 +161,7 @@ jobs:
           echo "Latest tag: $latest_tag"
           echo "Expected next version: $expected_version"
 
-          system="$(nix eval --raw --expr 'builtins.currentSystem')"
+          system="x86_64-linux"
 
           # discover all packages
           mapfile -t packages < <(
