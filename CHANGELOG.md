@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.6] - 2026-09-13
+
+### Added
+
 - Added language specific Whisper models from KBLab for Swedish.
 - The `yo` nix module/Bash package, now supports `--version` (grabs version from yo-rs package).
 - Added VAD model support and `--vad-model`.
@@ -20,7 +31,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the generated markdown table of scripts.
 
 ### Removed
-
 
 ## [0.2.5] - 08-30-2026
 
