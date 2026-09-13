@@ -22,11 +22,9 @@ let
     countTotalUnderstoodPhrases
     ;
 
-
   cfg = config.yo;
 
   yoVersion = self.packages.${pkgs.system}.yo-rs.version;
-  #yoVersion = nix eval --raw ".#packages.$(nix eval --raw --impure --expr builtins.currentSystem).yo-rs.version":
   scripts = cfg.scripts; 
   scriptNames = builtins.attrNames scripts;
   scriptNamesWithIntents = builtins.filter (scriptName:
@@ -1004,7 +1002,7 @@ EOF
     script_dir="${yoScriptsPackage}/bin"
           
     print_version() {
-      echo "yo ${yoVersion}"
+      echo "yo version ${yoVersion}"
       echo "Copyright (C) 2026 QuackHack-McBlindy.com"
       echo "License MIT."
       echo "This is free software: you are free to change it."

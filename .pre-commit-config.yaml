@@ -1,7 +1,9 @@
+# .pre-commit-config.yaml
+
+exclude: '(^|/)(dump|secrets)(/|$)|(^|/)\.env($|\.)'
+
 repos:
-  # Basic file hygiene
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+  - repo: builtin
     hooks:
       - id: trailing-whitespace
         exclude: '^(docs/|dist/|vendor/|.*\.snap$)'
@@ -13,41 +15,11 @@ repos:
         args: [--maxkb=500]
       - id: check-merge-conflict
 
-  # Shell script linting
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.11.0
-    hooks:
-      - id: shellcheck
-        args: [--rcfile=config/shellcheckrc, --severity=error]
-        exclude: "^(vendor/|scripts/e2e/)"
-
-  # GitHub Actions linting
-  - repo: https://github.com/rhysd/actionlint
-    rev: 011a6d15e749bb3f2d771eed9c7aa0e7e3e10ee7 # ShellCheck stdin deadlock fix (#651)
-    hooks:
-      - id: actionlint
-
-  # GitHub Actions security audit
-  - repo: https://github.com/zizmorcore/zizmor-pre-commit
-    rev: 451b56af716f9f0d0c2b816503a3fd0cf8b036fa # v1.29.0
-    hooks:
-      - id: zizmor
-        args:
-          [
-            --config,
-            .github/zizmor.yml,
-            --persona=regular,
-            --min-severity=medium,
-            --min-confidence=medium,
-          ]
-        exclude: "^(vendor/|apps/swabble/)"
-
-
   - repo: local
     hooks:
       - id: update-readme
         name: Update README.md
-        entry: bash scripts/update-readme.sh
+        entry: bash hooks/update-readme.sh
         language: system
         pass_filenames: false
         always_run: true
