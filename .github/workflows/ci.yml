@@ -130,14 +130,18 @@ jobs:
       - name: Determine and validate next version
         if: steps.merge.outputs.release == 'true'
         id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
           latest_tag="$(
-            git ls-remote --tags --refs origin 'v*' |
-              awk '{print $2}' |
-              sed 's#refs/tags/##' |
-              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+            gh api \
+              --paginate \
+              "/repos/${GITHUB_REPOSITORY}/tags?per_page=100" \
+              --jq '.[].name' |
+              grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' |
+              sed 's/^v//' |
               sort -V |
               tail -n 1
           )"
@@ -148,27 +152,26 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "error: latest tag '$latest_tag' is not a valid semantic version"
-            exit 1
-          fi
-
+          latest_tag="v${latest_tag}"
           current_version="${latest_tag#v}"
 
           IFS='.' read -r major minor patch <<< "$current_version"
           expected_version="${major}.${minor}.$((patch + 1))"
           expected_tag="v${expected_version}"
+
           echo "Latest tag: $latest_tag"
           echo "Expected next version: $expected_version"
 
           system="x86_64-linux"
 
-          # discover all packages
           mapfile -t packages < <(
-            nix flake show --json --no-write-lock-file \
-              | jq -r --arg system "$system" '
-                  .packages[$system] // {} | keys[]
-                '
+            nix eval \
+              --json \
+              --impure \
+              --no-write-lock-file \
+              --apply builtins.attrNames \
+              ".#packages.${system}" |
+              jq -r '.[]'
           )
 
           if [[ "${#packages[@]}" -eq 0 ]]; then
@@ -196,13 +199,11 @@ jobs:
             echo "  ${package}: ${package_version}"
 
             version_counts["$package_version"]=$(
-              printf '%s\n' "${version_counts[$package_version]:-0}" \
-                | awk '{print $1 + 1}'
+              printf '%s\n' "${version_counts[$package_version]:-0}" |
+                awk '{print $1 + 1}'
             )
           done
 
-
-          # find the version occurring most frequently.
           majority_version=""
           majority_count=0
           package_count="${#packages[@]}"
@@ -231,7 +232,6 @@ jobs:
           echo "Majority package version: ${majority_version}"
           echo "Expected release version:  ${expected_version}"
 
-          # the majority package version MUST equal the next version
           if [[ "$majority_version" != "$expected_version" ]]; then
             echo "error: version mismatch"
             echo "  latest Git tag:        $latest_tag"
