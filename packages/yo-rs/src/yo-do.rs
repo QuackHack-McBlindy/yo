@@ -4,7 +4,7 @@ use std::{
     env,
     fs::{OpenOptions, File},
     io::{self, Write},
-    sync::Once,
+    sync::{Mutex, Once, Arc, OnceLock},
     collections::HashMap,
     process::{Command, exit},
     time::Instant,
@@ -17,8 +17,10 @@ use serde::{Deserialize, Serialize};
 
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+//use tokio::sync::Mutex;
+
+
+static YO_DO: OnceLock<Mutex<YoDo>> = OnceLock::new();
 
 const DEFAULT_SPLIT_WORDS_PATH: &str = "/etc/yo/split-words.json";
 const DEFAULT_SORRY_PHRASES_PATH: &str = "/etc/yo/sorry-phrases.json";
@@ -30,6 +32,7 @@ struct CliArgs {
     input: Option<String>,
     fuzzy: i32,
     room: Option<String>,
+    race: bool,
 }
 
 #[derive(Clone)]
@@ -1123,14 +1126,14 @@ impl YoDo {
         }
     }
     
-    pub fn run(&mut self, input: &str, fuzzy_threshold: i32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn run(&mut self, input: &str, fuzzy_threshold: i32, race: bool) -> Result<(), Box<dyn std::error::Error>> {
         let total_start = Instant::now(); 
         self.fuzzy_threshold = fuzzy_threshold;
 
-        if let Ok(memory_data) = Self::load_memory_data() {
-            self.memory_data = memory_data;
-            dt_debug("🦆 Memory data reloaded for context-aware processing");
-        } else { dt_debug("🦆 Using default memory data"); }
+        //if let Ok(memory_data) = Self::load_memory_data() {
+        //    self.memory_data = memory_data;
+        //    dt_debug("🦆 Memory data reloaded for context-aware processing");
+        //} else { dt_debug("🦆 Using default memory data"); }
 
         self.calculate_processing_order();
         
@@ -1159,7 +1162,7 @@ impl YoDo {
             for (index, part) in parts.iter().enumerate() {
                 dt_info(&format!("Processing part {}/{}: '{}'", index + 1, parts.len(), part));
                 
-                match self.process_single_input(part, total_start) {
+                match self.process_single_input(part, total_start, race) {
                     Ok(_) => {
                         processed_count += 1;
                         dt_debug(&format!("Successfully processed part {}/{}", index + 1, parts.len()));
@@ -1181,15 +1184,15 @@ impl YoDo {
                 std::process::exit(1);
             }
         } else {
-            self.process_single_input(parts[0], total_start)
+            self.process_single_input(parts[0], total_start, race)
         }
     }
     
-    fn process_single_input(&self, input: &str, total_start: Instant) -> Result<(), Box<dyn std::error::Error>> {
+    
+    fn process_single_input(&self, input: &str, total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
         let normalized = Self::normalize_input(input);
     
-        
         let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
             .filter(|entry| entry.fuzzy_enabled)
             .filter_map(|entry| {
@@ -1207,47 +1210,93 @@ impl YoDo {
                 }
             })
             .collect();
-        
-
     
-        let yo_do_clone = self.clone();
-        let normalized_clone = normalized.clone();
-        let (fuzzy_tx, fuzzy_rx) = std::sync::mpsc::channel();
-        let fuzzy_handle = std::thread::spawn(move || {
-            let result = yo_do_clone.fuzzy_match(&normalized_clone);
-            let _ = fuzzy_tx.send(result);
-        });
+        if race {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let tx_exact = tx.clone();
+            let tx_fuzzy = tx;
     
-        if let Some(match_result) = self.exact_match(&normalized) {
-            let part_elapsed = part_start.elapsed();
-            let _ = self.log_intent_time(part_elapsed.as_millis());
-            dt_debug(&format!("Exact match found: {}", match_result.script_name));
-            let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
-            let final_result = MatchResult {
-                script_name: match_result.script_name,
-                args: match_result.args,
-                matched_sentence: match_result.matched_sentence,
-                processing_time: part_elapsed,
-                match_type: "exact".to_string(),
-            };
-            self.execute_script(&final_result)?;
-            return Ok(());
-        }
+            let self_clone = self.clone();
+            let normalized_clone = normalized.clone();
+            let exact_handle = std::thread::spawn(move || {
+                if let Some(m) = self_clone.exact_match(&normalized_clone) {
+                    let _ = tx_exact.send(m);
+                }
+            });
     
-        if let Ok(Some(match_result)) = fuzzy_rx.recv() {
-            let part_elapsed = part_start.elapsed();
-            let _ = self.log_intent_time(part_elapsed.as_millis());
-            dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
-            let final_result = MatchResult {
-                script_name: match_result.script_name,
-                args: match_result.args,
-                matched_sentence: match_result.matched_sentence,
-                processing_time: part_elapsed,
-                match_type: "fuzzy".to_string(),
-            };
-            let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time);
-            self.execute_script(&final_result)?;
-            return Ok(());
+            let self_clone = self.clone();
+            let normalized_clone = normalized.clone();
+            let fuzzy_handle = std::thread::spawn(move || {
+                if let Some(m) = self_clone.fuzzy_match(&normalized_clone) {
+                    let _ = tx_fuzzy.send(m);
+                }
+            });
+    
+            match rx.recv() {
+                Ok(match_result) => {
+                    let part_elapsed = part_start.elapsed();
+                    let _ = self.log_intent_time(part_elapsed.as_millis());
+                    dt_info(&format!("Match found ({}): {}", match_result.match_type, match_result.script_name));
+                    let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
+                    let final_result = MatchResult {
+                        script_name: match_result.script_name,
+                        args: match_result.args,
+                        matched_sentence: match_result.matched_sentence,
+                        processing_time: part_elapsed,
+                        match_type: match_result.match_type,
+                    };
+                    let _ = exact_handle.join();
+                    let _ = fuzzy_handle.join();
+                    self.execute_script(&final_result)?;
+                    return Ok(());
+                }
+                Err(_) => {
+                    let _ = exact_handle.join();
+                    let _ = fuzzy_handle.join();
+                }
+            }
+        } else {
+            let yo_do_clone = self.clone();
+            let normalized_clone = normalized.clone();
+            let (fuzzy_tx, fuzzy_rx) = std::sync::mpsc::channel();
+            let fuzzy_handle = std::thread::spawn(move || {
+                let result = yo_do_clone.fuzzy_match(&normalized_clone);
+                let _ = fuzzy_tx.send(result);
+            });
+    
+            if let Some(match_result) = self.exact_match(&normalized) {
+                let part_elapsed = part_start.elapsed();
+                let _ = self.log_intent_time(part_elapsed.as_millis());
+                dt_debug(&format!("Exact match found: {}", match_result.script_name));
+                let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
+                let final_result = MatchResult {
+                    script_name: match_result.script_name,
+                    args: match_result.args,
+                    matched_sentence: match_result.matched_sentence,
+                    processing_time: part_elapsed,
+                    match_type: "exact".to_string(),
+                };
+                let _ = fuzzy_handle.join();
+                self.execute_script(&final_result)?;
+                return Ok(());
+            }
+    
+            if let Ok(Some(match_result)) = fuzzy_rx.recv() {
+                let part_elapsed = part_start.elapsed();
+                let _ = self.log_intent_time(part_elapsed.as_millis());
+                dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
+                let final_result = MatchResult {
+                    script_name: match_result.script_name,
+                    args: match_result.args,
+                    matched_sentence: match_result.matched_sentence,
+                    processing_time: part_elapsed,
+                    match_type: "fuzzy".to_string(),
+                };
+                let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time);
+                let _ = fuzzy_handle.join();
+                self.execute_script(&final_result)?;
+                return Ok(());
+            }
         }
     
         let part_elapsed = part_start.elapsed();
@@ -1273,6 +1322,8 @@ impl YoDo {
         let _ = self.log_failed_command(input, &fuzzy_candidates);
         Err("No match found for this part".into())
     }
+    
+
 }
 
 fn load_split_words() -> Vec<String> {
@@ -1300,6 +1351,7 @@ fn parse_args() -> CliArgs {
     let mut input = None;
     let mut fuzzy = 25;
     let mut room = None;
+    let mut race = false;
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -1326,6 +1378,9 @@ fn parse_args() -> CliArgs {
                 }
                 room = Some(value);
             }
+            "--race" => {
+                race = true;
+            }
             _ => {
                 eprintln!("🦆 says ⮞ fuck ❌ Unknown argument: {}", arg);
                 std::process::exit(1);
@@ -1333,10 +1388,45 @@ fn parse_args() -> CliArgs {
         }
     }
 
-    CliArgs { input, fuzzy, room }
+    CliArgs { input, fuzzy, room, race }
 }
 
 
+pub fn load_data() -> Result<(), Box<dyn std::error::Error>> {
+    let mut yodo = YoDo::new();
+    let intent_path = std::env::var("YO_INTENT_DATA")
+        .unwrap_or_else(|_| DEFAULT_INTENT_DATA_PATH.to_string());
+    yodo.load_intent_data(&intent_path)?;
+
+    yodo.precompile_patterns();
+
+    let fuzzy_entity_path = std::env::var("YO_FUZZY_ENTITY_DICT")
+        .unwrap_or_else(|_| "/etc/yo/fuzzy-entity-dict.json".to_string());
+    yodo.load_fuzzy_entity_dict(&fuzzy_entity_path)?;
+
+    let fuzzy_index_path = std::env::var("YO_FUZZY_INDEX")
+        .unwrap_or_else(|_| DEFAULT_FUZZY_INDEX_PATH.to_string());
+    if let Err(e) = yodo.load_fuzzy_index(&fuzzy_index_path) {
+        dt_warning!("Failed to load fuzzy index: {}", e);
+    }
+    YO_DO.set(Mutex::new(yodo))
+        .map_err(|_| "Data already loaded – load_data can only be called once")?;
+
+    Ok(())
+}
+
+
+pub fn execute(input: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let yodo_mutex = YO_DO
+        .get()
+        .ok_or("Data not loaded. Call load_data() first.")?;
+
+    let mut yodo = yodo_mutex
+        .lock()
+        .map_err(|_| "Failed to lock YoDo instance")?;
+
+    yodo.run(input, 25, false)
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = parse_args();
@@ -1370,7 +1460,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dt_warning!("Failed to load fuzzy index: {}", e);
     }
 
-    yo_do.run(&input, cli.fuzzy)
+    yo_do.run(&input, cli.fuzzy, cli.race)
 }
 
 

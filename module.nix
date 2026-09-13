@@ -22,8 +22,9 @@ let
     countTotalUnderstoodPhrases
     ;
 
-
   cfg = config.yo;
+
+  yoVersion = self.packages.${pkgs.system}.yo-rs.version;
   scripts = cfg.scripts; 
   scriptNames = builtins.attrNames scripts;
   scriptNamesWithIntents = builtins.filter (scriptName:
@@ -608,7 +609,7 @@ let
   in lib.concatStringsSep "\n" exports;
 
   # 🦆 duck say ⮞ build scripts for da --help command
-  terminalScriptsTableFile = pkgs.writeText "yo-helptext.md" terminalScriptsTable;
+  terminalScriptsTableFile = pkgs.writeText "yo-helptext.md" terminalScriptsTableWithHeader;
   # 🦆 duck say ⮞ markdown help text
   terminalScriptsTable = let # 🦆 duck say ⮞ categorize scripts
     groupedScripts = lib.groupBy (script: script.category) (lib.attrValues cfg.scripts);
@@ -649,6 +650,12 @@ let
         ) scripts)
     ) sortedCategories2;
   in concatStringsSep "\n" rows;
+ 
+  terminalScriptsTableWithHeader = ''
+    | Command Syntax               | Aliases    | Description |
+    |------------------------------|------------|-------------|
+    ${terminalScriptsTable}
+  '';
  
   # The yo package
   yoScriptsPackage = pkgs.symlinkJoin {
@@ -988,6 +995,63 @@ EOF
   totalPhrases = config.yo.understandsPhrases;
   ratio = if totalPatterns == 0 then "N/A"
           else toString (builtins.div totalPhrases totalPatterns);
+
+  yoWrapper = pkgs.writeShellScriptBin "yo" ''
+    #!${pkgs.runtimeShell}
+    set -o noglob
+    script_dir="${yoScriptsPackage}/bin"
+          
+    print_version() {
+      echo "yo version ${yoVersion}"
+      echo "Copyright (C) 2026 QuackHack-McBlindy.com"
+      echo "License MIT."
+      echo "This is free software: you are free to change it."
+      echo "There is NO WARRANTY, to the extent permitted by law."
+    }
+    show_help() {
+      width=130
+      cat <<EOF | ${pkgs.glow}/bin/glow --width $width -
+    # ──────⋆⋅☆☆☆⋅⋆──────
+    **Usage:** \`yo <command> [arguments]\`
+    # ──────⋆⋅☆☆☆⋅⋆────── 
+    ## 🦆✨ Available Commands
+    Parameters inside brackets are [optional]
+    | Command Syntax               | Aliases    | Description |
+    |------------------------------|------------|-------------|
+    ${terminalScriptsTable}
+    # ──────⋆⋅☆☆☆⋅⋆────── 
+    ## Detailed Help
+    For specific command help: \`yo <command> --help\`
+    \`yo do --help\` will list all defined voice intents.
+    EOF
+      exit 0
+    }
+    if [[ $# -eq 0 ]]; then
+      show_help
+      exit 1
+    fi
+    case "$1" in
+      -h|--help) show_help; exit 0 ;;
+      -v|--version) print_version; exit 0 ;;
+      *) command="$1"; shift ;;
+    esac
+    script_path="$script_dir/yo-$command"
+    if [[ -x "$script_path" ]]; then
+      exec "$script_path" "$@"
+    else
+      echo -e "\033[1;31m 🦆 duck say ⮞ fuck ❌ $1\033[0m Error: Unknown command '$command'" >&2
+      show_help
+      exit 1
+    fi
+  '';
+
+  yoCli = pkgs.runCommand "yo-${yoVersion}" {
+    meta.description = "yo command dispatcher";
+    passthru.version = yoVersion;
+  } ''
+    mkdir -p $out/bin
+    ln -s ${yoWrapper}/bin/yo $out/bin/yo
+  '';
           
 in {
   imports = [
@@ -1018,45 +1082,7 @@ in {
       environment.systemPackages = [
         config.yo.pkgs
         pkgs.glow
-        (pkgs.writeShellScriptBin "yo" ''
-          #!${pkgs.runtimeShell}
-          set -o noglob
-          script_dir="${yoScriptsPackage}/bin"
-          show_help() {
-            width=130
-            cat <<EOF | ${pkgs.glow}/bin/glow --width $width -
-          # ──────⋆⋅☆☆☆⋅⋆──────
-          **Usage:** \`yo <command> [arguments]\`
-          # ──────⋆⋅☆☆☆⋅⋆────── 
-          ## 🦆✨ Available Commands
-          Parameters inside brackets are [optional]
-          | Command Syntax               | Aliases    | Description |
-          |------------------------------|------------|-------------|
-          ${terminalScriptsTable}
-          # ──────⋆⋅☆☆☆⋅⋆────── 
-          ## Detailed Help
-          For specific command help: \`yo <command> --help\`
-          \`yo do --help\` will list all defined voice intents.
-          EOF
-            exit 0
-          }
-          if [[ $# -eq 0 ]]; then
-            show_help
-            exit 1
-          fi
-          case "$1" in
-            -h|--help) show_help; exit 0 ;;
-            *) command="$1"; shift ;;
-          esac
-          script_path="$script_dir/yo-$command"
-          if [[ -x "$script_path" ]]; then
-            exec "$script_path" "$@"
-          else
-            echo -e "\033[1;31m 🦆 duck say ⮞ fuck ❌ $1\033[0m Error: Unknown command '$command'" >&2
-            show_help
-            exit 1
-          fi
-        '')
+        yoCli
         yoScriptsPackage
       ];
   

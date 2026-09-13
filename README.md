@@ -1,5 +1,19 @@
+<!-- VERSIONS_START -->
+
+![License](https://img.shields.io/badge/license-MIT-black?style=flat-square&logo=opensourceinitiative&logoColor=white)
+![yo](https://img.shields.io/badge/yo-0.2.6-black?style=flat)
+![Fast](https://img.shields.io/badge/⚡-0.1ms-black?style=flat)
+
+<!-- VERSIONS_END -->
+
+![CI](https://img.shields.io/badge/📦%20CI-✔-2ea44f?style=flat)
+![Voice](https://img.shields.io/badge/🎙️%20Voice-✔-2ea44f?style=flat)
+![Offline](https://img.shields.io/badge/🛜%20Offline-✔-2ea44f?style=flat)
+![ESP32](https://img.shields.io/badge/ESP32-✔-2ea44f?style=flat&logo=espressif&logoColor=white)
 
 [![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
+
+
 
 # **`yo`, 3 quick:**  
 

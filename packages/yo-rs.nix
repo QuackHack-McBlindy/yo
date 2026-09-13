@@ -14,7 +14,20 @@ let
   desc = cargoToml.package.description;
   version = cargoToml.package.version;
 
-  whisperModel = if model == "tiny" then
+  vadModel = ./yo-rs/models/vad/silero_vad.onnx;
+
+  whisperModel =
+    if model == "tiny" && language == "swedish" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/KBLab/kb-whisper-tiny/resolve/main/ggml-model.bin";
+        sha256 = "sha256-BUGHyVlI7gRV1CjbDA1shNbGFX2rcuhoV87RMjMRiwM=";
+      }
+    else if model == "base" && language == "swedish" then
+      pkgs.fetchurl {
+        url = "https://huggingface.co/KBLab/kb-whisper-base/resolve/main/ggml-model.bin";
+        sha256 = "sha256-9ePNsz5Tfu36KnSbXK4oxMURhzobEzYvh9/74HiR0/4=";
+      }
+    else if model == "tiny" then
       pkgs.fetchurl {
         url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
         sha256 = "sha256-vgfgSOHlma1GNByNKhNWRQl6U4IhZ4t6zdGxkZxuGyE=";
@@ -247,6 +260,9 @@ rustPlatform.buildRustPackage {
 
     mkdir -p $out/share/yo-rs/models/stt
     cp ${whisperModel} $out/share/yo-rs/models/stt/ggml-${model}.bin
+
+    mkdir -p $out/share/yo-rs/models/vad
+    cp ${vadModel} $out/share/yo-rs/models/vad/silero_vad.onnx
 
     mkdir -p $out/share/yo-rs/models/tts
     cp ${voiceOnnx} $out/share/yo-rs/models/tts/${selectedVoice}.onnx

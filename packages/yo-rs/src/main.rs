@@ -28,6 +28,10 @@ mod helpers;
 use helpers::{play_sound_in_background, play_done_sound, play_fail_sound};
 mod transcription;
 use crate::transcription::TranscriptionProcessor;
+#[path = "yo-do.rs"]
+mod yo_do;
+use yo_do::{load_data, execute};
+
 
 struct ChildGuard(std::process::Child);
 
@@ -404,6 +408,7 @@ async fn handle_client_async(
     room: String,
     sender_ip: String,
     whisper_model_path: String,
+    vad_model_path: Option<String>,
 ) -> Result<()> {
     let mut last_detection: Option<Instant> = None;
 
@@ -491,9 +496,11 @@ async fn handle_client_async(
                 fail_sound: fail_sound_data.clone(),
                 debug,
                 model_path: whisper_model_path.clone(),
+                
                 sender_ip: sender_ip.clone(),
                 client_id: client_id.clone(),
                 cut_at_punctuation: false,
+                vad_model_path: vad_model_path.clone(),
             };
 
             let audio_clone = transcription_audio.clone();
@@ -540,6 +547,7 @@ async fn handle_ptt_async(
     fail_sound_data: Vec<u8>,
     sender_ip: String,
     whisper_model_path: String,
+    vad_model_path: Option<String>,
 ) -> Result<()> {
     let mut audio_buffer: Vec<f32> = Vec::new();
 
@@ -626,6 +634,7 @@ async fn handle_ptt_async(
                     sender_ip: sender_ip.clone(),
                     client_id: client_id.clone(),
                     cut_at_punctuation: false,
+                    vad_model_path: vad_model_path.clone(),
                 };
 
                 let perf_start = Instant::now();
@@ -691,6 +700,7 @@ async fn handle_client_esp_async(
     room: String,
     sender_ip: String,
     whisper_model_path: String,
+    vad_model_path: Option<String>, 
 ) -> Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -843,6 +853,7 @@ async fn handle_client_esp_async(
                         sender_ip: sender_ip.clone(),
                         client_id: client_id.clone(),
                         cut_at_punctuation: ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION,
+                        vad_model_path: vad_model_path.clone(),
                     };
 
                     let perf_start = Instant::now();
@@ -918,6 +929,7 @@ fn print_usage(program_name: &str) {
          --threads <INT>          Number of threads for Whisper (default: 4)\n\
          --exec-command <CMD>     Command to execute with transcribed text as argument (default: none)\n\
          --tts-model <PATH>       Path to TTS ONNX model (default: ./models/tts/en_US-amy-medium.onnx)\n\
+         --vad-model <PATH>       Path to Silero VAD model (optional)\n\
          --debug                  Enable debug logging\n\
          --help, -h               Show this help message",
         program_name
@@ -939,6 +951,7 @@ async fn handle_new_client_async(
     fail_sound_data: Vec<u8>,
     whisper_ctx: Arc<WhisperContext>,
     whisper_model_path: String,
+    vad_model_path: Option<String>, 
     custom_wake_word_provided: bool,
     wake_word_path: String,
     threshold: f32,
@@ -1017,6 +1030,7 @@ async fn handle_new_client_async(
                 fail_sound_data,
                 sender_ip,
                 whisper_model_path_clone,
+                vad_model_path.clone(),
             ).await { dt_error!("[{}] PTT handler error: {}", display_id, e); }
             let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
             reg.remove_connection(&registry_room, &ip_clone);
@@ -1083,6 +1097,7 @@ async fn handle_new_client_async(
                 room_clone.clone(),
                 ip_clone,
                 whisper_model_path_clone,
+                vad_model_path.clone(),
             ).await
         } else {
             handle_client_async(
@@ -1104,6 +1119,7 @@ async fn handle_new_client_async(
                 room_clone.clone(),
                 ip_clone,
                 whisper_model_path_clone,
+                vad_model_path.clone(),
             ).await
         };
 
@@ -1149,6 +1165,7 @@ async fn main() -> Result<()> {
     let mut exec_command: Option<String> = None;
     let mut translate_to_shell = false;
     let mut tts_model_path = "./../models/tts/en_US-amy-medium.onnx".to_string();
+    let mut vad_model_path: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -1168,6 +1185,15 @@ async fn main() -> Result<()> {
             "--threads" => { if i+1 < args.len() { threads = args[i+1].parse().unwrap_or_else(|_| { dt_error!("Invalid threads"); std::process::exit(1); }); i += 2; } else { dt_error!("Missing value for --threads"); std::process::exit(1); } }
             "--exec-command" => { if i+1 < args.len() { exec_command = Some(args[i+1].clone()); i += 2; } else { dt_error!("Missing value for --exec-command"); std::process::exit(1); } }
             "--tts-model" => { if i+1 < args.len() { tts_model_path = args[i+1].clone(); i += 2; } else { dt_error!("Missing value for --tts-model"); std::process::exit(1); } }
+            "--vad-model" => {
+                if i + 1 < args.len() {
+                    vad_model_path = Some(args[i + 1].clone());
+                    i += 2;
+                } else {
+                    dt_error!("Missing value for --vad-model");
+                    std::process::exit(1);
+                }
+            }
             "--debug" => { debug = true; i += 1; }
             _ => { dt_error!("Unknown argument: {}", args[i]); std::process::exit(1); }
         }
@@ -1187,6 +1213,12 @@ async fn main() -> Result<()> {
     let sound_data = if let Some(ref path) = sound_path {
         match std::fs::read(path) { Ok(data) => { dt_info!("Loaded custom awake sound from {}", path); data }, Err(e) => { dt_error!("Failed to read awake sound file '{}': {}. Using embedded sound.", path, e); DING_WAV.to_vec() } }
     } else { DING_WAV.to_vec() };
+
+    if let Err(e) = load_data() {
+        dt_error!("failed to load voice data: {}", e);
+        std::process::exit(1);
+    }
+
 
     let listener = tokio::net::TcpListener::bind(&host).await?;
 
@@ -1237,6 +1269,7 @@ async fn main() -> Result<()> {
         let language = language.clone();
         let client_registry = Arc::clone(&client_registry);
         let whisper_model_path = whisper_model_path.clone();
+        let vad_model_path = vad_model_path.clone();
     
         tokio::spawn(handle_new_client_async(
             stream,
@@ -1253,6 +1286,7 @@ async fn main() -> Result<()> {
             fail_sound_data,
             whisper_ctx,
             whisper_model_path,
+            vad_model_path,
             custom_wake_word_provided,
             wake_word_path_clone,
             threshold,

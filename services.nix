@@ -206,7 +206,13 @@ in {
           Example: `"yo do"`.
         '';
       };
-      
+ 
+      vadPath = mkOption {
+        type = types.nullOr types.path;
+        default = "${yo-rs-with-models}/share/yo-rs/models/vad/silero_vad.onnx";
+        description = "Voice Activation Detection ONNX model path.";
+      }; 
+ 
       onnxPath = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/tts/${selectedVoice}.onnx";
@@ -420,6 +426,7 @@ in {
               ++ optionals (cfg.server.execCommand != null) [ "--exec-command" cfg.server.execCommand ]
               ++ optionals cfg.server.shellTranslate [ "--translate-to-shell" ]
               ++ optionals (cfg.server.onnxPath != null) [ "--tts-model" cfg.server.onnxPath ]
+              ++ optionals (cfg.server.vadPath != null) [ "--vad-model" cfg.server.vadPath ]              
               ++ optionals cfg.server.debug [ "--debug" ]
               ++ cfg.server.extraArgs
             );

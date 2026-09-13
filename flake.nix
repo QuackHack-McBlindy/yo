@@ -10,6 +10,11 @@
       inherit self inputs;
       systems = [ "x86_64-linux" "aarch64-linux" ];
       packages = tinyFlake.lib.mapModules ./packages import;
-      nixosModules.yo = import ./module.nix;
+      nixosModules.yo = { config, lib, pkgs, ... }:
+        import ./module.nix {
+          inherit config lib pkgs;
+          self = self;
+        };
+      devShells = tinyFlake.lib.mapModules ./devShells (path: import path);
               
     };}
