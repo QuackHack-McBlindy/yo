@@ -3,6 +3,9 @@ use std::time::Instant;
 use anyhow::Result;
 use whisper_rs::{WhisperContext, FullParams, SamplingStrategy};
 use crate::helpers::{normalize_transcription, write_last_sender_ip};
+use crate::yo_do;
+
+const VAD_MODEL: &[u8] = include_bytes!("./../models/vad/silero_vad.onnx");
 
 #[derive(Clone)]
 pub struct TranscriptionProcessor {
@@ -18,6 +21,7 @@ pub struct TranscriptionProcessor {
     pub fail_sound: Vec<u8>,
     pub debug: bool,
     pub model_path: String,
+    pub vad_model_path: Option<String>,
     pub sender_ip: String,
     pub client_id: String,
     pub cut_at_punctuation: bool,
@@ -50,6 +54,17 @@ impl TranscriptionProcessor {
         write_last_sender_ip(&self.sender_ip);
     }
 
+    fn get_vad_model_path() -> Option<String> {
+        let exe = std::env::current_exe().ok()?;
+        let mut path = exe.parent()?.parent()?.to_path_buf(); // go up from $out/bin to $out
+        path.push("share");
+        path.push("yo-rs");
+        path.push("models");
+        path.push("vad");
+        path.push("silero_vad.onnx");
+        Some(path.to_string_lossy().to_string())
+    }
+
     fn transcribe(&self, audio: &[f32]) -> Result<String> {
         let sampling_strategy = if self.beam_size > 0 {
             SamplingStrategy::BeamSearch { beam_size: self.beam_size, patience: 1.0 }
@@ -64,11 +79,17 @@ impl TranscriptionProcessor {
         params.set_print_special(false);
         params.set_print_progress(false);
         params.set_print_realtime(false);
+        params.set_no_timestamps(true);
         params.set_print_timestamps(false);
         params.set_temperature(self.temperature);
         params.set_suppress_blank(true);
         params.set_suppress_nst(true);
 
+        if let Some(vad_path) = &self.vad_model_path {
+            params.set_vad_model_path(Some(vad_path.as_str()));
+            params.enable_vad(true);
+        } else { params.enable_vad(false); }
+        
         let mut state = self.whisper_ctx.create_state()?;
         state.full(params, audio)?;
 
@@ -94,30 +115,12 @@ impl TranscriptionProcessor {
             return Ok(false);
         }
 
-        if self.translate_to_shell {
-            let mut cmd = std::process::Command::new("yo");
-            cmd.arg("do");
-            if !self.room.is_empty() {
-                cmd.arg("--room").arg(&self.room);
-            }
-            cmd.arg(text).env("VOICE_MODE", "1");
-            let status = cmd.status()?;
-            return Ok(status.success());
-        }
-
-        if let Some(cmd_str) = &self.exec_command {
-            let mut parts = cmd_str.split_whitespace();
-            if let Some(program) = parts.next() {
-                let mut cmd = std::process::Command::new(program);
-                for arg in parts {
-                    cmd.arg(arg);
-                }
-                cmd.arg(text).env("VOICE_MODE", "1");
-                let status = cmd.status()?;
-                return Ok(status.success());
+        match yo_do::execute(text) {
+            Ok(()) => Ok(true),
+            Err(e) => {
+                crate::dt_debug!("[{}] yo-do execution failed: {}", self.client_id, e);
+                Ok(false)
             }
         }
-
-        Ok(false)
     }
 }

@@ -1,0 +1,321 @@
+# .github/workflows/ci.yml
+# this workflow requires at least one version tag with the current
+# released version to exist before automatic releases can work.
+
+name: CI
+
+# dev
+#  │
+#  │ push
+#  ▼
+# BUILD ────────────────► CI only
+#  │
+#  │
+#  │ PR
+#  ▼
+# main
+#  │
+#  │ merge dev → main
+#  ▼
+# BUILD
+#  │
+#  ▼
+# RELEASE
+#  │
+#  ├── latest tag: v0.3.0
+#  │
+#  ├── next version: v0.3.1
+#  │
+#  ├── Nix package versions
+#  │        │
+#  │        └── majority MUST be 0.3.1
+#  │
+#  ├── CHANGELOG [Unreleased]
+#  │        │
+#  │        └── promote → [0.3.1]
+#  │
+#  ├── commit changelog
+#  │
+#  ├── tag v0.3.1
+#  │
+#  └── GitHub Release v0.3.1
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Nix build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3.22.2
+
+      - name: Check flake
+        uses: DeterminateSystems/flake-checker-action@v12
+        with:
+          fail-mode: true
+
+      - name: Build flake
+        run: nix flake check --all-systems
+
+  release:
+    name: Release
+    needs: build
+    if: >-
+      ${{
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3.22.2
+
+      - name: Check that this is a merge from dev
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          commit="${{ github.sha }}"
+
+          pr=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/commits/$commit/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main" and .head.ref == "dev")] | .[0]')
+
+          if [[ -z "$pr" || "$pr" == "null" ]]; then
+            echo "This is not a merged dev -> main PR."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Detected merged PR from dev to main."
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if not a dev -> main merge
+        if: steps.merge.outputs.release != 'true'
+        run: echo "No release required."
+
+      - name: Determine and validate next version
+        if: steps.merge.outputs.release == 'true'
+        id: version
+        run: |
+          set -euo pipefail
+
+          latest_tag="$(git tag --list 'v*' --sort=-version:refname | head -n 1)"
+
+          if [[ -z "$latest_tag" ]]; then
+            echo "error: no existing version tag found"
+            echo "Create the initial version tag before using automatic releases."
+            exit 1
+          fi
+
+          if [[ ! "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "error: latest tag '$latest_tag' is not a valid semantic version"
+            exit 1
+          fi
+
+          current_version="${latest_tag#v}"
+
+          IFS='.' read -r major minor patch <<< "$current_version"
+          expected_version="${major}.${minor}.$((patch + 1))"
+          expected_tag="v${expected_version}"
+          echo "Latest tag: $latest_tag"
+          echo "Expected next version: $expected_version"
+
+          system="$(nix eval --raw --expr 'builtins.currentSystem')"
+
+          # discover all packages
+          mapfile -t packages < <(
+            nix flake show --json --no-write-lock-file \
+              | jq -r --arg system "$system" '
+                  .packages[$system] // {} | keys[]
+                '
+          )
+
+          if [[ "${#packages[@]}" -eq 0 ]]; then
+            echo "error: flake exposes no packages for ${system}"
+            exit 1
+          fi
+
+          echo "Packages for ${system}:"
+
+          declare -A version_counts=()
+
+          for package in "${packages[@]}"; do
+            package_version="$(
+              nix eval \
+                --raw \
+                --no-write-lock-file \
+                ".#packages.${system}.${package}.version"
+            )"
+
+            if [[ ! "$package_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "error: package '${package}' has invalid version '${package_version}'"
+              exit 1
+            fi
+
+            echo "  ${package}: ${package_version}"
+
+            version_counts["$package_version"]=$(
+              printf '%s\n' "${version_counts[$package_version]:-0}" \
+                | awk '{print $1 + 1}'
+            )
+          done
+
+
+          # find the version occurring most frequently.
+          majority_version=""
+          majority_count=0
+          package_count="${#packages[@]}"
+
+          for package_version in "${!version_counts[@]}"; do
+            count="${version_counts[$package_version]}"
+
+            if (( count > majority_count )); then
+              majority_version="$package_version"
+              majority_count="$count"
+            elif (( count == majority_count )); then
+              echo "error: package versions are tied"
+              echo "  ${package_version}: ${count}"
+              echo "  ${majority_version}: ${majority_count}"
+              exit 1
+            fi
+          done
+
+          if (( majority_count * 2 <= package_count )); then
+            echo "error: no package version has a majority"
+            echo "  packages: ${package_count}"
+            echo "  highest count: ${majority_count}"
+            exit 1
+          fi
+
+          echo "Majority package version: ${majority_version}"
+          echo "Expected release version:  ${expected_version}"
+
+          # the majority package version MUST equal the next version
+          if [[ "$majority_version" != "$expected_version" ]]; then
+            echo "error: version mismatch"
+            echo "  latest Git tag:        $latest_tag"
+            echo "  expected next version: $expected_version"
+            echo "  majority package:      $majority_version"
+            exit 1
+          fi
+
+          echo "Version validation passed."
+          echo "Release: $expected_tag"
+
+          echo "version=$expected_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag does not already exist
+        if: steps.merge.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git show-ref --tags --verify --quiet "refs/tags/$VERSION"; then
+            echo "error: tag $VERSION already exists"
+            exit 1
+          fi
+
+      - name: Ensure changelog has unreleased entries
+        if: steps.merge.outputs.release == 'true'
+        run: |
+          if ! awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit} f' CHANGELOG.md \
+               | grep -qE '^\s*[-*+]\s'; then
+            echo "error: [Unreleased] section is empty; nothing to release"
+            exit 1
+          fi
+
+      - name: Promote changelog
+        if: steps.merge.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 scripts/promote-changelog.py "${VERSION#v}"
+
+      - name: Extract release notes
+        if: steps.merge.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          v="${VERSION#v}"
+
+          awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" {found=1; next}
+            found && /^## \[/ {exit}
+            found {print}
+          ' CHANGELOG.md > /tmp/notes.md
+
+          test -s /tmp/notes.md \
+            || { echo "error: empty release notes"; exit 1; }
+
+      - name: Commit changelog
+        if: steps.merge.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add CHANGELOG.md
+          git commit -m "chore(release): $VERSION [skip ci]"
+
+          git push origin HEAD:main
+
+      - name: Create and push tag
+        if: steps.merge.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          git tag -a "$VERSION" -m "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub Release
+        if: steps.merge.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file /tmp/notes.md \
+            --verify-tag \
+            --latest
+
