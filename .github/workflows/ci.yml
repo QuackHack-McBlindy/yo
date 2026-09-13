@@ -262,7 +262,7 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          python3 scripts/promote-changelog.py "${VERSION#v}"
+          python3 hooks/promote-changelog.py "${VERSION#v}"
 
       - name: Extract release notes
         if: steps.merge.outputs.release == 'true'
@@ -318,4 +318,3 @@ jobs:
             --notes-file /tmp/notes.md \
             --verify-tag \
             --latest
-
