@@ -13,8 +13,8 @@ use std::{
 };
 
 use ducktrace_logger::*;
-use anyhow::{bail, Result};
 use byteorder::{LittleEndian, WriteBytesExt};
+use socket2::{SockRef, TcpKeepalive};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     SampleFormat,
@@ -59,13 +59,45 @@ fn print_usage(program_name: &str) {
   );
 }
 
-
 fn rms_f32(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
     }
     let sum_squares: f32 = samples.iter().map(|&x| x * x).sum();
     (sum_squares / samples.len() as f32).sqrt()
+}
+
+fn read_exact_retry(
+    stream: &mut TcpStream,
+    buf: &mut [u8],
+    shutdown: &AtomicBool,
+) -> std::io::Result<()> {
+    let mut filled = 0;
+    while filled < buf.len() {
+        if shutdown.load(Ordering::SeqCst) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Interrupted,
+                "shutdown",
+            ));
+        }
+        match stream.read(&mut buf[filled..]) {
+            Ok(0) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "eof",
+                ))
+            }
+            Ok(n) => filled += n,
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
+                continue;
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    Ok(())
 }
 
 fn handle_tts_connection(mut stream: TcpStream) {
@@ -105,7 +137,10 @@ fn handle_tts_connection(mut stream: TcpStream) {
 fn play_audio_samples(samples: &[f32]) {
     let samples = samples.to_vec();
     thread::spawn(move || {
-        let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+        let (_stream, handle) = match rodio::OutputStream::try_default() {
+            Ok(v) => v,
+            Err(e) => { dt_error!("Failed to open output stream: {}", e); return; }
+        };
         let source = rodio::buffer::SamplesBuffer::new(1, 16000, samples);
         if let Ok(sink) = rodio::Sink::try_new(&handle) {
             sink.append(source);
@@ -114,13 +149,38 @@ fn play_audio_samples(samples: &[f32]) {
     });
 }
 
-fn main() -> Result<()> {
+fn resample_to_16k_mono(raw: &[f32], input_rate: u32, channels: usize) -> Vec<f32> {
+    let mono = if channels > 1 {
+        raw.chunks(channels)
+            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+            .collect::<Vec<f32>>()
+    } else { raw.to_vec() };
+
+    let mut resampler = match make_resampler(input_rate, 16000, 1) {
+        Ok(r) => r,
+        Err(e) => {
+            dt_error!("Failed to create resampler: {}", e);
+            return Vec::new();
+        }
+    };
+
+    let resample_buffer = Arc::new(Mutex::new(Vec::new()));
+    let mut output = Vec::new();
+
+    let chunks = resample_into_chunks(&mono, &resample_buffer, 1, &mut resampler);
+    for chunk in chunks {
+        output.extend_from_slice(&chunk.data_f32[0]);
+    }
+    output
+}
+
+fn main() {
     env_logger::init();
     let args: Vec<String> = env::args().collect();
 
     if args.iter().any(|s| s == "--help" || s == "-h") {
         print_usage(&args[0]);
-        return Ok(());
+        return;
     }
 
     let mut debug = false;
@@ -269,7 +329,7 @@ fn main() -> Result<()> {
             }
             "--help" | "-h" => {
                 print_usage(&args[0]);
-                return Ok(());
+                return;
             }
             _ => {
                 dt_error!("Unknown argument: {}", args[i]);
@@ -288,7 +348,7 @@ fn main() -> Result<()> {
     let awake_cmd_display = awake_cmd.as_deref().unwrap_or("none");
     let done_cmd_display = done_cmd.as_deref().unwrap_or("none");
     let fail_cmd_display = fail_cmd.as_deref().unwrap_or("none");
-    
+
     dt_info!(
         "Settings: debug={}, silence_threshold={}, silence_timeout={}s, max_duration={}s, awake_sound={}, done_sound={}, fail_sound={}, awake_cmd={}, done_cmd={} fail_cmd={}",
         debug,
@@ -342,95 +402,132 @@ fn main() -> Result<()> {
         }
     } else { FAIL_WAV.to_vec() };
 
-
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or_else(|| anyhow::anyhow!("No input device"))?;
-    let (config, sample_format) = find_best_config(&device)
-        .map_err(|e| anyhow::anyhow!("Config error: {}", e))?;
+
+    let chunk_tx_global: Arc<Mutex<Option<mpsc::SyncSender<Vec<f32>>>>> =
+        Arc::new(Mutex::new(None));
+    let is_transcribing = Arc::new(AtomicBool::new(false));
+    let recording_active = Arc::new(AtomicBool::new(false));
+    let recording_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
+
+
+    let device = match host.default_input_device() {
+        Some(d) => d,
+        None => {
+            dt_error!("No input device. Exiting so systemd can restart us.");
+            std::process::exit(2);
+        }
+    };
+
+    let (config, sample_format) = match find_best_config(&device) {
+        Ok(v) => v,
+        Err(e) => {
+            dt_error!("Config error: {}. Exiting so systemd can restart us.", e);
+            std::process::exit(2);
+        }
+    };
     dt_info!("Selected config: {:?}", config);
 
     let original_sample_rate = config.sample_rate.0;
     let channels = config.channels as usize;
 
-    let chunk_tx_global: Arc<Mutex<Option<mpsc::SyncSender<Vec<f32>>>>> = Arc::new(Mutex::new(None));
-
-    let is_transcribing = Arc::new(AtomicBool::new(false));
-    let recording_active = Arc::new(AtomicBool::new(false));
-    let recording_buffer = Arc::new(Mutex::new(Vec::<f32>::new()));
-
     let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(vec![]));
     let buffer_clone = buffer.clone();
 
-    let mut resampler = make_resampler(
+    let mut resampler = match make_resampler(
         original_sample_rate,
         OWW_MODEL_CHUNK_SIZE as u32,
         channels,
-    )
-    .map_err(|e| anyhow::anyhow!("Resampler error: {}", e))?;
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            dt_error!("Resampler error: {}. Exiting so systemd can restart us.", e);
+            std::process::exit(2);
+        }
+    };
 
     let err_fn = |err| dt_error!("Stream error: {}", err);
 
-    let stream = match sample_format {
-        SampleFormat::F32 => device.build_input_stream(
-            &config,
-            {
-                let chunk_tx_global = chunk_tx_global.clone();
-                let recording_active = recording_active.clone();
-                let recording_buffer = recording_buffer.clone();
-                move |data: &[f32], _| {
-                    let chunks = resample_into_chunks(data, &buffer_clone, channels, &mut resampler);
-                    if let Some(tx) = chunk_tx_global.lock().unwrap().as_ref() {
-                        for chunk in chunks {
-                            let _ = tx.try_send(chunk.data_f32[0].clone());
+    let stream_result = match sample_format {
+        SampleFormat::F32 => {
+            device.build_input_stream(
+                &config,
+                {
+                    let chunk_tx_global = chunk_tx_global.clone();
+                    let recording_active = recording_active.clone();
+                    let recording_buffer = recording_buffer.clone();
+                    move |data: &[f32], _| {
+                        let chunks = resample_into_chunks(data, &buffer_clone, channels, &mut resampler);
+                        if let Some(tx) = chunk_tx_global.lock().unwrap().as_ref() {
+                            for chunk in chunks {
+                                let _ = tx.try_send(chunk.data_f32[0].clone());
+                            }
+                        }
+                        if recording_active.load(Ordering::Relaxed) {
+                            let mut guard = recording_buffer.lock().unwrap();
+                            guard.extend_from_slice(data);
                         }
                     }
-                    if recording_active.load(Ordering::Relaxed) {
-                        let mut guard = recording_buffer.lock().unwrap();
-                        guard.extend_from_slice(data);
-                    }
-                }
-            },
-            err_fn,
-            None,
-        )?,
-        SampleFormat::I16 => device.build_input_stream(
-            &config,
-            {
-                let chunk_tx_global = chunk_tx_global.clone();
-                let recording_active = recording_active.clone();
-                let recording_buffer = recording_buffer.clone();
-                move |data: &[i16], _| {
-                    let samples: Vec<f32> = data.iter().map(i16_to_f32).collect();
-                    let chunks = resample_into_chunks(&samples, &buffer_clone, channels, &mut resampler);
-                    if let Some(tx) = chunk_tx_global.lock().unwrap().as_ref() {
-                        for chunk in chunks {
-                            let _ = tx.try_send(chunk.data_f32[0].clone());
+                },
+                err_fn,
+                None,
+            )
+        }
+        SampleFormat::I16 => {
+            device.build_input_stream(
+                &config,
+                {
+                    let chunk_tx_global = chunk_tx_global.clone();
+                    let recording_active = recording_active.clone();
+                    let recording_buffer = recording_buffer.clone();
+                    move |data: &[i16], _| {
+                        let samples: Vec<f32> = data.iter().map(i16_to_f32).collect();
+                        let chunks = resample_into_chunks(&samples, &buffer_clone, channels, &mut resampler);
+                        if let Some(tx) = chunk_tx_global.lock().unwrap().as_ref() {
+                            for chunk in chunks {
+                                let _ = tx.try_send(chunk.data_f32[0].clone());
+                            }
+                        }
+                        if recording_active.load(Ordering::Relaxed) {
+                            let mut guard = recording_buffer.lock().unwrap();
+                            guard.extend_from_slice(&samples);
                         }
                     }
-                    if recording_active.load(Ordering::Relaxed) {
-                        let mut guard = recording_buffer.lock().unwrap();
-                        guard.extend_from_slice(&samples);
-                    }
-                }
-            },
-            err_fn,
-            None,
-        )?,
-        _ => bail!("Unsupported sample format: {:?}", sample_format),
+                },
+                err_fn,
+                None,
+            )
+        }
+        _ => {
+            dt_error!("Unsupported sample format: {:?}. Exiting so systemd can restart us.", sample_format);
+            std::process::exit(2);
+        }
     };
 
-    stream.play()?;
+    let _mic_stream = match stream_result {
+        Ok(s) => s,
+        Err(e) => {
+            dt_error!("Failed to build input stream: {}. Exiting so systemd can restart us.", e);
+            std::process::exit(2);
+        }
+    };
+
+    if let Err(e) = _mic_stream.play() {
+        dt_error!("Failed to start mic stream: {}. Exiting so systemd can restart us.", e);
+        std::process::exit(2);
+    }
+
     dt_info!("Streaming microphone audio to server.");
 
-    
+
     if stream_tts {
-        let tts_listener = match TcpListener::bind("0.0.0.0:12345") {
-            Ok(l) => l,
-            Err(e) => {
-                dt_error!("Failed to bind TTS listener on 12345: {}", e);
-                return Err(e.into());
+        let tts_listener = loop {
+            match TcpListener::bind("0.0.0.0:12345") {
+                Ok(l) => break l,
+                Err(e) => {
+                    dt_error!("Failed to bind TTS listener on 12345: {}. Retrying in 5s...", e);
+                    thread::sleep(Duration::from_secs(5));
+                }
             }
         };
 
@@ -444,13 +541,15 @@ fn main() -> Result<()> {
                     }
                 }
             }
-        });      
+        });
     }
-    
-    if !stream_tts { 
+
+    if !stream_tts {
         dt_info!("Local TTS audio output only");
-    } else { dt_info!("TTS audio listener started on 0.0.0.0:12345"); }
-    
+    } else {
+        dt_info!("TTS audio listener started on 0.0.0.0:12345");
+    }
+
     loop {
         dt_info!("Connecting to {}...", server_addr);
         let mut stream = loop {
@@ -463,7 +562,20 @@ fn main() -> Result<()> {
             }
         };
 
+        {
+            let sock = SockRef::from(&stream);
+            let ka = TcpKeepalive::new()
+                .with_time(Duration::from_secs(30))
+                .with_interval(Duration::from_secs(10));
+            if let Err(e) = sock.set_tcp_keepalive(&ka) { dt_warning!("failed to set TCP keepalive: {}", e); }
+            if let Err(e) = sock.set_tcp_nodelay(true) { dt_warning!("failed to set TCP_NODELAY: {}", e); }
+        }
+
         dt_info!("📡 ☑️ 🎙️ @ {}", server_addr);
+
+        is_transcribing.store(false, Ordering::SeqCst);
+        recording_active.store(false, Ordering::SeqCst);
+        recording_buffer.lock().unwrap().clear();
 
         let room_bytes = room.as_deref().unwrap_or("").as_bytes();
         let room_len = room_bytes.len() as u32;
@@ -483,12 +595,22 @@ fn main() -> Result<()> {
         }
         dt_info!("Sent room: {}", room.as_deref().unwrap_or("(empty)"));
 
+        let read_stream = match stream.try_clone() {
+            Ok(s) => s,
+            Err(e) => {
+                dt_error!("Failed to clone read stream: {} – reconnecting", e);
+                continue;
+            }
+        };
+        let write_stream = match stream.try_clone() {
+            Ok(s) => Arc::new(Mutex::new(s)),
+            Err(e) => {
+                dt_error!("Failed to clone write stream: {} – reconnecting", e);
+                continue;
+            }
+        };
 
-        let read_stream = stream.try_clone()?;
-        let write_stream = Arc::new(Mutex::new(stream.try_clone()?));
-
-
-        if let Err(e) = read_stream.set_read_timeout(Some(Duration::from_secs(1))) {
+        if let Err(e) = read_stream.set_read_timeout(Some(Duration::from_secs(10))) {
             dt_error!("Failed to set read timeout: {}", e);
         }
 
@@ -505,6 +627,7 @@ fn main() -> Result<()> {
         let sender_is_transcribing = is_transcribing.clone();
         let sender_handle = thread::spawn(move || {
             let _ = std::panic::catch_unwind(|| {
+                dt_info!("[sender] thread started");
                 for chunk in rx {
                     if sender_shutdown.load(Ordering::SeqCst) {
                         break;
@@ -539,6 +662,7 @@ fn main() -> Result<()> {
                     }
                 }
             });
+            dt_info!("[sender] thread exiting");
             let _ = sender_exit_tx.send(());
         });
 
@@ -571,17 +695,17 @@ fn main() -> Result<()> {
                         break;
                     }
                     match read_stream.read_exact(&mut buf) {
-                        Ok(()) => {                        
+                        Ok(()) => {
                             if buf[0] == SERVER_AUDIO {
                                 let mut len_buf = [0u8; 4];
-                                if let Err(e) = read_stream.read_exact(&mut len_buf) {
-                                    dt_error!("failed to read audio length: {}", e);
+                                if let Err(e) = read_exact_retry(&mut read_stream, &mut len_buf, &receiver_shutdown) {
+                                    dt_error!("Failed to read audio length: {}", e);
                                     break;
                                 }
                                 let num_samples = u32::from_le_bytes(len_buf) as usize;
 
                                 let mut audio_bytes = vec![0u8; num_samples * 4];
-                                if let Err(e) = read_stream.read_exact(&mut audio_bytes) {
+                                if let Err(e) = read_exact_retry(&mut read_stream, &mut audio_bytes, &receiver_shutdown) {
                                     dt_error!("failed to read audio samples: {}", e);
                                     break;
                                 }
@@ -593,7 +717,7 @@ fn main() -> Result<()> {
                                 play_audio_samples(&samples);
                                 continue;
                             }
-                        
+
                             if buf[0] == 0x01 {
                                 if receiver_is_transcribing.load(Ordering::SeqCst) {
                                     continue;
@@ -602,13 +726,16 @@ fn main() -> Result<()> {
 
                                 let sound_data = receiver_awake_sound.clone();
                                 thread::spawn(move || {
-                                    let (_stream, handle) = OutputStream::try_default().unwrap();
+                                    let (_stream, handle) = match OutputStream::try_default() {
+                                        Ok(v) => v,
+                                        Err(e) => { dt_error!("Failed to open output stream: {}", e); return; }
+                                    };
                                     let cursor = Cursor::new(sound_data);
                                     if let Ok(sink) = handle.play_once(cursor) {
                                         sink.sleep_until_end();
                                     }
                                 });
-                      
+
                                 if let Some(cmd) = &receiver_awake_cmd {
                                     let cmd = cmd.clone();
                                     thread::spawn(move || {
@@ -622,7 +749,7 @@ fn main() -> Result<()> {
                                             .status();
                                         match status {
                                             Ok(status) => {
-                                                if status.success() { 
+                                                if status.success() {
                                                     dt_debug!("Awake command executed successfully");
                                                 } else {
                                                     dt_error!("Awake command failed with exit code: {:?}", status.code());
@@ -632,7 +759,7 @@ fn main() -> Result<()> {
                                         }
                                     });
                                 }
-                      
+
                                 let timer = dt_timer("voice pipeline");
                                 dt_info!("💥 DETECTED!");
                                 timer.lap("wake word detected");
@@ -667,7 +794,7 @@ fn main() -> Result<()> {
                                         if len == 0 {
                                             continue;
                                         }
-                                        
+
                                         let start_idx = if len > window_samples { len - window_samples } else { 0 };
                                         let window = &guard[start_idx..];
                                         if window.is_empty() {
@@ -677,9 +804,9 @@ fn main() -> Result<()> {
                                     };
 
                                     if receiver_debug { dt_debug!("RMS: {:.6}", rms); }
-                                    
+
                                     if rms > receiver_silence_threshold { last_speech_time = Instant::now(); }
-                                    
+
                                     if last_speech_time.elapsed() > receiver_silence_timeout { break; }
                                 }
 
@@ -703,7 +830,7 @@ fn main() -> Result<()> {
                                     if let Err(e) = guard.write_u8(0x02) {
                                         dt_error!("Failed to send transcription type: {}", e);
                                     }
-                                    if let Err(e) = guard.write_u32::<LittleEndian>(resampled_audio.len() as u32) { 
+                                    if let Err(e) = guard.write_u32::<LittleEndian>(resampled_audio.len() as u32) {
                                         dt_error!("Failed to send transcription length: {}", e);
                                     }
                                     let mut bytes = Vec::with_capacity(resampled_audio.len() * 4);
@@ -713,7 +840,6 @@ fn main() -> Result<()> {
                                     if let Err(e) = guard.write_all(&bytes) { dt_error!("Failed to send transcription samples: {}", e); }
                                     if let Err(e) = guard.flush() { dt_error!("Failed to flush: {}", e); }
                                 }
-
 
                                 let mut response_buf = [0u8; 1];
                                 let timeout_duration = Duration::from_secs(5);
@@ -729,14 +855,14 @@ fn main() -> Result<()> {
                                         Ok(()) => {
                                             if response_buf[0] == SERVER_AUDIO {
                                                 let mut len_buf = [0u8; 4];
-                                                if let Err(e) = read_stream.read_exact(&mut len_buf) {
+                                                if let Err(e) = read_exact_retry(&mut read_stream, &mut len_buf, &receiver_shutdown) {
                                                     dt_error!("Failed to read audio length: {}", e);
                                                     break;
                                                 }
                                                 let num_samples = u32::from_le_bytes(len_buf) as usize;
-                                        
+
                                                 let mut audio_bytes = vec![0u8; num_samples * 4];
-                                                if let Err(e) = read_stream.read_exact(&mut audio_bytes) {
+                                                if let Err(e) = read_exact_retry(&mut read_stream, &mut audio_bytes, &receiver_shutdown) {
                                                     dt_error!("Failed to read audio samples: {}", e);
                                                     break;
                                                 }
@@ -744,27 +870,30 @@ fn main() -> Result<()> {
                                                     .chunks_exact(4)
                                                     .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                                                     .collect();
-                                        
+
                                                 play_audio_samples(&samples);
                                                 continue;
                                             }
-                                        
+
                                             match response_buf[0] {
                                                 0x03 => {
                                                     dt_info!("🎉 Command execution successful");
                                                     timer.lap("command executed sucessfully");
                                                     timer.complete();
                                                     server_timer.complete();
-                                        
+
                                                     let sound_data = receiver_done_sound.clone();
                                                     thread::spawn(move || {
-                                                        let (_stream, handle) = OutputStream::try_default().unwrap();
+                                                        let (_stream, handle) = match OutputStream::try_default() {
+                                                            Ok(v) => v,
+                                                            Err(e) => { dt_error!("Failed to open output stream: {}", e); return; }
+                                                        };
                                                         let cursor = Cursor::new(sound_data);
                                                         if let Ok(sink) = handle.play_once(cursor) {
                                                             sink.sleep_until_end();
                                                         }
                                                     });
-                                        
+
                                                     if let Some(cmd) = &receiver_done_cmd {
                                                         let cmd = cmd.clone();
                                                         thread::spawn(move || {
@@ -785,19 +914,22 @@ fn main() -> Result<()> {
                                                                 Err(e) => dt_error!("Failed to execute done command: {}", e),
                                                             }
                                                         });
-                                                    }                            
+                                                    }
                                                 }
                                                 0x04 => {
                                                     dt_info!("💩 failed – empty transcription?");
                                                     let sound_data = receiver_fail_sound.clone();
                                                     thread::spawn(move || {
-                                                        let (_stream, handle) = OutputStream::try_default().unwrap();
+                                                        let (_stream, handle) = match OutputStream::try_default() {
+                                                            Ok(v) => v,
+                                                            Err(e) => { dt_error!("Failed to open output stream: {}", e); return; }
+                                                        };
                                                         let cursor = Cursor::new(sound_data);
                                                         if let Ok(sink) = handle.play_once(cursor) {
                                                             sink.sleep_until_end();
                                                         }
                                                     });
-                                                    
+
                                                     if let Some(cmd) = &receiver_fail_cmd {
                                                         let cmd = cmd.clone();
                                                         thread::spawn(move || {
@@ -850,10 +982,12 @@ fn main() -> Result<()> {
                     }
                 }
             });
+            dt_info!("[receiver] thread exiting");
             let _ = receiver_exit_tx.send(());
         });
 
         let _ = exit_rx.recv();
+        dt_info!("[main] a thread exited; tearing down connection");
         shutdown.store(true, Ordering::SeqCst);
         *chunk_tx_global.lock().unwrap() = None;
 
@@ -862,29 +996,4 @@ fn main() -> Result<()> {
 
         dt_info!("⚠️ Reconnecting...");
     }
-}
-
-fn resample_to_16k_mono(raw: &[f32], input_rate: u32, channels: usize) -> Vec<f32> {
-    let mono = if channels > 1 {
-        raw.chunks(channels)
-            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
-            .collect::<Vec<f32>>()
-    } else { raw.to_vec() };
-
-    let mut resampler = match make_resampler(input_rate, 16000, 1) {
-        Ok(r) => r,
-        Err(e) => {
-            dt_error!("Failed to create resampler: {}", e);
-            return Vec::new();
-        }
-    };
-
-    let resample_buffer = Arc::new(Mutex::new(Vec::new()));
-    let mut output = Vec::new();
-
-    let chunks = resample_into_chunks(&mono, &resample_buffer, 1, &mut resampler);
-    for chunk in chunks {
-        output.extend_from_slice(&chunk.data_f32[0]);
-    }
-    output
 }

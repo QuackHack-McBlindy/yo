@@ -1,13 +1,11 @@
 use std::{
     env,
-    collections::HashMap,
-    io::Read,
-    io::Write,
+    collections::{HashMap, HashSet},
+    io::{Read, Write, BufRead},
     path::PathBuf,
     fs::{self},
     net::{TcpStream},
     process::{Command, Stdio},
-    thread,
     time::{Duration, Instant},
     sync::{Arc, Mutex},
 };
@@ -117,6 +115,39 @@ impl ClientRegistry {
     }
 }
 
+
+
+struct AudioControl {
+    volumes:  Mutex<HashMap<String, f32>>, // client_id -> linear gain
+    monitors: Mutex<HashSet<String>>,      // client_ids being played on speakers
+}
+
+impl AudioControl {
+    fn gain(&self, id: &str) -> f32 {
+        *self.volumes.lock().unwrap().get(id).unwrap_or(&1.0)
+    }
+    fn set_gain(&self, id: &str, g: f32) {
+        self.volumes.lock().unwrap().insert(id.into(), g.max(0.0));
+    }
+    fn is_monitored(&self, id: &str) -> bool {
+        self.monitors.lock().unwrap().contains(id)
+    }
+    fn toggle_monitor(&self, id: &str, on: bool) {
+        let mut m = self.monitors.lock().unwrap();
+        if on { m.insert(id.into()); } else { m.remove(id); }
+    }
+}
+
+fn enable_keepalive(stream: &tokio::net::TcpStream) {
+    use socket2::{SockRef, TcpKeepalive};
+    let sock = SockRef::from(stream);
+    let ka = TcpKeepalive::new()
+        .with_time(Duration::from_secs(30))
+        .with_interval(Duration::from_secs(10));
+    if let Err(e) = sock.set_tcp_keepalive(&ka) { dt_warning!("failed to set TCP keepalive: {}", e); }
+    if let Err(e) = sock.set_tcp_nodelay(true) { dt_warning!("failed to set TCP_NODELAY: {}", e); }
+}
+
 fn rms_f32(samples: &[f32]) -> f32 {
     if samples.is_empty() {
         return 0.0;
@@ -131,7 +162,7 @@ fn sox_noisered(samples: &[f32], sample_rate: u32, amount: f32) -> Result<Vec<f3
     let mut tmp = tempfile::NamedTempFile::new()?;
     tmp.write_all(NOISE_PROFILE_BYTES)?;
     tmp.flush()?;
-    tmp.as_file().sync_all()?; 
+    tmp.as_file().sync_all()?;
     let profile_path = tmp.path().to_str().unwrap();
 
     let mut wav_bytes = Vec::new();
@@ -247,7 +278,7 @@ fn log_transcription_benchmark(time_secs: f64, model: &str) {
         .unwrap_or(model)
         .to_string();
     entries.push((time_secs, model_name));
-    
+
     let latest_model = entries
         .last()
         .map(|(_, m)| m.clone())
@@ -333,6 +364,38 @@ fn handle_intercom(
 }
 
 
+fn monitor_thread(rx: std::sync::mpsc::Receiver<(String, Vec<f32>)>) {
+    const SAMPLE_RATE: u32 = 16000;
+
+    let (_stream, handle) = match OutputStream::try_default() {
+        Ok(s) => s,
+        Err(e) => { dt_error!("[monitor] failed to open output stream: {}", e); return; }
+    };
+
+    let mut sinks: HashMap<String, Sink> = HashMap::new();
+
+    while let Ok((id, samples)) = rx.recv() {
+        let sink = match sinks.entry(id.clone()) {
+            std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+            std::collections::hash_map::Entry::Vacant(e) => {
+                match Sink::try_new(&handle) {
+                    Ok(s) => e.insert(s),
+                    Err(err) => { dt_error!("[monitor] sink for {}: {}", id, err); continue; }
+                }
+            }
+        };
+
+        while sink.len() > 8 { sink.skip_one(); }
+
+        let pcm: Vec<i16> = samples
+            .iter()
+            .map(|s| (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16)
+            .collect();
+
+        sink.append(SamplesBuffer::new(1, SAMPLE_RATE, pcm));
+    }
+}
+
 fn save_audio_to_file(audio: &[f32], client_id: &str) -> std::io::Result<()> {
     use std::fs::{File, create_dir_all};
     use std::io::Write;
@@ -361,6 +424,10 @@ fn save_audio_to_file(audio: &[f32], client_id: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+fn control_fifo_path() -> String {
+    std::env::var("YO_CONTROL_FIFO").unwrap_or_else(|_| "/run/yo/control".to_string())
+}
+
 const LISTEN_ADDR: &str = "0.0.0.0:12345";
 const DING_WAV: &[u8] = include_bytes!("./../ding.wav");
 const DONE_WAV: &[u8] = include_bytes!("./../done.wav");
@@ -379,7 +446,7 @@ const ESP_SILENCE_TIMEOUT_SECS: f64 = 1.0;
 const ESP_ADDITIONAL_SILENCE_TRIM: f32 = 0.5;
 const ESP_MAX_DURATION_SECS: f64 = 5.0;
 const ESP_CUT_TRANSCRIPTION_AT_PUNCTUATION: bool = true;
-const COOLDOWN_SECS: f64 = 5.0;  
+const COOLDOWN_SECS: f64 = 5.0;
 
 // RESET WAKE MODEL BY SENDING ZERO
 fn reset_wake_model(model: &mut OwwModel, chunks_to_flush: usize) {
@@ -409,6 +476,8 @@ async fn handle_client_async(
     sender_ip: String,
     whisper_model_path: String,
     vad_model_path: Option<String>,
+    audio_ctl: Arc<AudioControl>,
+    mon_tx: std::sync::mpsc::SyncSender<(String, Vec<f32>)>,
 ) -> Result<()> {
     let mut last_detection: Option<Instant> = None;
 
@@ -427,10 +496,18 @@ async fn handle_client_async(
             break;
         }
 
-        let samples: Vec<f32> = sample_bytes
+        let mut samples: Vec<f32> = sample_bytes
             .chunks_exact(4)
             .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
             .collect();
+
+        let gain = audio_ctl.gain(&client_id);
+        if (gain - 1.0).abs() > f32::EPSILON {
+            for s in &mut samples { *s *= gain; }
+        }
+        if audio_ctl.is_monitored(&client_id) {
+            let _ = mon_tx.try_send((client_id.clone(), samples.clone()));
+        }
 
         if samples.len() != OWW_MODEL_CHUNK_SIZE {
             dt_warning!(
@@ -457,28 +534,34 @@ async fn handle_client_async(
             stream.write_all(&[0x01]).await?;
             stream.flush().await?;
 
+
             let transcription_audio = loop {
-                let mut msg_type = [0u8; 1];
-                stream.read_exact(&mut msg_type).await?;
-                match msg_type[0] {
-                    0x02 => {
-                        let num_samples = stream.read_u32_le().await? as usize;
-                        let mut audio_bytes = vec![0u8; num_samples * 4];
-                        stream.read_exact(&mut audio_bytes).await?;
-                        let audio_f32: Vec<f32> = audio_bytes
-                            .chunks_exact(4)
-                            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-                            .collect();
-                        break audio_f32;
-                    }
-                    _ => {
-                        let len = stream.read_u32_le().await? as usize;
-                        let mut discard = vec![0u8; len * 4];
-                        stream.read_exact(&mut discard).await?;
-                        dt_error!("[{}] Discarded a pending wake chunk ({} samples)", client_id, len);
-                        continue;
-                    }
+                let mut first = [0u8; 1];
+                stream.read_exact(&mut first).await?;
+
+                if first[0] == 0x02 {
+                    let num_samples = stream.read_u32_le().await? as usize;
+                    let mut audio_bytes = vec![0u8; num_samples * 4];
+                    stream.read_exact(&mut audio_bytes).await?;
+                    let audio_f32: Vec<f32> = audio_bytes
+                        .chunks_exact(4)
+                        .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+                        .collect();
+                    break audio_f32;
                 }
+
+                let mut rest = [0u8; 3];
+                stream.read_exact(&mut rest).await?;
+                let len = u32::from_le_bytes([first[0], rest[0], rest[1], rest[2]]) as usize;
+
+                if len > 1_000_000 {
+                    dt_error!("[{}] Insane in-flight chunk length {}, abandoning", client_id, len);
+                    break Vec::new();
+                }
+
+                let mut discard = vec![0u8; len * 4];
+                stream.read_exact(&mut discard).await?;
+                dt_debug!("[{}] Discarded in-flight chunk ({} samples)", client_id, len);
             };
 
             let perf_start = Instant::now();
@@ -496,7 +579,7 @@ async fn handle_client_async(
                 fail_sound: fail_sound_data.clone(),
                 debug,
                 model_path: whisper_model_path.clone(),
-                
+
                 sender_ip: sender_ip.clone(),
                 client_id: client_id.clone(),
                 cut_at_punctuation: false,
@@ -548,6 +631,8 @@ async fn handle_ptt_async(
     sender_ip: String,
     whisper_model_path: String,
     vad_model_path: Option<String>,
+    audio_ctl: Arc<AudioControl>,
+    mon_tx: std::sync::mpsc::SyncSender<(String, Vec<f32>)>,
 ) -> Result<()> {
     let mut audio_buffer: Vec<f32> = Vec::new();
 
@@ -571,13 +656,22 @@ async fn handle_ptt_async(
                 let mut buf = vec![0u8; num_samples * 4];
                 stream.read_exact(&mut buf).await?;
 
-                let samples: Vec<f32> = buf
+                let mut samples: Vec<f32> = buf
                     .chunks_exact(4)
                     .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
                     .collect();
 
+                let gain = audio_ctl.gain(&client_id);
+                if (gain - 1.0).abs() > f32::EPSILON {
+                    for s in &mut samples { *s *= gain; }
+                }
+                if audio_ctl.is_monitored(&client_id) {
+                    let _ = mon_tx.try_send((client_id.clone(), samples.clone()));
+                }
+
                 let sample_count = samples.len();
                 audio_buffer.extend(samples);
+
                 if debug {
                     dt_debug!("[{}] PTT received {} samples, total {}",
                         client_id, sample_count, audio_buffer.len());
@@ -700,7 +794,9 @@ async fn handle_client_esp_async(
     room: String,
     sender_ip: String,
     whisper_model_path: String,
-    vad_model_path: Option<String>, 
+    vad_model_path: Option<String>,
+    audio_ctl: Arc<AudioControl>,
+    mon_tx: std::sync::mpsc::SyncSender<(String, Vec<f32>)>,
 ) -> Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -742,6 +838,15 @@ async fn handle_client_esp_async(
             .chunks_exact(4)
             .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
             .collect();
+
+        let mut samples = samples;
+        let gain = audio_ctl.gain(&client_id);
+        if (gain - 1.0).abs() > f32::EPSILON {
+            for s in &mut samples { *s *= gain; }
+        }
+        if audio_ctl.is_monitored(&client_id) {
+            let _ = mon_tx.try_send((client_id.clone(), samples.clone()));
+        }
 
         match state {
             State::Normal => {
@@ -951,11 +1056,13 @@ async fn handle_new_client_async(
     fail_sound_data: Vec<u8>,
     whisper_ctx: Arc<WhisperContext>,
     whisper_model_path: String,
-    vad_model_path: Option<String>, 
+    vad_model_path: Option<String>,
     custom_wake_word_provided: bool,
     wake_word_path: String,
     threshold: f32,
     client_registry: Arc<Mutex<ClientRegistry>>,
+    audio_ctl: Arc<AudioControl>,
+    mon_tx: std::sync::mpsc::SyncSender<(String, Vec<f32>)>,
 ) -> Result<()> {
     use tokio::io::AsyncReadExt;
 
@@ -964,6 +1071,8 @@ async fn handle_new_client_async(
         Err(_) => "unknown".to_string(),
     };
     let peer_ip = peer_addr.split(':').next().unwrap_or("127.0.0.1").to_string();
+
+    enable_keepalive(&stream);
 
     let room_len = stream.read_u32_le().await.unwrap_or(0) as usize;
     let room = if room_len > 0 {
@@ -975,8 +1084,8 @@ async fn handle_new_client_async(
     } else { String::new() };
 
     let display_id = if room.is_empty() {
-        format!("client @ {}", peer_addr)
-    } else { format!("room '{}'", room) };
+        format!("client@{}", peer_addr)
+    } else { room.clone() };
     dt_info!("📡 ☑️ 🎙️ {} Connected [{}]", display_id, peer_addr);
 
     if room == "intercom" {
@@ -1031,6 +1140,8 @@ async fn handle_new_client_async(
                 sender_ip,
                 whisper_model_path_clone,
                 vad_model_path.clone(),
+                audio_ctl,
+                mon_tx,
             ).await { dt_error!("[{}] PTT handler error: {}", display_id, e); }
             let mut reg = registry.lock().unwrap_or_else(|p| p.into_inner());
             reg.remove_connection(&registry_room, &ip_clone);
@@ -1098,6 +1209,8 @@ async fn handle_new_client_async(
                 ip_clone,
                 whisper_model_path_clone,
                 vad_model_path.clone(),
+                audio_ctl,
+                mon_tx,
             ).await
         } else {
             handle_client_async(
@@ -1120,6 +1233,8 @@ async fn handle_new_client_async(
                 ip_clone,
                 whisper_model_path_clone,
                 vad_model_path.clone(),
+                audio_ctl,
+                mon_tx,
             ).await
         };
 
@@ -1202,6 +1317,20 @@ async fn main() -> Result<()> {
     if debug { std::env::set_var("DT_LOG_LEVEL", "DEBUG"); }
     dt_setup(None, None);
 
+
+    let control_fifo = control_fifo_path();
+    if let Some(parent) = std::path::Path::new(&control_fifo).parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if !std::path::Path::new(&control_fifo).exists() {
+        match Command::new("mkfifo").arg("-m").arg("666").arg(&control_fifo).status() {
+            Ok(s) if s.success() => dt_info!("created control FIFO at {}", control_fifo),
+            Ok(s) => dt_error!("mkfifo exited {} for {}", s, control_fifo),
+            Err(e) => dt_error!("failed to run mkfifo: {}", e),
+        }
+    }
+
+
     let done_sound_data = if let Some(ref path) = done_sound_path {
         match std::fs::read(path) { Ok(data) => { dt_info!("Loaded custom done sound from {}", path); data }, Err(e) => { dt_error!("Failed to read done sound file '{}': {}. Using embedded sound.", path, e); DONE_WAV.to_vec() } }
     } else { DONE_WAV.to_vec() };
@@ -1256,10 +1385,59 @@ async fn main() -> Result<()> {
     )?);
 
     let client_registry = Arc::new(Mutex::new(ClientRegistry::new()));
- 
+
+    let audio_ctl = Arc::new(AudioControl {
+        volumes:  Mutex::new(HashMap::new()),
+        monitors: Mutex::new(HashSet::new()),
+    });
+
+    let (mon_tx, mon_rx) = std::sync::mpsc::sync_channel::<(String, Vec<f32>)>(128);
+
+    std::thread::spawn(move || monitor_thread(mon_rx));
+
+    {
+        let audio_ctl = Arc::clone(&audio_ctl);
+        let control_fifo = control_fifo.clone();
+        std::thread::spawn(move || {
+            loop {
+                let f = match std::fs::File::open(&control_fifo) {
+                    Ok(f) => f,
+                    Err(e) => {
+                        dt_error!("open {}: {}", control_fifo, e);
+                        std::thread::sleep(Duration::from_millis(500));
+                        continue;
+                    }
+                };
+
+                for line in std::io::BufReader::new(f).lines() {
+                    let line = match line { Ok(l) => l, Err(_) => break };
+                    let line = line.trim();
+                    if line.is_empty() { continue; }
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    match parts.as_slice() {
+                        ["vol", id, val] => match val.parse::<f32>() {
+                            Ok(v)  => { audio_ctl.set_gain(id, v); dt_info!("gain({}) = {}", id, v); }
+                            Err(_) => dt_error!("bad gain: {}", val),
+                        },
+                        ["mon", id, "on"]  => { audio_ctl.toggle_monitor(id, true);  dt_info!("monitor({}) = ON",  id); }
+                        ["mon", id, "off"] => { audio_ctl.toggle_monitor(id, false); dt_info!("monitor({}) = OFF", id); }
+                        ["ls"] => {
+                            dt_info!("gains: {:?}",  *audio_ctl.volumes.lock().unwrap());
+                            dt_info!("monitoring: {:?}", *audio_ctl.monitors.lock().unwrap());
+                        }
+                        ["help"] => dt_info!("cmds: vol <id> <gain> | mon <id> on|off | ls | help"),
+                        _ => dt_error!("unknown command: {}", line),
+                    }
+                }
+
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        });
+    }
+
     loop {
         let (stream, _) = listener.accept().await?;
-    
+
         let wake_word_path_clone = wake_word_path.clone();
         let sound_data = sound_data.clone();
         let done_sound_data = done_sound_data.clone();
@@ -1270,7 +1448,9 @@ async fn main() -> Result<()> {
         let client_registry = Arc::clone(&client_registry);
         let whisper_model_path = whisper_model_path.clone();
         let vad_model_path = vad_model_path.clone();
-    
+        let audio_ctl = Arc::clone(&audio_ctl);
+        let mon_tx = mon_tx.clone();
+
         tokio::spawn(handle_new_client_async(
             stream,
             debug,
@@ -1291,6 +1471,8 @@ async fn main() -> Result<()> {
             wake_word_path_clone,
             threshold,
             client_registry,
+            audio_ctl,
+            mon_tx,
         ));
     }
 }
