@@ -1,12 +1,12 @@
 <!-- VERSIONS_START -->
 
 ![License](https://img.shields.io/badge/license-MIT-black?style=flat-square&logo=opensourceinitiative&logoColor=white)
-![yo](https://img.shields.io/badge/yo-0.2.6-black?style=flat)
+![yo](https://img.shields.io/badge/yo-0.2.7-black?style=flat)
 ![Fast](https://img.shields.io/badge/⚡-0.1ms-black?style=flat)
 
 <!-- VERSIONS_END -->
 
-![CI](https://img.shields.io/badge/📦%20CI-✔-2ea44f?style=flat)
+![CI](https://github.com/quackhack-mcblindy/yo/actions/workflows/ci.yml/badge.svg)
 ![Voice](https://img.shields.io/badge/🎙️%20Voice-✔-2ea44f?style=flat)
 ![Offline](https://img.shields.io/badge/🛜%20Offline-✔-2ea44f?style=flat)
 ![ESP32](https://img.shields.io/badge/ESP32-✔-2ea44f?style=flat&logo=espressif&logoColor=white)
@@ -15,41 +15,41 @@
 
 
 
-# **`yo`, 3 quick:**  
+# **`yo`, 3 quick:**
 
 
-1. **Take a script & give it parameters.**  
-2. **Write sentences and entity lists for the script.**   
-3. **Execute the script using text or speech.**  
+1. **Take a script & give it parameters.**
+2. **Write sentences and entity lists for the script.**
+3. **Execute the script using text or speech.**
 
 <br>
 
 `yo` is:
-- **Nix: compile-time command-language compiler & verifier**  
-- **Rust: deterministic run-time interpreter, matcher & dispatcher**  
-- **Lightweight: Legacy CLI requires only `pkgs.bash` + `pkgs.jq` & `pkgs.coreutils`!**   
+- **Nix: compile-time command-language compiler & verifier**
+- **Rust: deterministic run-time interpreter, matcher & dispatcher**
+- **Lightweight: Legacy CLI requires only `pkgs.bash` + `pkgs.jq` & `pkgs.coreutils`!**
 
 <br>
 
-**Nix Build Time**  
-▶ declarative command definitions  
-▶ grammar expansion  
-▶ parameter/entity expansion  
-▶ pattern & phrase generation  
-▶ command index generation  
-▶ conflict detection  
-▶ test generation  
-▶ compile-time verification  
+**Nix Build Time**
+▶ declarative command definitions
+▶ grammar expansion
+▶ parameter/entity expansion
+▶ pattern & phrase generation
+▶ command index generation
+▶ conflict detection
+▶ test generation
+▶ compile-time verification
 
 
->  **Rust Run Time**  
->  At runtime, `yo do` normalizes the input and concurrently evaluates exact and fuzzy matches against the pre-compiled command index.  
->  Exact matching always takes precedence; the fuzzy matcher waits for the exact result before it is allowed to dispatch a command.  
->  Once a match is selected, parameters are extracted and the corresponding `yo` script is dispatched with those arguments.  
+>  **Rust Run Time**
+>  At runtime, `yo do` normalizes the input and concurrently evaluates exact and fuzzy matches against the pre-compiled command index.
+>  Exact matching always takes precedence; the fuzzy matcher waits for the exact result before it is allowed to dispatch a command.
+>  Once a match is selected, parameters are extracted and the corresponding `yo` script is dispatched with those arguments.
 
 
-``` 
-🦆🏠  HOME via 🐍 via 🦀 v1.98.0 took 1m31s 
+```
+🦆🏠  HOME via 🐍 via 🦀 v1.98.0 took 1m31s
 03:36:35 ❯ yo do "seetlt ao tiimezrr fobor twoz hourazs ninre minuotes twentyonz<e secondips"
    ┌─(yo-timer-en)
    │🦆 qwack!? seetlt ao tiimezrr fobor twoz hourazs ninre minuotes twentyonz<e secondips
@@ -64,32 +64,32 @@
 ```
 
 
-`yo` is also a **full-stack voice assistant** that's:  
-- **Very Fast** - Pre-compiled indexes, priority-ordered exact matching, parallel fuzzy evaluation & Rust performance.  
-- **Simple** - Everything neatly packaged and runs on a single port.  
-- **Safe** - Rule based, user defines the rules. Strong validation included.     
-- **Configurable** - Optimize fuzzy threshold per script, makes it very flexible.   
-- **Offline** - No internet required after setup.  
-- **Embeddable** - ESP32 based clients in Rust using the [yo-esp](https://github.com/QuackHack-McBlindy/yo-esp) library.  
-- **Ready** - Voice commands are exact/fuzzy tested for conflicts before service even starts.  
-- **Deployable** - 100% reproducible using the NixOS flake.  
+`yo` is also a **full-stack voice assistant** that's:
+- **Very Fast** - Pre-compiled indexes, priority-ordered exact matching, parallel fuzzy evaluation & Rust performance.
+- **Simple** - Everything neatly packaged and runs on a single port.
+- **Safe** - Rule based, user defines the rules. Strong validation included.
+- **Configurable** - Optimize fuzzy threshold per script, makes it very flexible.
+- **Offline** - No internet required after setup.
+- **Embeddable** - ESP32 based clients in Rust using the [yo-esp](https://github.com/QuackHack-McBlindy/yo-esp) library.
+- **Ready** - Voice commands are exact/fuzzy tested for conflicts before service even starts.
+- **Deployable** - 100% reproducible using the NixOS flake.
 
 
 <br>
 
-`yo` is **NOT**:    
-- **❌ An LLM with shell access!**  
+`yo` is **NOT**:
+- **❌ An LLM with shell access!**
 
 <br>
 
-  
+
 ## **1. Installation**
 
 <details><summary><strong>
 ❄️ Using flakes
 </strong></summary>
 
- 
+
 
 #### **Add yo as an input in your flake**
 
@@ -101,8 +101,8 @@
 ```
 
 
-#### **Import the yo module into your configuration**  
-  
+#### **Import the yo module into your configuration**
+
 
 ```nix
   imports = [ yo.nixosModules.yo ];
@@ -120,19 +120,19 @@
 <br>
 
 
-#### **Enable the service**  
+#### **Enable the service**
 
 
-Example of a minimal server + client service configuration (view `2. Usage` for a full configuration).  
+Example of a minimal server + client service configuration (view `2. Usage` for a full configuration).
 
 ```nix
-  services.yo-rs = {  
+  services.yo-rs = {
     server = {
       enable         = true;
       language       = "swedish"; # "english" by default
       whisper        = "base";
-      shellTranslate = true;  
-    };  
+      shellTranslate = true;
+    };
     client.enable = true;
   };
 ```
@@ -140,31 +140,31 @@ Example of a minimal server + client service configuration (view `2. Usage` for 
 <br>
 
 
-#### **Rebuild your system**  
+#### **Rebuild your system**
 
 ```nix
 $ sudo nixos-rebuild switch --flake /path/to/flake ...
 ```
 
-**Done!**  
-  
-Now you can speak your wake word *(default: `"yo bitch"`)*  
-& ask what time it is.  
-*or if you prefer CLI:*  
+**Done!**
+
+Now you can speak your wake word *(default: `"yo bitch"`)*
+& ask what time it is.
+*or if you prefer CLI:*
 
 ```bash
-❄️ DOTFILES  on  main [$!+]  
+❄️ DOTFILES  on  main [$!+]
 ✦ 07:17:33 ❯ yo do "what time is it"
    ┌─(yo-time)
-   │🦆 qwack!? what time is it 
+   │🦆 qwack!? what time is it
    └─🦆 says ⮞ no parameters yo
    └─⏰ do took 183.835µs
 07:17
 ```
 
-Approx: `~0.184 ms`  
+Approx: `~0.184 ms`
 
-*But if you don't like Rust, or have a basic setup you can use Bash (Which only depends on `pkgs.jq` and `pkgs.coreutils`) instead by setting:*  
+*But if you don't like Rust, or have a basic setup you can use Bash (Which only depends on `pkgs.jq` and `pkgs.coreutils`) instead by setting:*
 
 ```nix
 yo.legacy = true;
@@ -177,10 +177,10 @@ yo.legacy = true;
 <br>
 
 
-**`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**  
-**GGML-based bin models from the Whisper family is used for speech-to-text.**  
+**`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**
+**GGML-based bin models from the Whisper family is used for speech-to-text.**
 
-> **Note:** models are automatically fetched by Nix. Just remember to set a language in the server configuration.  
+> **Note:** models are automatically fetched by Nix. Just remember to set a language in the server configuration.
 
 
 <br>
@@ -194,24 +194,24 @@ Service configuration
 
 <br>
 
-Full usage example:  
+Full usage example:
 
 ```nix
   services.yo-rs = {
     port = 12345;
     openFirewall = true;
-  
+
     server = {
       enable         = true;
       shellTranslate = true;      # true = executes yo scripts
       language       = "swedish"; # controls the transcription language + TTS model (default = `"english"`)
-      whisper        = "medium";  # (tiny, base, small, medium, large) 
+      whisper        = "medium";  # (tiny, base, small, medium, large)
       threshold      = 0.8;       # wake word detection trigger threshold
       beamSize       = 0;         # 0 = greedy (often faster)
       temperature    = 0.2;       # can reduce hallucinations
       threads        = 4;         # CPU threads, increase for speed
       ttsSpeed       = 1.3;       # text-to-speech length-scale
-      
+
       # additional optional settings:
       # host                  = "0.0.0.0:12345";
       # wakeWordPath          = "/path/to/custom/model.onnx";
@@ -221,26 +221,26 @@ Full usage example:
       # debug                 = true;
       # logFile               = "/path/to/custom/log/path/yo-rs-server.log";
     };
-    
+
     # Microphone client (streams audio - RMS based VAD)
     client = {
       enable           = true;            # enables microphone streaming to server
-      uri              = "192.168.1.111"; # server ip (leave unchanged when server & client on same host) 
+      uri              = "192.168.1.111"; # server ip (leave unchanged when server & client on same host)
       room             = "livingroom";
       silenceThreshold = 0.03;            # when to concider audio silent
       silenceTimeout   = 1.5;             # wait x seconds after silent before sending
       maxDuration      = 5.0;             # max recording in seconds before sending
-      
+
       # awakeSound         = "/path/to/custom/awake.wav";
       # doneSound          = "/path/to/custom/done.wav";
       # failSound          = "/path/to/custom/fail.wav";
       # awakeCmd           = "notify-send 'Wake word detected'";
       # doneCmd            = "mpg123 /path/to/success.mp3";
-      # failCmd            = "mpg123 /path/to/success.mp3";      
+      # failCmd            = "mpg123 /path/to/success.mp3";
       # debug              = true;
       # logFile            = "/path/to/custom/log/path/yo-rs-client.log";
     };
-  };    
+  };
 ```
 
 <br>
@@ -254,7 +254,7 @@ Yo configuration
 
 <br>
 
-Most of the options are baked into the service or scripts, but there are a couple of options:   
+Most of the options are baked into the service or scripts, but there are a couple of options:
 
 ```nix
   yo = {
@@ -265,7 +265,7 @@ Most of the options are baked into the service or scripts, but there are a coupl
         detection = false;   # detect near-duplicate sentences at build-time
         threshold = 80;      # build-time Jaccard percentage (0–100)
       };
-    };  
+    };
     legacy = false;          # set to true to run using Bash
     splitWords = [ "also" ]; # used for chaining commands
     sorryPhrases = [         # TTS when failing
@@ -283,12 +283,34 @@ Most of the options are baked into the service or scripts, but there are a coupl
 </details>
 
 <details><summary><strong>
+Contol Commands
+</strong></summary>
+
+<br>
+
+User can control gain and monitor all clients at real-time using FIFO.
+
+```bash
+echo "vol <room> <gain>" > /run/user/$UID/yo/control
+echo "mon <room> on" > /run/user/$UID/yo/control
+echo "mon <room> off" > /run/user/$UID/yo/control
+echo "ls" > /run/user/$UID/yo/control
+echo "help" > /run/user/$UID/yo/control
+```
+
+<br>
+
+
+</details>
+
+
+<details><summary><strong>
 Script configuration
 </strong></summary>
 
 <br>
 
-You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.  
+You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.
 
 ```nix
 yo.scripts.timer = {
@@ -300,14 +322,14 @@ yo.scripts.timer = {
   runAt = [ "08:00" "20:00" ];             # run at specific times daily
   logLevel = "INFO";                       # DEBUG, INFO, WARNING, ERROR, CRITICAL
   helpFooter = "Additional help text";     # additional data shown in the scripts `--help` command
-  parameters = [  
-    { name = "minutes"; type = "int"; description = "Minutes to set the timer on"; default = 0;  }     
-    { name = "seconds"; type = "int"; description = "Seconds to set the timer on"; default = 0; }     
+  parameters = [
+    { name = "minutes"; type = "int"; description = "Minutes to set the timer on"; default = 0;  }
+    { name = "seconds"; type = "int"; description = "Seconds to set the timer on"; default = 0; }
     { name = "hours"; type = "int"; description = "Hours to set the timer on"; default = 0; }
     { name = "list"; type = "bool"; description = "Lists active timers"; default = false;  }
     { name = "sound"; type = "path"; description = "Soundfile to be played on finished timer"; default = "/path/to/finished.wav"; }
   ];
-  # binary = /path/to/executable;  
+  # binary = /path/to/executable;
   # write your own code or just link to a executable binary
   code = ''
       SOUNDFILE="$sound"
@@ -349,11 +371,11 @@ yo.scripts.timer = {
         fi
         exit 0
       fi
-      
+
       TIMER_TOTAL=$((HOURS * 3600 + MINUTES * 60 + SECONDS))
       DURATION=$TIMER_TOTAL
       TIMER_MINUTES=$((DURATION / 60))
-   
+
       start_time=$(date +%s)
       end_time=$((start_time + DURATION))
 
@@ -399,42 +421,42 @@ Voice configuration
 
 <br>
 
-This is how you define sentences with words.  
+This is how you define sentences with words.
 
 ```nix
-(these|are|alternative|words)  
-[these|are|optional|words]  
+(these|are|alternative|words)
+[these|are|optional|words]
 {parameters}
 ```
 
-A good rule of thumb is to place the sentences with the most parameters at the top and work your way down.   
-You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.  
+A good rule of thumb is to place the sentences with the most parameters at the top and work your way down.
+You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McBlindy/yo/tree/main/examples) directory.
 
 ```nix
   yo.scripts.timer = {
     voice = {
-      enabled         = true;   # wether to enable matching this script 
+      enabled         = true;   # wether to enable matching this script
       speak           = false;  # wether to automatically send script output to text-to-speech
       priority        = 5;      # (1-5) 5 is priorities last
       fuzzy.enabled   = true;   # script specific
-      fuzzy.threshold = 0.8;    # script specific 
+      fuzzy.threshold = 0.8;    # script specific
       sentences = [
         "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {hours} (timme|timmar) {minutes} (minut|minuter) {seconds} (sekund|sekunder)"
         "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {minutes} (minut|minuter) [och] {seconds} (sekund|sekunder)"
-        "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {minutes} (minut|minuter)"                     
-        "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {seconds} sekunder"      
-        
+        "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {minutes} (minut|minuter)"
+        "(skapa|ställ|sätt|starta) [en] (time|timer|timern) [på] {seconds} sekunder"
+
         "hur {list} är det kvar på (time|timer|timern)"
         "tid {list} på (time|timer|timern)"
         "när {list} (time|timer|timern)"
-      ];        
+      ];
       lists = {
         list.values = [
           { "in" = "länge|kvar"; out = "true"; }
         ];
         seconds.values = builtins.concatLists (builtins.genList (
                 i: let n = i + 1; in [
-                  { "in" = toString n; out = toString n; }     
+                  { "in" = toString n; out = toString n; }
                   { "in" = swedishNumber n; out = toString n; }
                 ]
               ) 60);
@@ -451,7 +473,7 @@ You can see real yo.scripts in the [./examples](https://github.com/QuackHack-McB
                 ]
               ) 24);
         };
-      }; 
+      };
     };
 ```
 
@@ -468,7 +490,7 @@ Compile-time sentence conflict evaluation
 
 <br>
 
-All checks are pure Nix assertions – if a conflict is found, `nixos-rebuild` fails and a helpful error message is shown.  
+All checks are pure Nix assertions – if a conflict is found, `nixos-rebuild` fails and a helpful error message is shown.
 
 ```bash
           200|     if failedAssertions != [ ] then
@@ -491,17 +513,17 @@ All checks are pure Nix assertions – if a conflict is found, `nixos-rebuild` f
 
 **Fuzzy Conflict Detection**
 
-**Jaccard Similarity** compares two sentences by looking at their sets of words (tokens). It’s calculated as:  
+**Jaccard Similarity** compares two sentences by looking at their sets of words (tokens). It’s calculated as:
 
-`similarity = (number of shared words) / (total unique words in both sentences)`  
+`similarity = (number of shared words) / (total unique words in both sentences)`
 
-The result is a percentage.  
+The result is a percentage.
 
 
-> **Example:**  
-`"play music in the living room"` vs `"play radio in the living room"`  
-Shared words: `play, in, the, living, room` (5)  
-Unique words total: `play, music, in, the, living, room, radio` (7)  
+> **Example:**
+`"play music in the living room"` vs `"play radio in the living room"`
+Shared words: `play, in, the, living, room` (5)
+Unique words total: `play, music, in, the, living, room, radio` (7)
 Similarity = **5 / 7 ≈ 71%**
 
 <br>
@@ -513,8 +535,8 @@ Similarity = **5 / 7 ≈ 71%**
 }
 ```
 
-Will enable the fuzzy conflict detection and configure its sensitivity value.  
-It's disabled by default as it *(of course)* increases the duration of user rebuilds, but is quite useful for testing.  
+Will enable the fuzzy conflict detection and configure its sensitivity value.
+It's disabled by default as it *(of course)* increases the duration of user rebuilds, but is quite useful for testing.
 
 
 ```bash
@@ -539,147 +561,147 @@ Commandline
 
 <br>
 
-**Natural Language Command**  
+**Natural Language Command**
 
-Commands are executed from the terminal:  
+Commands are executed from the terminal:
 
 ```bash
 $ yo do "turn off all lights in the livingroom"
 ```
 
-Adding `\?` at the end of your command will run it with `DEBUG` logging.  
+Adding `\?` at the end of your command will run it with `DEBUG` logging.
 
 <br>
 
-Exact matches are blazing fast.  
-Fuzzy matching has great coverage/accuracy.  
+Exact matches are blazing fast.
+Fuzzy matching has great coverage/accuracy.
 
-The duck will let you know if you just had an **exact match** by saying:  
-`🦆 qwack!`   
-if it was an **fuzzy match**:  
-`🦆 qwack?!`  
+The duck will let you know if you just had an **exact match** by saying:
+`🦆 qwack!`
+if it was an **fuzzy match**:
+`🦆 qwack?!`
 
 
-Run `yo --help` to see all your defined yo scripts as a table. *(Can also be viewed at `/etc/yo/table.md`)*   
+Run `yo --help` to see all your defined yo scripts as a table. *(Can also be viewed at `/etc/yo/table.md`)*
 
-`yo <script> --help` shows all of the `yo` scripts information as well as the number of generated patterns and phrases for the defined voice commands.  
-The ratio could be a good way to measure potential combinatorial explosion as you can see below.  
+`yo <script> --help` shows all of the `yo` scripts information as well as the number of generated patterns and phrases for the defined voice commands.
+The ratio could be a good way to measure potential combinatorial explosion as you can see below.
 
 ```bash
-❄️ DOTFILES  on  main [!] 
+❄️ DOTFILES  on  main [!]
 00:41:44 ❯ yo tv -h
-🦆🏠  HOME via 🐍 via 🦀 v1.98.0 
+🦆🏠  HOME via 🐍 via 🦀 v1.98.0
 00:49:35 ❯ yo tv -h
-                                                                            
+
   Android TV Controller. Fuzzy search all media types and creates playlist and
-  serves over webserver for casting.                                          
-  Usage:  yo tv [OPTIONS]                                                     
-                                                                              
-  ## Parameters                                                               
-                                                                              
-   --typ                                                                      
-  Specify the type of command or the media type to search for.                
-  Supported commands are:                                                     
-  on, off, up, down, call, favorites, star.                                   
-  Media Types:                                                                
+  serves over webserver for casting.
+  Usage:  yo tv [OPTIONS] 
+
+  ## Parameters
+
+   --typ 
+  Specify the type of command or the media type to search for.
+  Supported commands are:
+  on, off, up, down, call, favorites, star.
+  Media Types:
   tv, movie, livetv, podcast, music, song, musicvideo, jukebox (random music),
-  othervideo, youtube.                                                        
-  Device Naviagation:                                                         
-  nav_up, nav_down, nav_left, nav_right, nav_select, nav_menu, nav_back       
-                                                                              
-  (optional) (default: tv)                                                    
-  (allowed: on, off, up, down, next, prev, call, favourites, star, tv, movie, 
-  livetv, podcast, music, song, musicvideo, jukebox, othervideo, youtube,     
-  nav_up, nav_down, nav_left, nav_right, nav_select, nav_menu, nav_back,      
-  channel_up, channel_down)                                                   
-                                                                              
-   --search                                                                   
-  Media to search                                                             
-  (optional)                                                                  
-                                                                              
-   --room                                                                     
-  Room name of device to play on                                              
-  (optional)                                                                  
-                                                                              
-   --season                                                                   
-  Specific season to play                                                     
-  (optional)                                                                  
-                                                                              
-   --shuffle                                                                  
-  Shuffle Toggle, true or false                                               
-  (optional) (default: true)                                                  
-                                                                               
-  ## Voice                                                           
-                                                                              
-  Patterns: 245                                                               
-  Phrases: 1,608                                                              
-  Ratio: 6                                                                       
+  othervideo, youtube.
+  Device Naviagation:
+  nav_up, nav_down, nav_left, nav_right, nav_select, nav_menu, nav_back
+
+  (optional) (default: tv)
+  (allowed: on, off, up, down, next, prev, call, favourites, star, tv, movie,
+  livetv, podcast, music, song, musicvideo, jukebox, othervideo, youtube,
+  nav_up, nav_down, nav_left, nav_right, nav_select, nav_menu, nav_back,
+  channel_up, channel_down)
+
+   --search 
+  Media to search
+  (optional)
+
+   --room 
+  Room name of device to play on
+  (optional)
+
+   --season 
+  Specific season to play
+  (optional)
+
+   --shuffle 
+  Shuffle Toggle, true or false
+  (optional) (default: true)
+
+  ## Voice
+
+  Patterns: 245
+  Phrases: 1,608
+  Ratio: 6
 ```
 
 ```bash
-❄️ DOTFILES  on  main [!] 
+❄️ DOTFILES  on  main [!]
 00:41:52 ❯ yo timer -h
-  ...                                                                                                                                
-  ## Voice                                                           
-                                                                              
-  Patterns: 921                                                               
-  Phrases: 262,010,985                                                        
-  Ratio: 284,485                                                              
+  ...
+  ## Voice
+
+  Patterns: 921
+  Phrases: 262,010,985
+  Ratio: 284,485
 ```
 
 <br>
 
-> **Note:** for **legacy** that timer script becomes **6.66 MB**, while for Rust version well below 100 kilobytes.    
+> **Note:** for **legacy** that timer script becomes **6.66 MB**, while for Rust version well below 100 kilobytes.
 
 <br>
 
-> **Hint:** Tte timer script is a perfect example of when priority `5` should be defined.  
+> **Hint:** Tte timer script is a perfect example of when priority `5` should be defined.
 
 <br>
 
-To see a total of generated patterns/phrases and averge benchmarking statistics: `yo do --help`.  
+To see a total of generated patterns/phrases and averge benchmarking statistics: `yo do --help`.
 
 <br>
 
-**Text-To-Speech**  
+**Text-To-Speech**
 
-If you would run for example:  
+If you would run for example:
 
 ```bash
 yo say "this is my spoken text"
 ```
 
-From your yo server, you would hear `this is my spoken text` on all connected client's speakers.  
+From your yo server, you would hear `this is my spoken text` on all connected client's speakers.
 
 <br>
 
-If that does not work as epected users may hardcode a list of client IP's:  
+If that does not work as epected users may hardcode a list of client IP's:
 
 ```nix
   services.yo-rs = {
     client = {
       ttsClients = [ "192.168.1.123" "192.168.1.124" ];
     };
-  };  
+  };
 }
 ```
 
 <br>
 
-**Runtime Sentence Testing**  
+**Runtime Sentence Testing**
 
-Runtime sentence testing is also supported.      
+Runtime sentence testing is also supported.
 
 ```bash
 yo tests
-``` 
+```
 
-If you have many voice commands it's advised to provide a maximum variants parameter for the tests:  
+If you have many voice commands it's advised to provide a maximum variants parameter for the tests:
 
 ```bash
 yo tests --max-variants 50
-# or if you want to test single script 
-yo tests --script <name> --max-variants 200 
+# or if you want to test single script
+yo tests --script <name> --max-variants 200
 ```
 
 <br>
@@ -689,25 +711,25 @@ yo tests --script <name> --max-variants 200
 
 ## **Further reading**
 
-Learn how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)  
+Learn how to write your own voice commands in the [examples/](https://github.com/QuackHack-McBlindy/yo/tree/main/examples)
 
-For inspiration, view my [/bin](https://github.com/QuackHack-McBlindy/dotfiles/tree/main/bin) - which has voice scripts that range from easy to advanced usage.   
+For inspiration, view my [/bin](https://github.com/QuackHack-McBlindy/dotfiles/tree/main/bin) - which has voice scripts that range from easy to advanced usage.
 
-Read about the fuzzy matching logic in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FUZZ.md)  
+Read about the fuzzy matching logic in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FUZZ.md)
 
-Read more about the feature set in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FEATURES.md)  
+Read more about the feature set in the [docs/](https://github.com/QuackHack-McBlindy/yo/tree/main/docs/FEATURES.md)
 
 <br>
 
 ## **Sponsor My Work**
 
 [![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
-> 🦯🦆 says ⮞ Hi! I'm QuackHack-McBlindy!  
-> Like my work?  
-> Buy me a coffee, or become a sponsor.  
-> Thanks for supporting open source/hungry developers ♥️🦆!   
+> 🦯🦆 says ⮞ Hi! I'm QuackHack-McBlindy!
+> Like my work?
+> Buy me a coffee, or become a sponsor.
+> Thanks for supporting open source/hungry developers ♥️🦆!
 
-♥️₿ *Wallet:* `pungkula.x`  
+♥️₿ *Wallet:* `pungkula.x`
 <a href="https://www.buymeacoffee.com/quackhackmcblindy" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 <br>
@@ -717,4 +739,3 @@ Read more about the feature set in the [docs/](https://github.com/QuackHack-McBl
 
 **MIT**  <br>
 Contributions are welcomed.
-

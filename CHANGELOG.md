@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Server-side volume control for all clients.
+- Real-time monitoring from the server to listen in on a client and output the audio on speakers.
+
+### Changed
+
+### Fixed
+
+- Room names are no longer prefixed with "room", causing clients to sometimes disconnect.
+- Clients disconnecting when idle due to NAT/middlebox TCP timeouts: keepalive and TCP_NODELAY are now enabled on both server and client sockets.
+
+### Removed
+
+
+## [0.2.6] - 2026-09-13
+
+### Added
+
 - Added language specific Whisper models from KBLab for Swedish.
 - The `yo` nix module/Bash package, now supports `--version` (grabs version from yo-rs package).
 - Added VAD model support and `--vad-model`.
@@ -20,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed the generated markdown table of scripts.
 
 ### Removed
-
 
 ## [0.2.5] - 08-30-2026
 

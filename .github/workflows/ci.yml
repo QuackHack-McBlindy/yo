@@ -38,7 +38,11 @@ name: CI
 #  │
 #  ├── tag v0.3.1
 #  │
-#  └── GitHub Release v0.3.1
+#  ├── GitHub Release v0.3.1
+#  │
+#  ▼
+# sync dev ← main
+
 
 on:
   push:
@@ -325,3 +329,14 @@ jobs:
             --notes-file /tmp/notes.md \
             --verify-tag \
             --latest
+
+
+      - name: Sync dev with main
+        if: steps.merge.outputs.release == 'true'
+        run: |
+          set -euo pipefail
+          git fetch origin dev
+          git checkout -B dev origin/dev
+          git merge --no-ff origin/main \
+            -m "chore: sync dev with main after ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin dev

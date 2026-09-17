@@ -1,5 +1,5 @@
-{ 
-  self, 
+{
+  self,
   inputs,
   config,
   lib,
@@ -110,12 +110,12 @@ in {
       default = 12345;
       description = "Listening port for yo.";
     };
-    
+
     openFirewall = mkOption {
       type = types.bool;
       default = false;
       description = "Wether to open the firewall for the configured port.";
-    };    
+    };
 
     server = {
       enable = mkEnableOption "yo-rs server (wake word detection & transcription)";
@@ -206,25 +206,25 @@ in {
           Example: `"yo do"`.
         '';
       };
- 
+
       vadPath = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/vad/silero_vad.onnx";
         description = "Voice Activation Detection ONNX model path.";
-      }; 
- 
+      };
+
       onnxPath = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/tts/${selectedVoice}.onnx";
         description = "Path to the text-to-speech ONNX model.";
       };
-      
+
       ttsSavePath = mkOption {
         type = types.nullOr types.path;
         default = null;
         description = "Location to save the text-to-speech audio as a wav file (optional).";
       };
-      
+
       ttsSpeed = mkOption {
         type = types.str;
         default = "1.0";
@@ -246,7 +246,7 @@ in {
           If `null`, default logging file path is `~/yo-rs-server.log`.
         '';
       };
-      
+
       extraPath = mkOption {
         type = types.listOf types.str;
         default = [ ];
@@ -317,7 +317,7 @@ in {
           The command is run in a background thread; output is logged.
         '';
       };
-      
+
       failCmd = mkOption {
         type = types.nullOr types.str;
         default = null;
@@ -349,14 +349,14 @@ in {
         type = types.listOf types.str;
         default = [ ];
         description = "optional list of hardcoded client IP addresses for text-to-spech streams.";
-      };      
+      };
 
       extraArgs = mkOption {
         type = types.listOf types.str;
         default = [ ];
         description = "Extra arguments passed verbatim to the client binary.";
       };
-          
+
       logFile = mkOption {
         type = types.nullOr types.path;
         default = null;
@@ -392,6 +392,7 @@ in {
           serviceConfig = {
             Restart = "always";
             RestartSec = "15s";
+            RuntimeDirectory = "yo";
             Environment = let
               logLevel = if cfg.server.debug then "DEBUG" else "INFO";
               logFile = if cfg.server.logFile != null then cfg.server.logFile else "%h/yo-rs-server.log";
@@ -407,9 +408,10 @@ in {
                 DT_LOG_LEVEL = logLevel;
                 DT_LOG_FILE = logFile;
                 PATH = path;
+                YO_CONTROL_FIFO = "%t/yo/control";
               } // lib.optionalAttrs cfg.server.debug { DEBUG = "1"; };
             in lib.mapAttrsToList (name: value: "${name}=${value}") envVars;
-          
+
             ExecStart = lib.escapeShellArgs (
               [ "${yo-rs-with-models}/bin/yo-rs" "--host" cfg.server.host ]
               ++ optionals (cfg.server.wakeWordPath != null)
@@ -426,7 +428,7 @@ in {
               ++ optionals (cfg.server.execCommand != null) [ "--exec-command" cfg.server.execCommand ]
               ++ optionals cfg.server.shellTranslate [ "--translate-to-shell" ]
               ++ optionals (cfg.server.onnxPath != null) [ "--tts-model" cfg.server.onnxPath ]
-              ++ optionals (cfg.server.vadPath != null) [ "--vad-model" cfg.server.vadPath ]              
+              ++ optionals (cfg.server.vadPath != null) [ "--vad-model" cfg.server.vadPath ]
               ++ optionals cfg.server.debug [ "--debug" ]
               ++ cfg.server.extraArgs
             );
@@ -436,13 +438,14 @@ in {
 
         yo-rs-client = mkIf cfg.client.enable {
           description = "yo-rs client for streaming audio and recording";
-          after = [ "network.target" "sound.target" ];
+          after = [ "network.target" "pulseaudio.socket" "sound.target" ];
           wants = [ "network.target" "sound.target" ];
           wantedBy = [ "default.target" ];
 
           serviceConfig = {
             Restart = "always";
             RestartSec = "15s";
+            Group = "audio";
             Environment = let
               logLevel = if cfg.client.debug then "DEBUG" else "INFO";
               logFile = if cfg.client.logFile != null then cfg.client.logFile else "%h/yo-rs-client.log";
@@ -457,7 +460,7 @@ in {
               envVars = {
                 DT_LOG_LEVEL = logLevel;
                 DT_LOG_FILE = logFile;
-                PATH = path;              
+                PATH = path;
               } // lib.optionalAttrs cfg.client.debug { DEBUG = "1"; };
             in lib.mapAttrsToList (name: value: "${name}=${value}") envVars;
 
@@ -482,7 +485,7 @@ in {
           };
         };
       };
-      
+
       environment.etc."yo/clients.json" = {
         text = builtins.toJSON (
           map (ip: {
@@ -492,7 +495,7 @@ in {
           }) cfg.client.ttsClients
         );
       };
-      
+
     })
-       
+
   ];}
