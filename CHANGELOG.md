@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.7] - 2026-09-17
+
+### Added
+
 - Server-side volume control for all clients.
 - Real-time monitoring from the server to listen in on a client and output the audio on speakers.
 
