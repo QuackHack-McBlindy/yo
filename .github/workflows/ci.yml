@@ -124,8 +124,13 @@ jobs:
             exit 0
           fi
 
+          head_sha=$(jq -r '.head.sha' <<< "$pr")
+
           echo "Detected merged PR from dev to main."
+          echo "Dev head SHA: $head_sha"
+
           echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
 
       - name: Stop if not a dev -> main merge
         if: steps.merge.outputs.release != 'true'
@@ -259,14 +264,19 @@ jobs:
             exit 1
           fi
 
-      - name: Ensure changelog has unreleased entries
+      - name: Fetch dev CHANGELOG and verify [Unreleased]
         if: steps.merge.outputs.release == 'true'
+        env:
+          DEV_SHA: ${{ steps.merge.outputs.head_sha }}
         run: |
+          set -euo pipefail
+          git show "${DEV_SHA}:CHANGELOG.md" > CHANGELOG.md
           if ! awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit} f' CHANGELOG.md \
                | grep -qE '^\s*[-*+]\s'; then
-            echo "error: [Unreleased] section is empty; nothing to release"
+            echo "error: dev [Unreleased] section is empty; nothing to release"
             exit 1
           fi
+
 
       - name: Promote changelog
         if: steps.merge.outputs.release == 'true'
@@ -335,8 +345,24 @@ jobs:
         if: steps.merge.outputs.release == 'true'
         run: |
           set -euo pipefail
-          git fetch origin dev
+          git fetch origin dev main
           git checkout -B dev origin/dev
-          git merge --no-ff origin/main \
-            -m "chore: sync dev with main after ${{ steps.version.outputs.version }} [skip ci]"
+
+          if git merge --no-ff origin/main \
+               -m "chore: sync dev with main after ${{ steps.version.outputs.version }} [skip ci]"; then
+            git push origin dev
+            exit 0
+          fi
+
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+          if [[ "${#conflicts[@]}" -ne 1 || "${conflicts[0]}" != "CHANGELOG.md" ]]; then
+            echo "error: unexpected merge conflicts:"
+            printf '  %s\n' "${conflicts[@]}"
+            git merge --abort
+            exit 1
+          fi
+
+          git checkout --theirs -- CHANGELOG.md
+          git add CHANGELOG.md
+          git commit --no-edit
           git push origin dev
