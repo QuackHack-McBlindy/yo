@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#  hooks/promote-changelog.py
 """Promote [Unreleased] in CHANGELOG.md to a versioned section.
 
 Usage:
