@@ -445,7 +445,6 @@ in {
           serviceConfig = {
             Restart = "always";
             RestartSec = "15s";
-            Group = "audio";
             Environment = let
               logLevel = if cfg.client.debug then "DEBUG" else "INFO";
               logFile = if cfg.client.logFile != null then cfg.client.logFile else "%h/yo-rs-client.log";
