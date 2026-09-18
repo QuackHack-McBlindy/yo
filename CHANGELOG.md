@@ -13,10 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Removed
+
+
+## [0.2.8] - 2026-09-18
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Fix systemd user service.
 
 ### Removed
-
 
 ## [0.2.7] - 2026-09-17
 
