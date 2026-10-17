@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.9] - 2026-10-17
+
+### Added
+
 - Control command added: `mute all`, `unmute all`.
 - New client option: `gain`.
 
