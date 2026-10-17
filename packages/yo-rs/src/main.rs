@@ -118,8 +118,9 @@ impl ClientRegistry {
 
 
 struct AudioControl {
-    volumes:  Mutex<HashMap<String, f32>>, // client_id -> linear gain
-    monitors: Mutex<HashSet<String>>,      // client_ids being played on speakers
+    volumes:  Mutex<HashMap<String, f32>>,
+    monitors: Mutex<HashSet<String>>,
+    muted:    Mutex<bool>,
 }
 
 impl AudioControl {
@@ -135,6 +136,13 @@ impl AudioControl {
     fn toggle_monitor(&self, id: &str, on: bool) {
         let mut m = self.monitors.lock().unwrap();
         if on { m.insert(id.into()); } else { m.remove(id); }
+    }
+    fn set_muted(&self, muted: bool) {
+        *self.muted.lock().unwrap() = muted;
+    }
+
+    fn is_muted(&self) -> bool {
+        *self.muted.lock().unwrap()
     }
 }
 
@@ -500,6 +508,7 @@ async fn handle_client_async(
             .chunks_exact(4)
             .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
             .collect();
+
 
         let gain = audio_ctl.gain(&client_id);
         if (gain - 1.0).abs() > f32::EPSILON {
@@ -1075,7 +1084,7 @@ async fn handle_new_client_async(
     enable_keepalive(&stream);
 
     let room_len = stream.read_u32_le().await.unwrap_or(0) as usize;
-    let room = if room_len > 0 {
+    let raw_room = if room_len > 0 {
         let mut room_buf = vec![0u8; room_len];
         if let Err(e) = stream.read_exact(&mut room_buf).await {
             dt_error!("[{}] Failed to read room: {} – using empty", peer_addr, e);
@@ -1083,9 +1092,21 @@ async fn handle_new_client_async(
         } else { String::from_utf8_lossy(&room_buf).to_string() }
     } else { String::new() };
 
+    let (room, handshake_gain): (String, f32) = match raw_room.rsplit_once('|') {
+        Some((r, g)) => match g.parse::<f32>() {
+            Ok(v) => (r.to_string(), v),
+            Err(_) => (raw_room, 1.0),
+        },
+        None => (raw_room, 1.0),
+    };
+
     let display_id = if room.is_empty() {
         format!("client@{}", peer_addr)
     } else { room.clone() };
+    if (handshake_gain - 1.0).abs() > f32::EPSILON {
+        audio_ctl.set_gain(&display_id, handshake_gain);
+        dt_info!("[{}] gain from handshake: {}", display_id, handshake_gain);
+    }
     dt_info!("📡 ☑️ 🎙️ {} Connected [{}]", display_id, peer_addr);
 
     if room == "intercom" {
@@ -1389,6 +1410,7 @@ async fn main() -> Result<()> {
     let audio_ctl = Arc::new(AudioControl {
         volumes:  Mutex::new(HashMap::new()),
         monitors: Mutex::new(HashSet::new()),
+        muted:    Mutex::new(false),
     });
 
     let (mon_tx, mon_rx) = std::sync::mpsc::sync_channel::<(String, Vec<f32>)>(128);
@@ -1419,13 +1441,21 @@ async fn main() -> Result<()> {
                             Ok(v)  => { audio_ctl.set_gain(id, v); dt_info!("gain({}) = {}", id, v); }
                             Err(_) => dt_error!("bad gain: {}", val),
                         },
+                        ["mute", "all"] => {
+                            audio_ctl.set_muted(true);
+                            dt_info!("All clients muted");
+                        }
+                        ["unmute", "all"] => {
+                            audio_ctl.set_muted(false);
+                            dt_info!("All clients unmuted");
+                        }
                         ["mon", id, "on"]  => { audio_ctl.toggle_monitor(id, true);  dt_info!("monitor({}) = ON",  id); }
                         ["mon", id, "off"] => { audio_ctl.toggle_monitor(id, false); dt_info!("monitor({}) = OFF", id); }
                         ["ls"] => {
                             dt_info!("gains: {:?}",  *audio_ctl.volumes.lock().unwrap());
                             dt_info!("monitoring: {:?}", *audio_ctl.monitors.lock().unwrap());
                         }
-                        ["help"] => dt_info!("cmds: vol <id> <gain> | mon <id> on|off | ls | help"),
+                        ["help"] => dt_info!("cmds: vol <id> <gain> | mon <id> on|off | mute all | unmute all | ls | help"),
                         _ => dt_error!("unknown command: {}", line),
                     }
                 }

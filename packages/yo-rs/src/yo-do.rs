@@ -17,7 +17,6 @@ use serde::{Deserialize, Serialize};
 
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
-//use tokio::sync::Mutex;
 
 
 static YO_DO: OnceLock<Mutex<YoDo>> = OnceLock::new();
@@ -101,7 +100,7 @@ struct VoiceConfig {
     #[serde(default)]
     speak: bool,
     sentences: Vec<String>,
-    lists: HashMap<String, ListConfig>,    
+    lists: HashMap<String, ListConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,7 +128,7 @@ struct EntityValue {
     out: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)] 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct EntityList {
     wildcard: Option<bool>,
     values: Vec<EntityValue>,
@@ -146,7 +145,7 @@ struct ScriptIntentData {
     substitutions: Vec<Substitution>,
     sentences: Vec<String>,
     voice_data: Option<HashMap<String, VoiceData>>,
-}  
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ListValue {
@@ -159,10 +158,10 @@ struct ListValue {
 struct IntentData {
     substitutions: Vec<Substitution>,
     sentences: Vec<String>,
-    lists: HashMap<String, ListConfig>,  
+    lists: HashMap<String, ListConfig>,
     #[serde(default)]
     speak: bool,
-}    
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Substitution {
@@ -200,7 +199,7 @@ struct MatchResult {
     match_type: String,
 }
 
-#[derive(Clone)]     
+#[derive(Clone)]
 struct YoDo {
     intent_data: HashMap<String, IntentData>,
     fuzzy_index: Vec<FuzzyIndexEntry>,
@@ -208,10 +207,11 @@ struct YoDo {
     processing_order: Vec<ScriptPriority>,
     fuzzy_threshold: i32,
     debug: bool,
-    memory_data: MemoryData,  
+    memory_data: MemoryData,
     split_words: Vec<String>,
     sorry_phrases: Vec<String>,
     compiled_patterns: HashMap<String, Vec<CompiledPattern>>,
+    preview: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -224,6 +224,7 @@ impl YoDo {
     fn new() -> Self {
         let split_words = load_split_words();
         let sorry_phrases = load_sorry_phrases();
+        let preview = env::var("YO_PREVIEW").is_ok();
         let memory_data = Self::load_memory_data().unwrap_or_else(|_| {
             MemoryData {
                 context: MemoryContext {
@@ -238,7 +239,7 @@ impl YoDo {
                 },
             }
         });
-    
+
         Self {
             intent_data: HashMap::new(),
             fuzzy_index: Vec::new(),
@@ -250,10 +251,12 @@ impl YoDo {
             split_words,
             sorry_phrases,
             compiled_patterns: HashMap::new(),
+            preview,
         }
     }
 
     fn log_intent_time(&self, ms: u128) -> io::Result<()> {
+        if self.preview { return Ok(()); }
         let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
         let dir = format!("{}/.config/yo", home);
         let file_path = format!("{}/exec.txt", dir);
@@ -408,7 +411,7 @@ impl YoDo {
             .map(|list| list.wildcard)
             .unwrap_or(false)
     }
-    
+
     fn is_valid_param_value(&self, script_name: &str, param_name: &str, value: &str) -> bool {
         if self.is_wildcard_param(script_name, param_name) {
             return true;
@@ -423,10 +426,10 @@ impl YoDo {
         }
         true
     }
-    
+
     fn load_memory_data() -> Result<MemoryData, Box<dyn std::error::Error>> {
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
-    
+
         let context_path = format!("{}/current_context.json", stats_dir);
         let context: MemoryContext = if let Ok(file) = std::fs::File::open(&context_path) {
             serde_json::from_reader(file).unwrap_or_else(|_| MemoryContext {
@@ -443,7 +446,7 @@ impl YoDo {
                 user_preferences: HashMap::new(),
             }
         };
-    
+
         let history_path = format!("{}/command_history.json", stats_dir);
         let history: CommandHistory = if let Ok(file) = std::fs::File::open(&history_path) {
             serde_json::from_reader(file).unwrap_or_else(|_| CommandHistory {
@@ -455,63 +458,26 @@ impl YoDo {
                 recent_commands: Vec::new(),
                 confirmed_matches: HashMap::new(),
             }
-        }; 
+        };
         Ok(MemoryData { context, history })
     }
 
     fn log_failed_command(&self, input: &str, fuzzy_candidates: &[(String, String, i32)]) -> Result<(), Box<dyn std::error::Error>> {
+        if self.preview { return Ok(()); }
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
         let _ = std::fs::create_dir_all(&stats_dir);
-        
+
         let log_file = format!("{}/failed_commands.log", stats_dir);
         let stats_file = format!("{}/command_stats.json", stats_dir);
-        
+
         let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
         let log_entry = format!("[{}] FAILED: '{}'\n", timestamp, input);
-        
+
         if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(&log_file) {
             use std::io::Write;
             let _ = file.write_all(log_entry.as_bytes());
         }
-        
-        let mut stats: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&stats_file) {
-            serde_json::from_str(&content).unwrap_or_else(|_| {
-                serde_json::json!({
-                    "failed_commands": {},
-                    "successful_commands": {},
-                    "fuzzy_matches": {}
-                })
-            })
-        } else {
-            serde_json::json!({
-                "failed_commands": {},
-                "successful_commands": {}, 
-                "fuzzy_matches": {}
-            })
-        };
-        
-        if let Some(failed_commands) = stats.get_mut("failed_commands").and_then(|v| v.as_object_mut()) {
-            let count = failed_commands.get(input).and_then(|v| v.as_u64()).unwrap_or(0);
-            failed_commands.insert(input.to_string(), serde_json::Value::from(count + 1));
-        }
-        
-        if let Ok(content) = serde_json::to_string_pretty(&stats) {
-            let _ = std::fs::write(&stats_file, content);
-        }
-        
-        if !fuzzy_candidates.is_empty() {
-            dt_debug(&format!("Fuzzy candidates for '{}':", input));
-            for (script, sentence, score) in fuzzy_candidates {
-                dt_debug(&format!("  {}%: {} -> {}", score, sentence, script));
-            }
-        }        
-        Ok(())
-    }
 
-
-    fn log_successful_command(&self, script_name: &str, args: &[String], processing_time: std::time::Duration) -> Result<(), Box<dyn std::error::Error>> {
-        let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
-        let stats_file = format!("{}/command_stats.json", stats_dir);  
         let mut stats: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&stats_file) {
             serde_json::from_str(&content).unwrap_or_else(|_| {
                 serde_json::json!({
@@ -526,15 +492,54 @@ impl YoDo {
                 "successful_commands": {},
                 "fuzzy_matches": {}
             })
-        }; 
+        };
+
+        if let Some(failed_commands) = stats.get_mut("failed_commands").and_then(|v| v.as_object_mut()) {
+            let count = failed_commands.get(input).and_then(|v| v.as_u64()).unwrap_or(0);
+            failed_commands.insert(input.to_string(), serde_json::Value::from(count + 1));
+        }
+
+        if let Ok(content) = serde_json::to_string_pretty(&stats) {
+            let _ = std::fs::write(&stats_file, content);
+        }
+
+        if !fuzzy_candidates.is_empty() {
+            dt_debug(&format!("Fuzzy candidates for '{}':", input));
+            for (script, sentence, score) in fuzzy_candidates {
+                dt_debug(&format!("  {}%: {} -> {}", score, sentence, script));
+            }
+        }
+        Ok(())
+    }
+
+
+    fn log_successful_command(&self, script_name: &str, args: &[String], processing_time: std::time::Duration) -> Result<(), Box<dyn std::error::Error>> {
+        if self.preview { return Ok(()); }
+        let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
+        let stats_file = format!("{}/command_stats.json", stats_dir);
+        let mut stats: serde_json::Value = if let Ok(content) = std::fs::read_to_string(&stats_file) {
+            serde_json::from_str(&content).unwrap_or_else(|_| {
+                serde_json::json!({
+                    "failed_commands": {},
+                    "successful_commands": {},
+                    "fuzzy_matches": {}
+                })
+            })
+        } else {
+            serde_json::json!({
+                "failed_commands": {},
+                "successful_commands": {},
+                "fuzzy_matches": {}
+            })
+        };
         if let Some(successful_commands) = stats.get_mut("successful_commands").and_then(|v| v.as_object_mut()) {
             let count = successful_commands.get(script_name).and_then(|v| v.as_u64()).unwrap_or(0);
             successful_commands.insert(script_name.to_string(), serde_json::Value::from(count + 1));
         }
-        
+
         if let Ok(content) = serde_json::to_string_pretty(&stats) {
             let _ = std::fs::write(&stats_file, content);
-        }     
+        }
         Ok(())
     }
 
@@ -551,7 +556,7 @@ impl YoDo {
         dt_debug(&format!("🦆 Loaded {} fuzzy index entries", self.fuzzy_index.len()));
         Ok(())
     }
-   
+
     fn precompile_patterns(&mut self) {
         let mut all_patterns: HashMap<String, Vec<CompiledPattern>> = HashMap::new();
 
@@ -577,12 +582,12 @@ impl YoDo {
 
         self.compiled_patterns = all_patterns;
         dt_debug(&format!("🦆 Precompiled {} pattern groups", self.compiled_patterns.len()));
-    }   
-   
+    }
+
     fn expand_optional_words(&self, sentence: &str) -> Vec<String> {
         let tokens: Vec<&str> = sentence.split_whitespace().collect();
         let mut variants = Vec::new();
-        
+
         fn generate_combinations(tokens: &[&str], current: Vec<String>, index: usize, result: &mut Vec<String>) {
             if index >= tokens.len() {
                 let sentence = current.join(" ").trim().to_string();
@@ -598,12 +603,12 @@ impl YoDo {
             if token.starts_with('(') && token.ends_with(')') {
                 let clean = &token[1..token.len()-1];
                 alternatives.extend(clean.split('|').map(|s| s.to_string()));
-            } 
+            }
             else if token.starts_with('[') && token.ends_with(']') {
                 let clean = &token[1..token.len()-1];
                 alternatives.extend(clean.split('|').map(|s| s.to_string()));
                 alternatives.push("".to_string());
-            } 
+            }
             else {
                 alternatives.push(token.to_string());
             }
@@ -618,7 +623,7 @@ impl YoDo {
         }
 
         generate_combinations(&tokens, Vec::new(), 0, &mut variants);
-        
+
         variants.iter()
             .map(|v| v.replace("  ", " ").trim().to_string())
             .filter(|v| !v.is_empty())
@@ -629,11 +634,11 @@ impl YoDo {
         if self.is_wildcard_param(script_name, param_name) {
             return param_value.to_string();
         }
-    
+
         if let Some(intent) = self.intent_data.get(script_name) {
             if let Some(list_config) = intent.lists.get(param_name) {
                 let normalized_input = param_value.to_lowercase();
-    
+
                 for entry in &list_config.values {
                     for alt in entry.r#in.split('|') {
                         if alt.trim().to_lowercase() == normalized_input {
@@ -644,11 +649,11 @@ impl YoDo {
                 }
             }
         }
-    
+
 
         if let Some(intent) = self.intent_data.get(script_name) {
             let normalized_input = param_value.to_lowercase();
-            
+
             for sub in &intent.substitutions {
                 let pattern = sub.pattern.to_lowercase();
 
@@ -689,14 +694,14 @@ impl YoDo {
             }
             dt_debug(&format!("      No entity match found for '{}'", param_value));
         }
-        
+
         if let Some(fuzzy_result) = self.fuzzy_resolve_entity(script_name, param_name, param_value, 70) {
             return fuzzy_result;
         }
 
         param_value.to_string()
     }
-   
+
     fn build_pattern_matcher(&self, script_name: &str, sentence: &str) -> Option<(Regex, Vec<String>)> {
         let start_time = Instant::now();
         dt_debug(&format!("    Building pattern matcher for: '{}'", sentence));
@@ -753,11 +758,11 @@ impl YoDo {
         }
 
         let regex_pattern = format!("^{}$", regex_parts.join(""));
-        
+
         let build_time = start_time.elapsed();
         dt_debug(&format!("      Final regex: {}", regex_pattern));
         dt_debug(&format!("      Parameter names: {:?}", param_names));
-        dt_debug(&format!("      Regex build time: {:?}", build_time));  
+        dt_debug(&format!("      Regex build time: {:?}", build_time));
         match Regex::new(&regex_pattern) {
             Ok(re) => {
                 dt_debug("      Regex compiled successfully");
@@ -771,14 +776,14 @@ impl YoDo {
     }
 
     fn calculate_processing_order(&mut self) {
-        let mut script_priorities = Vec::new();    
+        let mut script_priorities = Vec::new();
         for (script_name, intent) in &self.intent_data {
             let base_priority = 3;
-            dt_debug(&format!("Memory context: last_action={}, recent_commands={}", 
-                self.memory_data.context.last_action, 
+            dt_debug(&format!("Memory context: last_action={}, recent_commands={}",
+                self.memory_data.context.last_action,
                 self.memory_data.history.recent_commands.len()));
-    
-            let mut adjusted_priority = base_priority;      
+
+            let mut adjusted_priority = base_priority;
             let recent_usage = self.memory_data.history.recent_commands
                 .iter()
                 .filter(|cmd| cmd.script == *script_name)
@@ -787,7 +792,7 @@ impl YoDo {
             if self.memory_data.context.last_action == *script_name {
                 adjusted_priority -= 2;
                 dt_debug(&format!("  Context boost applied for {} (last action)", script_name));
-            }        
+            }
             let confirmation_key = format!("{}:", script_name);
             let confirmation_count = self.memory_data.history.confirmed_matches
                 .keys()
@@ -797,7 +802,7 @@ impl YoDo {
             if confirmation_count > 0 {
                 dt_debug(&format!("  Confirmation boost: {} patterns confirmed", confirmation_count));
             }
-            adjusted_priority = adjusted_priority.max(0);  
+            adjusted_priority = adjusted_priority.max(0);
             let has_complex_patterns = intent.sentences.iter().any(|s| {
                 s.contains('{') || s.contains('[') || s.contains('(')
             });
@@ -807,8 +812,8 @@ impl YoDo {
                 priority: adjusted_priority,
                 has_complex_patterns,
             });
-    
-            dt_debug(&format!("MEMORY ADJUSTMENT: {}: base={} → adjusted={} (uses={}, confirms={}, context={})", 
+
+            dt_debug(&format!("MEMORY ADJUSTMENT: {}: base={} → adjusted={} (uses={}, confirms={}, context={})",
                 script_name, base_priority, adjusted_priority, recent_usage, confirmation_count,
                 if self.memory_data.context.last_action == *script_name { "YES" } else { "NO" }));
         }
@@ -820,7 +825,7 @@ impl YoDo {
         });
 
         self.processing_order = script_priorities;
-        dt_debug(&format!("Final processing order with memory: {:?}", 
+        dt_debug(&format!("Final processing order with memory: {:?}",
             self.processing_order.iter().map(|s| format!("{}[{}]", s.name, s.priority)).collect::<Vec<_>>()));
     }
 
@@ -849,7 +854,7 @@ impl YoDo {
         let global_start = Instant::now();
         let text = text.to_lowercase();
         dt_debug(&format!("Starting EXACT match for: '{}'", text));
-    
+
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
             let script_name = &script_priority.name;
             dt_debug(&format!(
@@ -858,29 +863,29 @@ impl YoDo {
                 self.processing_order.len(),
                 script_name
             ));
-    
+
             let (resolved_text, substitutions) =
                 self.apply_real_time_substitutions(script_name, &text);
             dt_debug(&format!("After substitutions: '{}'", resolved_text));
-    
+
             if let Some(patterns) = self.compiled_patterns.get(script_name) {
                 for pattern in patterns {
                     if let Some(captures) = pattern.regex.captures(&resolved_text) {
                         let mut args = Vec::new();
                         let mut valid_pattern = true;
-    
+
                         for (i, param_name) in pattern.param_names.iter().enumerate() {
                             if let Some(matched) = captures.get(i + 1) {
                                 let raw_value = matched.as_str().to_string();
-    
+
                                 let entity_resolved =
                                     self.resolve_entity(script_name, param_name, &raw_value);
                                 let mut param_value = entity_resolved;
-    
+
                                 if let Some(sub) = substitutions.get(&param_value) {
                                     param_value = sub.clone();
                                 }
-    
+
                                 if !self.is_valid_param_value(script_name, param_name, &param_value) {
                                     dt_debug(&format!(
                                         "Skipping pattern because param '{}' value '{}' is not allowed",
@@ -889,12 +894,12 @@ impl YoDo {
                                     valid_pattern = false;
                                     break;
                                 }
-    
+
                                 args.push(format!("--{}", param_name));
                                 args.push(param_value);
                             }
                         }
-    
+
                         if valid_pattern {
                             return Some(MatchResult {
                                 script_name: script_name.clone(),
@@ -910,7 +915,7 @@ impl YoDo {
         }
         None
     }
-             
+
     fn levenshtein_distance(&self, a: &str, b: &str) -> usize {
         let a_chars: Vec<char> = a.chars().collect();
         let b_chars: Vec<char> = b.chars().collect();
@@ -938,10 +943,10 @@ impl YoDo {
 
     fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, String, i32)> {
         use rayon::prelude::*;
-    
+
         let normalized_input = text.to_lowercase();
         dt_debug(&format!("Fuzzy matching against {} entries", self.fuzzy_index.len()));
-    
+
         self.fuzzy_index
             .par_iter()
             .filter(|entry| entry.fuzzy_enabled)
@@ -960,29 +965,29 @@ impl YoDo {
             })
             .max_by_key(|&(_, _, score)| score)
     }
-        
-    
+
+
     fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
-    
+
         let (script_name, _sentence, score) = self.find_best_fuzzy_match(text)?;
         dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
-    
+
         let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
         let intent = self.intent_data.get(&script_name)?;
-    
+
         for sentence in &intent.sentences {
             for pattern_str in self.expand_optional_words(sentence) {
                 let pattern_words: Vec<String> = pattern_str
                     .split_whitespace()
                     .map(|s| s.to_string())
                     .collect();
-    
+
                 let alignment = self.align_words(&pattern_words, &input_words);
-    
+
                 let mut args = Vec::new();
                 let mut valid = true;
-    
+
                 for (i, word) in pattern_words.iter().enumerate() {
                     if let Some(param_name) = Self::is_param_token(word) {
                         let raw_value = match alignment[i] {
@@ -992,18 +997,18 @@ impl YoDo {
                                 break;
                             }
                         };
-    
+
                         let resolved = self.resolve_entity(&script_name, param_name, &raw_value);
                         if !self.is_valid_param_value(&script_name, param_name, &resolved) {
                             valid = false;
                             break;
                         }
-    
+
                         args.push(format!("--{}", param_name));
                         args.push(resolved);
                     }
                 }
-    
+
                 if valid {
                     return Some(MatchResult {
                         script_name,
@@ -1015,7 +1020,7 @@ impl YoDo {
                 }
             }
         }
-    
+
         Some(MatchResult {
             script_name,
             args: Vec::new(),
@@ -1024,8 +1029,9 @@ impl YoDo {
             match_type: "fuzzy".to_string(),
         })
     }
-    
+
     fn update_memory_context(&self, script_name: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+        if self.preview { return Ok(()); }
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
         let context_path = format!("{}/current_context.json", stats_dir);
         std::fs::create_dir_all(&stats_dir)?;
@@ -1052,15 +1058,22 @@ impl YoDo {
         }
 
         let context_json = serde_json::to_string_pretty(&context)?;
-        std::fs::write(&context_path, context_json)?;    
-        dt_debug(&format!("Updated memory context: last_action={}, environment={}", 
-            context.last_action, context.environment));    
+        std::fs::write(&context_path, context_json)?;
+        dt_debug(&format!("Updated memory context: last_action={}, environment={}",
+            context.last_action, context.environment));
         Ok(())
-    }    
+    }
 
     fn execute_script(&self, result: &MatchResult) -> Result<(), Box<dyn std::error::Error>> {
-        dt_debug(&format!("Executing: yo {} {}", result.script_name, result.args.join(" ")));  
-        
+        if self.preview {
+            if result.args.is_empty() {
+                println!("yo {}", result.script_name);
+            } else { println!("yo {} {}", result.script_name, result.args.join(" ")); }
+            return Ok(());
+        }
+
+        dt_debug(&format!("Executing: yo {} {}", result.script_name, result.args.join(" ")));
+
         dt_debug!("🦆MEMORY:SCRIPT:{}", result.script_name);
         dt_debug!("🦆MEMORY:ARGS:{}", result.args.join(" "));
         dt_debug!("🦆MEMORY:SENTENCE:{}", result.matched_sentence);
@@ -1069,7 +1082,7 @@ impl YoDo {
         if let Err(e) = self.update_memory_context(&result.script_name, &result.args) {
             dt_debug(&format!("Failed to update memory context: {}", e));
         }
-               
+
         println!("   ┌─(yo-{})", result.script_name);
         let quack = if result.match_type == "exact" {
             "quack!"
@@ -1083,7 +1096,7 @@ impl YoDo {
                     println!("   └─⮞ {} {}", chunk[0], chunk[1]);
                 }
             }
-        }      
+        }
         println!("   └─ ⏰ do took {:?}", result.processing_time);
 
         let should_speak = self
@@ -1095,24 +1108,25 @@ impl YoDo {
         let output = Command::new(format!("yo-{}", result.script_name))
             .args(&result.args)
             .output()?;
-    
+
         if !output.stdout.is_empty() { io::stdout().write_all(&output.stdout)?; }
         if !output.stderr.is_empty() { io::stderr().write_all(&output.stderr)?; }
-    
+
         if !output.status.success() {
             eprintln!("🦆 says ⮞ fuck ❌ Script execution failed with status: {}", output.status);
             return Ok(());
         }
-    
+
         if should_speak {
             let spoken_text = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !spoken_text.is_empty() { self.say(&spoken_text); }
         }
         Ok(())
     }
-    
+
 
     fn say(&self, text: &str) {
+        if self.preview { return; }
         let _ = std::process::Command::new("yo")
             .arg("say")
             .arg(text)
@@ -1120,14 +1134,15 @@ impl YoDo {
     }
 
     fn say_no_match(&self) {
+        if self.preview { return; }
         use rand::seq::SliceRandom;
         if let Some(response) = self.sorry_phrases.choose(&mut rand::thread_rng()) {
             self.say(response);
         }
     }
-    
+
     pub fn run(&mut self, input: &str, fuzzy_threshold: i32, race: bool) -> Result<(), Box<dyn std::error::Error>> {
-        let total_start = Instant::now(); 
+        let total_start = Instant::now();
         self.fuzzy_threshold = fuzzy_threshold;
 
         //if let Ok(memory_data) = Self::load_memory_data() {
@@ -1136,7 +1151,7 @@ impl YoDo {
         //} else { dt_debug("🦆 Using default memory data"); }
 
         self.calculate_processing_order();
-        
+
         let parts: Vec<&str> = {
             let mut found = false;
             for word in &self.split_words {
@@ -1153,15 +1168,15 @@ impl YoDo {
                     .collect()
             } else { vec![input] }
         };
-        
+
         if parts.len() > 1 {
             dt_debug(&format!("Found {} parts to process: {:?}", parts.len(), parts));
             let mut all_successful = true;
             let mut processed_count = 0;
-            
+
             for (index, part) in parts.iter().enumerate() {
                 dt_info(&format!("Processing part {}/{}: '{}'", index + 1, parts.len(), part));
-                
+
                 match self.process_single_input(part, total_start, race) {
                     Ok(_) => {
                         processed_count += 1;
@@ -1187,12 +1202,12 @@ impl YoDo {
             self.process_single_input(parts[0], total_start, race)
         }
     }
-    
-    
+
+
     fn process_single_input(&self, input: &str, total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
         let normalized = Self::normalize_input(input);
-    
+
         let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
             .filter(|entry| entry.fuzzy_enabled)
             .filter_map(|entry| {
@@ -1210,12 +1225,12 @@ impl YoDo {
                 }
             })
             .collect();
-    
+
         if race {
             let (tx, rx) = std::sync::mpsc::channel();
             let tx_exact = tx.clone();
             let tx_fuzzy = tx;
-    
+
             let self_clone = self.clone();
             let normalized_clone = normalized.clone();
             let exact_handle = std::thread::spawn(move || {
@@ -1223,7 +1238,7 @@ impl YoDo {
                     let _ = tx_exact.send(m);
                 }
             });
-    
+
             let self_clone = self.clone();
             let normalized_clone = normalized.clone();
             let fuzzy_handle = std::thread::spawn(move || {
@@ -1231,7 +1246,7 @@ impl YoDo {
                     let _ = tx_fuzzy.send(m);
                 }
             });
-    
+
             match rx.recv() {
                 Ok(match_result) => {
                     let part_elapsed = part_start.elapsed();
@@ -1263,7 +1278,7 @@ impl YoDo {
                 let result = yo_do_clone.fuzzy_match(&normalized_clone);
                 let _ = fuzzy_tx.send(result);
             });
-    
+
             if let Some(match_result) = self.exact_match(&normalized) {
                 let part_elapsed = part_start.elapsed();
                 let _ = self.log_intent_time(part_elapsed.as_millis());
@@ -1280,7 +1295,7 @@ impl YoDo {
                 self.execute_script(&final_result)?;
                 return Ok(());
             }
-    
+
             if let Ok(Some(match_result)) = fuzzy_rx.recv() {
                 let part_elapsed = part_start.elapsed();
                 let _ = self.log_intent_time(part_elapsed.as_millis());
@@ -1298,31 +1313,33 @@ impl YoDo {
                 return Ok(());
             }
         }
-    
+
         let part_elapsed = part_start.elapsed();
         println!("   ┌─(yo-do)");
         println!("   │ 🦆 qwack! {}", input);
         println!("   │ 🦆 says ⮞ fuck ❌ no match!");
-    
+
         if !fuzzy_candidates.is_empty() {
             let top_candidates: Vec<_> = fuzzy_candidates.iter()
                 .filter(|(_, _, score)| *score >= 50)
                 .take(3)
                 .collect();
-    
+
             for (script, sentence, score) in top_candidates {
                 println!("   │   {}%: '{}' -> yo {}", score, sentence, script);
             }
         }
         println!("   └─⏰ do took {:?}", part_elapsed);
-    
-        self.say_no_match();
-    
+
+        if env::var("YO_PREVIEW").is_err() {
+            self.say_no_match();
+        }
+
         dt_debug("No match found for part, logging statistics...");
         let _ = self.log_failed_command(input, &fuzzy_candidates);
         Err("No match found for this part".into())
     }
-    
+
 
 }
 
