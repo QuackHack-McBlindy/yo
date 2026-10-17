@@ -282,6 +282,16 @@ in {
         '';
       };
 
+      gain = mkOption {
+        type = types.float;
+        default = 1.0;
+        description = ''
+          Microphone gain multiplier applied server-side for this client.
+          Sent to the server as part of the room handshake.
+          Values < 1.0 attenuate, > 1.0 amplify. `1.0` = unchanged.
+        '';
+      };
+
       awakeSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/ding.wav";
@@ -474,6 +484,7 @@ in {
               ++ [ "--silence-threshold" (toString cfg.client.silenceThreshold) ]
               ++ [ "--silence-timeout" (toString cfg.client.silenceTimeout) ]
               ++ [ "--max-duration" (toString cfg.client.maxDuration) ]
+              ++ [ "--gain" (toString cfg.client.gain) ]
               ++ (if (cfg.server.enable && cfg.client.enable) then [ "--room" "local" ]
                   else if (cfg.client.room != null) then [ "--room" cfg.client.room ]
                   else [])

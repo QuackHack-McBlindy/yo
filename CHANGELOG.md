@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Control command added: `mute all`, `unmute all`.
+- New client option: `gain`.
+
+### Changed
+
+- The Rust `yo-do` binary now checks `YO_PREVIEW` variable before executing.
+
+### Fixed
+
+### Removed
+
+## [0.2.8] - 2026-09-18
+
+### Added
+
 ### Changed
 
 ### Fixed

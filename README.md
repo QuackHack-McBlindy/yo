@@ -1,7 +1,7 @@
 <!-- VERSIONS_START -->
 
 ![License](https://img.shields.io/badge/license-MIT-black?style=flat-square&logo=opensourceinitiative&logoColor=white)
-![yo](https://img.shields.io/badge/yo-0.2.7-black?style=flat)
+![yo](https://img.shields.io/badge/yo-0.2.9-black?style=flat)
 ![Fast](https://img.shields.io/badge/⚡-0.1ms-black?style=flat)
 
 <!-- VERSIONS_END -->
@@ -227,7 +227,8 @@ Full usage example:
       enable           = true;            # enables microphone streaming to server
       uri              = "192.168.1.111"; # server ip (leave unchanged when server & client on same host)
       room             = "livingroom";
-      silenceThreshold = 0.03;            # when to concider audio silent
+      gain             = 0.7;             # microphone gain multiplier
+      silenceThreshold = 0.03;            # when to consider audio silent
       silenceTimeout   = 1.5;             # wait x seconds after silent before sending
       maxDuration      = 5.0;             # max recording in seconds before sending
 
@@ -283,7 +284,7 @@ Most of the options are baked into the service or scripts, but there are a coupl
 </details>
 
 <details><summary><strong>
-Contol Commands
+Control Commands
 </strong></summary>
 
 <br>
@@ -292,6 +293,8 @@ User can control gain and monitor all clients at real-time using FIFO.
 
 ```bash
 echo "vol <room> <gain>" > /run/user/$UID/yo/control
+echo "mute all"   > /run/user/$UID/yo/control
+echo "unmute all" > /run/user/$UID/yo/control
 echo "mon <room> on" > /run/user/$UID/yo/control
 echo "mon <room> off" > /run/user/$UID/yo/control
 echo "ls" > /run/user/$UID/yo/control
@@ -588,8 +591,6 @@ Run `yo --help` to see all your defined yo scripts as a table. *(Can also be vie
 The ratio could be a good way to measure potential combinatorial explosion as you can see below.
 
 ```bash
-❄️ DOTFILES  on  main [!]
-00:41:44 ❯ yo tv -h
 🦆🏠  HOME via 🐍 via 🦀 v1.98.0
 00:49:35 ❯ yo tv -h
 

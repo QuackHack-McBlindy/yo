@@ -43,6 +43,7 @@ fn print_usage(program_name: &str) {
   Options:
     --uri <ADDRESS>              Server address (default: {})
     --room <ROOM>                Room identifier sent to server (optional)
+    --gain <FLOAT>               Microphone gain multiplier (default: 1.0)
     --no-bind                    Disable the TTS audio listener (don't bind port 12345)
     --awake-sound <PATH>         Path to WAV file to play on wake (default: embedded ding.wav)
     --done-sound <PATH>          Path to WAV file to play after successful command (default: embedded done.wav)
@@ -186,6 +187,7 @@ fn main() {
     let mut debug = false;
     let mut server_addr = DEFAULT_SERVER_ADDR.to_string();
     let mut room: Option<String> = None;
+    let mut gain: f32 = 1.0;
     let mut silence_threshold = 0.005;
     let mut silence_timeout_secs = 1.0;
     let mut max_duration_secs = 5.0;
@@ -220,6 +222,19 @@ fn main() {
                     i += 2;
                 } else {
                     dt_error!("Error: --room requires a value");
+                    print_usage(&args[0]);
+                    std::process::exit(1);
+                }
+            }
+            "--gain" => {
+                if i + 1 < args.len() {
+                    gain = args[i + 1].parse().unwrap_or_else(|_| {
+                        dt_error!("Invalid gain – must be a float");
+                        std::process::exit(1);
+                    });
+                    i += 2;
+                } else {
+                    dt_error!("Error: --gain requires a value");
                     print_usage(&args[0]);
                     std::process::exit(1);
                 }
@@ -577,7 +592,12 @@ fn main() {
         recording_active.store(false, Ordering::SeqCst);
         recording_buffer.lock().unwrap().clear();
 
-        let room_bytes = room.as_deref().unwrap_or("").as_bytes();
+        let room_str: String = match room.as_deref() {
+            Some(r) if (gain - 1.0).abs() > f32::EPSILON => format!("{}|{}", r, gain),
+            Some(r) => r.to_string(),
+            None => String::new(),
+        };
+        let room_bytes = room_str.as_bytes();
         let room_len = room_bytes.len() as u32;
         if let Err(e) = stream.write_u32::<LittleEndian>(room_len) {
             dt_error!("Failed to send room length: {}", e);
@@ -593,7 +613,7 @@ fn main() {
             dt_error!("Failed to flush room info: {}", e);
             continue;
         }
-        dt_info!("Sent room: {}", room.as_deref().unwrap_or("(empty)"));
+        dt_info!("Sent room: {} (gain={})", room_str, gain);
 
         let read_stream = match stream.try_clone() {
             Ok(s) => s,
