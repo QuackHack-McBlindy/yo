@@ -1,0 +1,802 @@
+{
+  "services.yo-rs.client.awakeCmd": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Command to execute on the client when wake word is detected.\nThe command is run in a background thread; output is logged.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "awakeCmd"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "services.yo-rs.client.awakeSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/ding.wav\""
+    },
+    "description": "Path to a custom WAV file played on wake detection (client‑side).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "awakeSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.client.debug": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Print RMS values during recording.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "debug"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.client.doneCmd": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Command to execute on the client after a successful voice command.\nThe command is run in a background thread; output is logged.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "doneCmd"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "services.yo-rs.client.doneSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/done.wav\""
+    },
+    "description": "Path to a custom WAV file played on successful command execution (client‑side).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "doneSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.client.enable": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Whether to enable yo-rs client (audio streaming & recording).",
+    "example": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "enable"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.client.extraArgs": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "Extra arguments passed verbatim to the client binary.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "extraArgs"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "services.yo-rs.client.failCmd": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Command to execute if a voice command execution has failed.\nThe command is run in a background thread; output is logged.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "failCmd"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "services.yo-rs.client.failSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/fail.wav\""
+    },
+    "description": "Path to a custom WAV file played on successful command execution (client‑side).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "failSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.client.gain": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "1.0"
+    },
+    "description": "Microphone gain multiplier applied server-side for this client.\nSent to the server as part of the room handshake.\nValues < 1.0 attenuate, > 1.0 amplify. `1.0` = unchanged.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "gain"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.client.logFile": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Path to a custom log file path.\nUse absolute path.\nIf `null`, default logging file path is `~/yo-rs-client.log`.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "logFile"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.client.maxDuration": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "5.0"
+    },
+    "description": "Maximum recording length (fallback).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "maxDuration"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.client.room": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Optional room identifier sent to the server. Used for context/memory for the shell translator.\nPassed to `yo do` as `--room <value>` (only when `shellTranslate` is enabled).\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "room"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "services.yo-rs.client.silenceThreshold": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0.005"
+    },
+    "description": "RMS threshold below which audio is considered silence.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "silenceThreshold"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.client.silenceTimeout": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "1.0"
+    },
+    "description": "Seconds of silence before stopping recording.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "silenceTimeout"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.client.ttsClients": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "optional list of hardcoded client IP addresses for text-to-spech streams.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "ttsClients"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "services.yo-rs.client.uri": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"127.0.0.1:12345\""
+    },
+    "description": "Server address to connect to.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "client",
+      "uri"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "services.yo-rs.enable": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Whether to enable yo-rs services (server and/or client).",
+    "example": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "loc": [
+      "services",
+      "yo-rs",
+      "enable"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.openFirewall": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Wether to open the firewall for the configured port.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "openFirewall"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.package": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "inputs.yo.packages.x86_64-linux.yo-rs"
+    },
+    "description": "The yo-rs package containing both server and client binaries.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "package"
+    ],
+    "readOnly": false,
+    "type": "package"
+  },
+  "services.yo-rs.port": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "12345"
+    },
+    "description": "Listening port for yo.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "port"
+    ],
+    "readOnly": false,
+    "type": "16 bit unsigned integer; between 0 and 65535 (both inclusive)"
+  },
+  "services.yo-rs.server.awakeSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/ding.wav\""
+    },
+    "description": "Path to a custom WAV file played on wake detection.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "awakeSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.beamSize": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0"
+    },
+    "description": "Beam size for Whisper (0 = greedy).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "beamSize"
+    ],
+    "readOnly": false,
+    "type": "signed integer"
+  },
+  "services.yo-rs.server.debug": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Enable debug logging (prints probabilities, timings).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "debug"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.server.doneSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/done.wav\""
+    },
+    "description": "Path to a custom WAV file played on successful command execution.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "doneSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.enable": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Whether to enable yo-rs server (wake word detection & transcription).",
+    "example": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "enable"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.server.execCommand": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Command to execute with the transcribed text as the final argument.\nThe command is run with the same environment as the server.\nExample: `\"yo do\"`.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "execCommand"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "services.yo-rs.server.extraArgs": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "Extra arguments passed verbatim to the server binary.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "extraArgs"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "services.yo-rs.server.extraPath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "Additional directories to prepend to the `PATH` environment variable\nof the systemd service. You can use systemd specifiers like `%h`\n(home directory) or `%u` (username).\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "extraPath"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "services.yo-rs.server.failSound": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/fail.wav\""
+    },
+    "description": "Path to a custom WAV file played on successful command execution.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "failSound"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.host": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"0.0.0.0:12345\""
+    },
+    "description": "Listening address and port for the server.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "host"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "services.yo-rs.server.language": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"english\""
+    },
+    "description": "Language to use for transcription and text-to-speech",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "language"
+    ],
+    "readOnly": false,
+    "type": "one of \"arabic\", \"catalan\", \"chinese\", \"czech\", \"danish\", \"dutch\", \"english\", \"finnish\", \"french\", \"georgian\", \"german\", \"greek\", \"hindi\", \"hungarian\", \"icelandic\", \"italian\", \"kazakh\", \"latvian\", \"luxembourgish\", \"malayalam\", \"nepali\", \"norwegian\", \"persian\", \"polish\", \"portuguese\", \"romanian\", \"russian\", \"serbian\", \"slovak\", \"slovenian\", \"spanish\", \"swahili\", \"swedish\", \"turkish\", \"ukrainian\", \"vietnamese\", \"welsh\""
+  },
+  "services.yo-rs.server.logFile": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Path to a custom log file path.\nUse absolute path.\nIf `null`, default logging file path is `~/yo-rs-server.log`.\n",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "logFile"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.onnxPath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/tts/sv_SE-lisa-medium.onnx\""
+    },
+    "description": "Path to the text-to-speech ONNX model.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "onnxPath"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.shellTranslate": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Translate the transcription to shell command and execute.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "shellTranslate"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "services.yo-rs.server.temperature": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0.2"
+    },
+    "description": "Whisper sampling temperature.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "temperature"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.server.threads": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "4"
+    },
+    "description": "Number of threads for Whisper inference.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "threads"
+    ],
+    "readOnly": false,
+    "type": "signed integer"
+  },
+  "services.yo-rs.server.threshold": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0.5"
+    },
+    "description": "Detection threshold (0.0–1.0).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "threshold"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "services.yo-rs.server.ttsSavePath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Location to save the text-to-speech audio as a wav file (optional).",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "ttsSavePath"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.ttsSpeed": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"1.0\""
+    },
+    "description": "Length scale used when synthesizing text-to-speech audio. This controls the speech speed.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "ttsSpeed"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "services.yo-rs.server.vadPath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/vad/silero_vad.onnx\""
+    },
+    "description": "Voice Activation Detection ONNX model path.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "vadPath"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.wakeWordPath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Path to the wake‑word ONNX model.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "wakeWordPath"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "services.yo-rs.server.whisper": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"base\""
+    },
+    "description": "Speech to text Whisper GGML model size.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "whisper"
+    ],
+    "readOnly": false,
+    "type": "one of \"tiny\", \"base\", \"small\", \"medium\", \"large\""
+  },
+  "services.yo-rs.server.whisperPath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/services.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/stt/ggml-base.bin\""
+    },
+    "description": "Path to the Whisper GGML model.",
+    "loc": [
+      "services",
+      "yo-rs",
+      "server",
+      "whisperPath"
+    ],
+    "readOnly": false,
+    "type": "absolute path"
+  }
+}

@@ -1,4 +1,4 @@
-{ 
+{
   lib
 } : with lib;
 rec {
@@ -16,7 +16,7 @@ rec {
         lib.concatMap (x:
           map (y: [x] ++ y) tailProduct
         ) head;
-        
+
   # EXAMPLE: cartesianProductOfLists [ ["a" "b"] ["1" "2"] ["x" "y"] ]
   #  [ ["a" "1" "x"]
   #    ["a" "1" "y"]
@@ -199,9 +199,9 @@ rec {
 
   yoEnvGenVar = script: let
     withDefaults = builtins.filter (p: p.default != null) script.parameters;
-    exports = map (p: 
+    exports = map (p:
       let
-        defaultValue = 
+        defaultValue =
           if p.type == "string" then lib.escapeShellArg (toString p.default)
           else if p.type == "int" then toString p.default
           else if p.type == "bool" then (if p.default then "true" else "false")
@@ -288,4 +288,5 @@ rec {
     lib.foldl (total: script:
       total + countUnderstoodPhrases script
     ) 0 (lib.attrValues scripts);
+
 }

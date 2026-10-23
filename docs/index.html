@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>yo options</title>
+<style>
+
+:root {
+  --bg: #ffffff;
+  --fg: #1f2328;
+  --muted: #656d76;
+  --border: #d0d7de;
+  --code-bg: #f6f8fa;
+  --link: #0969da;
+  --sidebar-bg: #f6f8fa;
+  --hover: #eaeef2;
+}
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --border: #30363d;
+  --code-bg: #161b22;
+  --link: #58a6ff;
+  --sidebar-bg: #161b22;
+  --hover: #21262d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.5;
+}
+header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: .8em;
+  padding: .6em 1.2em;
+  border-bottom: 1px solid var(--border);
+}
+header .logo { height: 2em; width: auto; display: block; }
+header h1 { margin: 0; font-size: 1.15em; font-weight: 600; }
+#theme-toggle {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: .35em .65em;
+  cursor: pointer;
+  font-size: 1em;
+  color: var(--fg);
+}
+#theme-toggle:hover { background: var(--hover); }
+
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 0;
+}
+
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+}
+#sidebar-header {
+  flex-shrink: 0;
+  padding: .9em 1em .7em;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-title {
+  margin: 0 0 .6em;
+  font-size: .8em;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--muted);
+  font-weight: 700;
+}
+#sidebar input {
+  width: 100%;
+  padding: .45em .7em;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: .95em;
+}
+#sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: .8em 1em 1em;
+}
+#sidebar-scroll ul { list-style: none; padding-left: .9em; margin: 0; }
+#sidebar-scroll > ul { padding-left: 0; }
+#sidebar-scroll ul li { margin: .1em 0; }
+#sidebar-scroll ul a {
+  display: inline-block;
+  padding: .15em .3em;
+  border-radius: 4px;
+  color: var(--fg);
+  text-decoration: none;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: .88em;
+}
+#sidebar-scroll ul a:hover { color: var(--link); background: var(--hover); }
+#sidebar-scroll ul details > summary {
+  cursor: pointer;
+  padding: .15em .3em;
+  border-radius: 4px;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: .88em;
+  color: var(--link);
+  user-select: none;
+}
+#sidebar-scroll ul details > summary:hover { background: var(--hover); }
+#sidebar-scroll ul details > summary::-webkit-details-marker { display: none; }
+#sidebar-scroll ul details > summary::marker { content: ""; }
+#sidebar-scroll ul details > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  color: var(--muted);
+  transition: transform .15s;
+}
+#sidebar-scroll ul details[open] > summary::before { transform: rotate(90deg); }
+
+.screenshots-link {
+  display: inline-flex;
+  align-items: center;
+  gap: .35em;
+  padding: .3em .5em;
+  margin-bottom: .8em;
+  border-radius: 4px;
+  color: var(--link);
+  text-decoration: none;
+  font-size: .9em;
+  font-weight: 500;
+}
+.screenshots-link:hover { background: var(--hover); }
+.screenshots-link .screenshots-count {
+  color: var(--muted);
+  font-weight: 400;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: .9em;
+}
+
+.screenshots-link,
+.quickstart-link {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: .35em;
+  padding: .3em .5em;
+  margin-bottom: .4em;          /* was .8em — each link now has its own row */
+  border-radius: 4px;
+  color: var(--link);
+  text-decoration: none;
+  font-size: .9em;
+  font-weight: 500;
+}
+.screenshots-link:hover,
+.quickstart-link:hover { background: var(--hover); }
+
+#sidebar-footer {
+  flex-shrink: 0;
+  padding: .8em 1em;
+  border-top: 1px solid var(--border);
+  font-size: .85em;
+  line-height: 1.5;
+  background: var(--sidebar-bg);
+}
+a.footer-project {
+  display: inline-block;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+}
+a.footer-project:hover { color: var(--link); }
+.footer-coverage {
+  color: var(--muted);
+  font-size: .8em;
+  margin-bottom: .4em;
+}
+.footer-coverage .coverage-value {
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+}
+.footer-coverage.low .coverage-value { color: #cf222e; }
+[data-theme="dark"] .footer-coverage.low .coverage-value { color: #ff7b72; }
+.footer-link {
+  display: block;
+  color: var(--link);
+  text-decoration: none;
+  padding: .1em 0;
+  word-break: break-all;
+}
+.footer-link:hover { text-decoration: underline; }
+.footer-build {
+  color: var(--muted);
+  font-size: .72em;
+  margin-top: .5em;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+
+main {
+  overflow-y: auto;
+  padding: 1.5em 2em 4em;
+  scroll-behavior: smooth;
+}
+main > * { max-width: 900px; }
+
+.intro {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em 1.4em;
+  margin-bottom: 1.8em;
+  background: var(--sidebar-bg);
+  font-size: .97em;
+}
+.intro > p:first-child { margin-top: 0; }
+.intro > p:last-child  { margin-bottom: 0; }
+
+.quickstart-section { margin: 1.5em 0 2em; scroll-margin-top: 1em; }
+
+details.quickstart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--sidebar-bg);
+  overflow: hidden;
+}
+details.quickstart > summary {
+  cursor: pointer;
+  padding: .7em 1em;
+  font-weight: 600;
+  user-select: none;
+  list-style: none;
+}
+details.quickstart > summary::-webkit-details-marker { display: none; }
+details.quickstart > summary::marker { content: ""; }
+details.quickstart > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  color: var(--muted);
+  transition: transform .15s;
+}
+details.quickstart[open] > summary::before { transform: rotate(90deg); }
+details.quickstart > summary:hover { background: var(--hover); }
+
+details.quickstart > pre {
+  margin: 0;
+  padding: 1em;
+  border-top: 1px solid var(--border);
+  background: var(--code-bg);
+  overflow-x: auto;
+  white-space: pre;          /* override the global pre-wrap */
+  word-break: normal;
+  border-radius: 0;
+}
+
+.screenshots-section,
+.options-section { margin: 1.5em 0 2em; scroll-margin-top: 1em; }
+.screenshots-section h2,
+.options-section h2 {
+  font-size: 1.1em;
+  margin: 0 0 .8em;
+  padding-bottom: .3em;
+  border-bottom: 1px solid var(--border);
+}
+
+.screenshots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1em;
+}
+.screenshot {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+}
+.screenshot a { display: block; line-height: 0; }
+.screenshot img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  display: block;
+  transition: transform .2s;
+}
+.screenshot:hover img { transform: scale(1.05); }
+.screenshot figcaption {
+  padding: .5em .7em;
+  font-size: .85em;
+  color: var(--muted);
+  text-align: center;
+  text-transform: capitalize;
+  border-top: 1px solid var(--border);
+}
+
+details.group { margin: .15em 0; }
+details.group > summary {
+  cursor: pointer;
+  padding: .4em .55em;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+  color: var(--link);
+  user-select: none;
+}
+details.group > summary:hover { background: var(--hover); }
+details.group > summary .count {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: .85em;
+}
+details.group > .children {
+  margin-left: .5em;
+  padding-left: 1em;
+  border-left: 1px solid var(--border);
+}
+.option { margin: 1em 0; }
+.option > h3 {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 1em;
+  margin: .2em 0 .4em;
+}
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: .25em 1em;
+  margin: 0;
+}
+dt {
+  font-weight: 600;
+  font-size: .82em;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  padding-top: .15em;
+}
+dd { margin: 0; min-width: 0; }
+dd.undocumented {
+  color: var(--muted);
+  font-style: italic;
+}
+code, pre {
+  background: var(--code-bg);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: .9em;
+}
+code { padding: .1em .35em; }
+pre {
+  padding: .5em .7em;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+dd > p:first-child { margin-top: 0; }
+dd > p:last-child  { margin-bottom: 0; }
+.hidden { display: none !important; }
+#empty {
+  display: none;
+  color: var(--muted);
+  font-style: italic;
+  padding: 2em;
+  text-align: center;
+}
+.option, details.group { scroll-margin-top: 1em; }
+
+@media (max-width: 700px) {
+  body { height: auto; overflow: visible; }
+  .layout { grid-template-columns: 1fr; min-height: auto; }
+  #sidebar {
+    max-height: 45vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  main { overflow: visible; padding: 1em; }
+}
+
+</style>
+</head>
+<body>
+<header>
+  <img src="images/logo.png" alt="" class="logo">
+  <h1>yo</h1>
+  <button id="theme-toggle" title="Toggle theme">🌙</button>
+</header>
+<div class="layout">
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <h2 class="sidebar-title">Options</h2>
+      <input id="search" type="search" placeholder="Filter options…" autofocus>
+    </div>
+    <div id="sidebar-scroll">
+      <a href="#quickstart" class="quickstart-link">Quick start</a>    
+      
+      <ul><li><details class="sidebar-group"><summary>services</summary><ul><li><details class="sidebar-group"><summary>yo-rs</summary><ul><li><details class="sidebar-group"><summary>client</summary><ul><li><a href="#services.yo-rs.client.awakeCmd">awakeCmd</a></li><li><a href="#services.yo-rs.client.awakeSound">awakeSound</a></li><li><a href="#services.yo-rs.client.debug">debug</a></li><li><a href="#services.yo-rs.client.doneCmd">doneCmd</a></li><li><a href="#services.yo-rs.client.doneSound">doneSound</a></li><li><a href="#services.yo-rs.client.enable">enable</a></li><li><a href="#services.yo-rs.client.extraArgs">extraArgs</a></li><li><a href="#services.yo-rs.client.failCmd">failCmd</a></li><li><a href="#services.yo-rs.client.failSound">failSound</a></li><li><a href="#services.yo-rs.client.gain">gain</a></li><li><a href="#services.yo-rs.client.logFile">logFile</a></li><li><a href="#services.yo-rs.client.maxDuration">maxDuration</a></li><li><a href="#services.yo-rs.client.room">room</a></li><li><a href="#services.yo-rs.client.silenceThreshold">silenceThreshold</a></li><li><a href="#services.yo-rs.client.silenceTimeout">silenceTimeout</a></li><li><a href="#services.yo-rs.client.ttsClients">ttsClients</a></li><li><a href="#services.yo-rs.client.uri">uri</a></li></ul></details></li><li><a href="#services.yo-rs.enable">enable</a></li><li><a href="#services.yo-rs.openFirewall">openFirewall</a></li><li><a href="#services.yo-rs.package">package</a></li><li><a href="#services.yo-rs.port">port</a></li><li><details class="sidebar-group"><summary>server</summary><ul><li><a href="#services.yo-rs.server.awakeSound">awakeSound</a></li><li><a href="#services.yo-rs.server.beamSize">beamSize</a></li><li><a href="#services.yo-rs.server.debug">debug</a></li><li><a href="#services.yo-rs.server.doneSound">doneSound</a></li><li><a href="#services.yo-rs.server.enable">enable</a></li><li><a href="#services.yo-rs.server.execCommand">execCommand</a></li><li><a href="#services.yo-rs.server.extraArgs">extraArgs</a></li><li><a href="#services.yo-rs.server.extraPath">extraPath</a></li><li><a href="#services.yo-rs.server.failSound">failSound</a></li><li><a href="#services.yo-rs.server.host">host</a></li><li><a href="#services.yo-rs.server.language">language</a></li><li><a href="#services.yo-rs.server.logFile">logFile</a></li><li><a href="#services.yo-rs.server.onnxPath">onnxPath</a></li><li><a href="#services.yo-rs.server.shellTranslate">shellTranslate</a></li><li><a href="#services.yo-rs.server.temperature">temperature</a></li><li><a href="#services.yo-rs.server.threads">threads</a></li><li><a href="#services.yo-rs.server.threshold">threshold</a></li><li><a href="#services.yo-rs.server.ttsSavePath">ttsSavePath</a></li><li><a href="#services.yo-rs.server.ttsSpeed">ttsSpeed</a></li><li><a href="#services.yo-rs.server.vadPath">vadPath</a></li><li><a href="#services.yo-rs.server.wakeWordPath">wakeWordPath</a></li><li><a href="#services.yo-rs.server.whisper">whisper</a></li><li><a href="#services.yo-rs.server.whisperPath">whisperPath</a></li></ul></details></li></ul></details></li></ul></details></li><li><details class="sidebar-group"><summary>yo</summary><ul><li><details class="sidebar-group"><summary>fuzzy</summary><ul><li><details class="sidebar-group"><summary>conflict</summary><ul><li><a href="#yo.fuzzy.conflict.detection">detection</a></li><li><a href="#yo.fuzzy.conflict.threshold">threshold</a></li></ul></details></li><li><a href="#yo.fuzzy.enable">enable</a></li><li><a href="#yo.fuzzy.threshold">threshold</a></li></ul></details></li><li><a href="#yo.generatedPatterns">generatedPatterns</a></li><li><a href="#yo.legacy">legacy</a></li><li><a href="#yo.pkgs">pkgs</a></li><li><details class="sidebar-group"><summary>scripts</summary><ul><li><details class="sidebar-group"><summary>&lt;name&gt;</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.aliases">aliases</a></li><li><a href="#yo.scripts.&lt;name&gt;.autoStart">autoStart</a></li><li><a href="#yo.scripts.&lt;name&gt;.binary">binary</a></li><li><a href="#yo.scripts.&lt;name&gt;.category">category</a></li><li><a href="#yo.scripts.&lt;name&gt;.code">code</a></li><li><a href="#yo.scripts.&lt;name&gt;.description">description</a></li><li><a href="#yo.scripts.&lt;name&gt;.filePath">filePath</a></li><li><a href="#yo.scripts.&lt;name&gt;.helpFooter">helpFooter</a></li><li><a href="#yo.scripts.&lt;name&gt;.logLevel">logLevel</a></li><li><details class="sidebar-group"><summary>parameters</summary><ul><li><details class="sidebar-group"><summary>*</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.default">default</a></li><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.description">description</a></li><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.name">name</a></li><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.optional">optional</a></li><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.type">type</a></li><li><a href="#yo.scripts.&lt;name&gt;.parameters.*.values">values</a></li></ul></details></li></ul></details></li><li><a href="#yo.scripts.&lt;name&gt;.runAt">runAt</a></li><li><a href="#yo.scripts.&lt;name&gt;.runEvery">runEvery</a></li><li><a href="#yo.scripts.&lt;name&gt;.visibleInReadme">visibleInReadme</a></li><li><details class="sidebar-group"><summary>voice</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.voice.enabled">enabled</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.excludes_context">excludes_context</a></li><li><details class="sidebar-group"><summary>fuzzy</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.voice.fuzzy.enable">enable</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.fuzzy.threshold">threshold</a></li></ul></details></li><li><details class="sidebar-group"><summary>lists</summary><ul><li><details class="sidebar-group"><summary>&lt;name&gt;</summary><ul><li><details class="sidebar-group"><summary>range</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.from">from</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.multiplier">multiplier</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.to">to</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.type">type</a></li></ul></details></li><li><details class="sidebar-group"><summary>values</summary><ul><li><details class="sidebar-group"><summary>*</summary><ul><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values.*.&quot;in&quot;">&quot;in&quot;</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values.*.out">out</a></li></ul></details></li></ul></details></li><li><a href="#yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.wildcard">wildcard</a></li></ul></details></li></ul></details></li><li><a href="#yo.scripts.&lt;name&gt;.voice.priority">priority</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.requires_context">requires_context</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.sentences">sentences</a></li><li><a href="#yo.scripts.&lt;name&gt;.voice.speak">speak</a></li></ul></details></li></ul></details></li></ul></details></li><li><a href="#yo.sorryPhrases">sorryPhrases</a></li><li><a href="#yo.splitWords">splitWords</a></li><li><a href="#yo.understandsPhrases">understandsPhrases</a></li></ul></details></li></ul>
+    </div>
+    <div id="sidebar-footer">
+      <a class="footer-project" href="https://github.com/quackhack-mcblindy/yo" target="_blank" rel="noopener">yo</a>
+      <div class="footer-coverage low" title="91/96 options documented · 5 missing"><span class="coverage-value">94.79%</span> documented</div>
+      <a class="footer-link" href="https://github.com/quackhack-mcblindy/yo/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a>
+      <a class="footer-link" href="https://QuackHack-McBlindy.com" target="_blank" rel="noopener">QuackHack-McBlindy.com</a>
+      <div class="footer-build">built 2026-10-23 01:38:15 UTC</div>
+    </div>
+  </aside>
+  <main id="main">
+    <section class="intro"><p>
+  Welcome to the <strong>yo</strong> Wiki.<br>
+  The options on this website are automatically generated on every release<br>
+  to stay in sync.<br>
+</p>
+<p>
+  Use the <strong>search box</strong> on the left to filter options,<br>
+  or click any group to expand it and browse the tree.<br>
+</p>
+</section>
+    <section class="quickstart-section" id="quickstart"><details class="quickstart"><summary>Quick start configuration</summary><pre><code>services.yo-rs = {
+    server = {
+      enable         = true;
+      language       = &quot;swedish&quot;; # &quot;english&quot; by default
+      whisper        = &quot;base&quot;;
+      shellTranslate = true;
+    };
+    client.enable = true;
+  };</code></pre></details></section>
+    
+    <section class="options-section" id="options">
+      <h2>Options</h2>
+      <details class="group" id="services"><summary>services <span class="count">(44)</span></summary><div class="children"><details class="group" id="services.yo-rs"><summary>yo-rs <span class="count">(44)</span></summary><div class="children"><details class="group" id="services.yo-rs.client"><summary>client <span class="count">(17)</span></summary><div class="children"><div class="option" id="services.yo-rs.client.awakeCmd"><h3>awakeCmd</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Command to execute on the client when wake word is detected.
+The command is run in a background thread; output is logged.
+</dd></dl></div><div class="option" id="services.yo-rs.client.awakeSound"><h3>awakeSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/ding.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on wake detection (client‑side).</dd></dl></div><div class="option" id="services.yo-rs.client.debug"><h3>debug</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Print RMS values during recording.</dd></dl></div><div class="option" id="services.yo-rs.client.doneCmd"><h3>doneCmd</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Command to execute on the client after a successful voice command.
+The command is run in a background thread; output is logged.
+</dd></dl></div><div class="option" id="services.yo-rs.client.doneSound"><h3>doneSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/done.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on successful command execution (client‑side).</dd></dl></div><div class="option" id="services.yo-rs.client.enable"><h3>enable</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Example</dt><dd><pre>true</pre></dd><dt>Description</dt><dd>Whether to enable yo-rs client (audio streaming & recording).</dd></dl></div><div class="option" id="services.yo-rs.client.extraArgs"><h3>extraArgs</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Description</dt><dd>Extra arguments passed verbatim to the client binary.</dd></dl></div><div class="option" id="services.yo-rs.client.failCmd"><h3>failCmd</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Command to execute if a voice command execution has failed.
+The command is run in a background thread; output is logged.
+</dd></dl></div><div class="option" id="services.yo-rs.client.failSound"><h3>failSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/fail.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on successful command execution (client‑side).</dd></dl></div><div class="option" id="services.yo-rs.client.gain"><h3>gain</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>1.0</code></dd><dt>Description</dt><dd>Microphone gain multiplier applied server-side for this client.
+Sent to the server as part of the room handshake.
+Values < 1.0 attenuate, > 1.0 amplify. `1.0` = unchanged.
+</dd></dl></div><div class="option" id="services.yo-rs.client.logFile"><h3>logFile</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Path to a custom log file path.
+Use absolute path.
+If `null`, default logging file path is `~/yo-rs-client.log`.
+</dd></dl></div><div class="option" id="services.yo-rs.client.maxDuration"><h3>maxDuration</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>5.0</code></dd><dt>Description</dt><dd>Maximum recording length (fallback).</dd></dl></div><div class="option" id="services.yo-rs.client.room"><h3>room</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Optional room identifier sent to the server. Used for context/memory for the shell translator.
+Passed to `yo do` as `--room <value>` (only when `shellTranslate` is enabled).
+</dd></dl></div><div class="option" id="services.yo-rs.client.silenceThreshold"><h3>silenceThreshold</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>0.005</code></dd><dt>Description</dt><dd>RMS threshold below which audio is considered silence.</dd></dl></div><div class="option" id="services.yo-rs.client.silenceTimeout"><h3>silenceTimeout</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>1.0</code></dd><dt>Description</dt><dd>Seconds of silence before stopping recording.</dd></dl></div><div class="option" id="services.yo-rs.client.ttsClients"><h3>ttsClients</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Description</dt><dd>optional list of hardcoded client IP addresses for text-to-spech streams.</dd></dl></div><div class="option" id="services.yo-rs.client.uri"><h3>uri</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Default</dt><dd><code>&quot;127.0.0.1:12345&quot;</code></dd><dt>Description</dt><dd>Server address to connect to.</dd></dl></div></div></details><div class="option" id="services.yo-rs.enable"><h3>enable</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Example</dt><dd><pre>true</pre></dd><dt>Description</dt><dd>Whether to enable yo-rs services (server and/or client).</dd></dl></div><div class="option" id="services.yo-rs.openFirewall"><h3>openFirewall</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Wether to open the firewall for the configured port.</dd></dl></div><div class="option" id="services.yo-rs.package"><h3>package</h3><dl><dt>Type</dt><dd><code>package</code></dd><dt>Default</dt><dd><code>inputs.yo.packages.x86_64-linux.yo-rs</code></dd><dt>Description</dt><dd>The yo-rs package containing both server and client binaries.</dd></dl></div><div class="option" id="services.yo-rs.port"><h3>port</h3><dl><dt>Type</dt><dd><code>16 bit unsigned integer; between 0 and 65535 (both inclusive)</code></dd><dt>Default</dt><dd><code>12345</code></dd><dt>Description</dt><dd>Listening port for yo.</dd></dl></div><details class="group" id="services.yo-rs.server"><summary>server <span class="count">(23)</span></summary><div class="children"><div class="option" id="services.yo-rs.server.awakeSound"><h3>awakeSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/ding.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on wake detection.</dd></dl></div><div class="option" id="services.yo-rs.server.beamSize"><h3>beamSize</h3><dl><dt>Type</dt><dd><code>signed integer</code></dd><dt>Default</dt><dd><code>0</code></dd><dt>Description</dt><dd>Beam size for Whisper (0 = greedy).</dd></dl></div><div class="option" id="services.yo-rs.server.debug"><h3>debug</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Enable debug logging (prints probabilities, timings).</dd></dl></div><div class="option" id="services.yo-rs.server.doneSound"><h3>doneSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/done.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on successful command execution.</dd></dl></div><div class="option" id="services.yo-rs.server.enable"><h3>enable</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Example</dt><dd><pre>true</pre></dd><dt>Description</dt><dd>Whether to enable yo-rs server (wake word detection & transcription).</dd></dl></div><div class="option" id="services.yo-rs.server.execCommand"><h3>execCommand</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Command to execute with the transcribed text as the final argument.
+The command is run with the same environment as the server.
+Example: `"yo do"`.
+</dd></dl></div><div class="option" id="services.yo-rs.server.extraArgs"><h3>extraArgs</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Description</dt><dd>Extra arguments passed verbatim to the server binary.</dd></dl></div><div class="option" id="services.yo-rs.server.extraPath"><h3>extraPath</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Description</dt><dd>Additional directories to prepend to the `PATH` environment variable
+of the systemd service. You can use systemd specifiers like `%h`
+(home directory) or `%u` (username).
+</dd></dl></div><div class="option" id="services.yo-rs.server.failSound"><h3>failSound</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/fail.wav&quot;</code></dd><dt>Description</dt><dd>Path to a custom WAV file played on successful command execution.</dd></dl></div><div class="option" id="services.yo-rs.server.host"><h3>host</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Default</dt><dd><code>&quot;0.0.0.0:12345&quot;</code></dd><dt>Description</dt><dd>Listening address and port for the server.</dd></dl></div><div class="option" id="services.yo-rs.server.language"><h3>language</h3><dl><dt>Type</dt><dd><code>one of &quot;arabic&quot;, &quot;catalan&quot;, &quot;chinese&quot;, &quot;czech&quot;, &quot;danish&quot;, &quot;dutch&quot;, &quot;english&quot;, &quot;finnish&quot;, &quot;french&quot;, &quot;georgian&quot;, &quot;german&quot;, &quot;greek&quot;, &quot;hindi&quot;, &quot;hungarian&quot;, &quot;icelandic&quot;, &quot;italian&quot;, &quot;kazakh&quot;, &quot;latvian&quot;, &quot;luxembourgish&quot;, &quot;malayalam&quot;, &quot;nepali&quot;, &quot;norwegian&quot;, &quot;persian&quot;, &quot;polish&quot;, &quot;portuguese&quot;, &quot;romanian&quot;, &quot;russian&quot;, &quot;serbian&quot;, &quot;slovak&quot;, &quot;slovenian&quot;, &quot;spanish&quot;, &quot;swahili&quot;, &quot;swedish&quot;, &quot;turkish&quot;, &quot;ukrainian&quot;, &quot;vietnamese&quot;, &quot;welsh&quot;</code></dd><dt>Default</dt><dd><code>&quot;english&quot;</code></dd><dt>Description</dt><dd>Language to use for transcription and text-to-speech</dd></dl></div><div class="option" id="services.yo-rs.server.logFile"><h3>logFile</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Path to a custom log file path.
+Use absolute path.
+If `null`, default logging file path is `~/yo-rs-server.log`.
+</dd></dl></div><div class="option" id="services.yo-rs.server.onnxPath"><h3>onnxPath</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/tts/sv_SE-lisa-medium.onnx&quot;</code></dd><dt>Description</dt><dd>Path to the text-to-speech ONNX model.</dd></dl></div><div class="option" id="services.yo-rs.server.shellTranslate"><h3>shellTranslate</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Translate the transcription to shell command and execute.</dd></dl></div><div class="option" id="services.yo-rs.server.temperature"><h3>temperature</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>0.2</code></dd><dt>Description</dt><dd>Whisper sampling temperature.</dd></dl></div><div class="option" id="services.yo-rs.server.threads"><h3>threads</h3><dl><dt>Type</dt><dd><code>signed integer</code></dd><dt>Default</dt><dd><code>4</code></dd><dt>Description</dt><dd>Number of threads for Whisper inference.</dd></dl></div><div class="option" id="services.yo-rs.server.threshold"><h3>threshold</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>0.5</code></dd><dt>Description</dt><dd>Detection threshold (0.0–1.0).</dd></dl></div><div class="option" id="services.yo-rs.server.ttsSavePath"><h3>ttsSavePath</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Location to save the text-to-speech audio as a wav file (optional).</dd></dl></div><div class="option" id="services.yo-rs.server.ttsSpeed"><h3>ttsSpeed</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Default</dt><dd><code>&quot;1.0&quot;</code></dd><dt>Description</dt><dd>Length scale used when synthesizing text-to-speech audio. This controls the speech speed.</dd></dl></div><div class="option" id="services.yo-rs.server.vadPath"><h3>vadPath</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/vad/silero_vad.onnx&quot;</code></dd><dt>Description</dt><dd>Voice Activation Detection ONNX model path.</dd></dl></div><div class="option" id="services.yo-rs.server.wakeWordPath"><h3>wakeWordPath</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Path to the wake‑word ONNX model.</dd></dl></div><div class="option" id="services.yo-rs.server.whisper"><h3>whisper</h3><dl><dt>Type</dt><dd><code>one of &quot;tiny&quot;, &quot;base&quot;, &quot;small&quot;, &quot;medium&quot;, &quot;large&quot;</code></dd><dt>Default</dt><dd><code>&quot;base&quot;</code></dd><dt>Description</dt><dd>Speech to text Whisper GGML model size.</dd></dl></div><div class="option" id="services.yo-rs.server.whisperPath"><h3>whisperPath</h3><dl><dt>Type</dt><dd><code>absolute path</code></dd><dt>Default</dt><dd><code>&quot;/nix/store/ax3nbcwff71q2zwc34c9djf4kyq9ma1p-yo-rs-0.2.9/share/yo-rs/models/stt/ggml-base.bin&quot;</code></dd><dt>Description</dt><dd>Path to the Whisper GGML model.</dd></dl></div></div></details></div></details></div></details><details class="group" id="yo"><summary>yo <span class="count">(43)</span></summary><div class="children"><details class="group" id="yo.fuzzy"><summary>fuzzy <span class="count">(4)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>submodule</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd>Global fuzzy matching configuration.</dd></dl><details class="group" id="yo.fuzzy.conflict"><summary>conflict <span class="count">(2)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>submodule</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd>Build-time sentence conflict detection settings for fuzzy matching.</dd></dl><div class="option" id="yo.fuzzy.conflict.detection"><h3>detection</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Enable deep build-time sentence conflict detection for fuzzy near-duplicates. May increase build time significantly.</dd></dl></div><div class="option" id="yo.fuzzy.conflict.threshold"><h3>threshold</h3><dl><dt>Type</dt><dd><code>signed integer</code></dd><dt>Default</dt><dd><code>80</code></dd><dt>Description</dt><dd>Jaccard similarity percentage (0–100) above which two sentences are considered conflicting.</dd></dl></div></div></details><div class="option" id="yo.fuzzy.enable"><h3>enable</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>true</code></dd><dt>Description</dt><dd>Enable fuzzy matching globally. Can be overridden per script.</dd></dl></div><div class="option" id="yo.fuzzy.threshold"><h3>threshold</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>0.8</code></dd><dt>Description</dt><dd>Global fuzzy similarity threshold (0.0–1.0). Scripts may override this.</dd></dl></div></div></details><div class="option" id="yo.generatedPatterns"><h3>generatedPatterns</h3><dl><dt>Type</dt><dd><code>signed integer</code></dd><dt>Description</dt><dd>Number of regex patterns generated at build time</dd></dl></div><div class="option" id="yo.legacy"><h3>legacy</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>Use the legacy Bash-based shell translator instead of the Rust interpreter. The Bash version has fewer dependencies but lower performance. Not recommended if user is generating many patterns.</dd></dl></div><div class="option" id="yo.pkgs"><h3>pkgs</h3><dl><dt>Type</dt><dd><code>package</code></dd><dt>Description</dt><dd>The final yo scripts package</dd></dl></div><details class="group" id="yo.scripts"><summary>scripts <span class="count">(33)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>attribute set of (submodule)</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd>Attribute set of scripts to be made available</dd></dl><details class="group" id="yo.scripts.&lt;name&gt;"><summary>&lt;name&gt; <span class="count">(33)</span></summary><div class="children"><div class="option" id="yo.scripts.&lt;name&gt;.aliases"><h3>aliases</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Example</dt><dd><pre>[
+  &quot;tim&quot;
+  &quot;stopwatch&quot;
+]</pre></dd><dt>Description</dt><dd>Alternative names for invoking this script from the command line (e.g., `yo <alias>`).</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.autoStart"><h3>autoStart</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Example</dt><dd><pre>true</pre></dd><dt>Description</dt><dd>Whether to start this script automatically at boot. Requires all mandatory parameters to have defaults.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.binary"><h3>binary</h3><dl><dt>Type</dt><dd><code>null or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Example</dt><dd><pre>&quot;/path/to/my-tool/or/script&quot;</pre></dd><dt>Description</dt><dd>Path to an executable binary to run instead of inline code. Mutually exclusive with `code`.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.category"><h3>category</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Default</dt><dd><code>&quot;&quot;</code></dd><dt>Example</dt><dd><pre>&quot;🛖 Home Automation&quot;</pre></dd><dt>Description</dt><dd>Category used for grouping scripts in `yo --help`.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.code"><h3>code</h3><dl><dt>Type</dt><dd><code>null or strings concatenated with &quot;\n&quot;</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Example</dt><dd><pre>&#x27;&#x27;
+  echo &quot;Hello, $name!&quot;
+&#x27;&#x27;</pre></dd><dt>Description</dt><dd>
+          Inline shell code to execute when the script is invoked. Mutually exclusive with `binary`.
+          The script parameters are exposed as variables.  
+        </dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.description"><h3>description</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Default</dt><dd><code>&quot;&quot;</code></dd><dt>Example</dt><dd><pre>&quot;Set a timer for a specified duration.&quot;</pre></dd><dt>Description</dt><dd>A short, human-readable description of what the script does. Shown in `yo --help` and the generated command table.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.filePath"><h3>filePath</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Description</dt><dd class="undocumented">⚠ Not documented</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.helpFooter"><h3>helpFooter</h3><dl><dt>Type</dt><dd><code>strings concatenated with &quot;\n&quot;</code></dd><dt>Default</dt><dd><code>&quot;&quot;</code></dd><dt>Example</dt><dd><pre>&#x27;&#x27;
+  Examples:
+    yo timer --minutes 5
+    yo timer --hours 1 --minutes 30&#x27;&#x27;</pre></dd><dt>Description</dt><dd>Additional markdown appended to the script's `--help` output. Useful for examples/notes/stats.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.logLevel"><h3>logLevel</h3><dl><dt>Type</dt><dd><code>one of &quot;DEBUG&quot;, &quot;INFO&quot;, &quot;WARNING&quot;, &quot;ERROR&quot;, &quot;CRITICAL&quot;</code></dd><dt>Default</dt><dd><code>&quot;INFO&quot;</code></dd><dt>Example</dt><dd><pre>&quot;DEBUG&quot;</pre></dd><dt>Description</dt><dd>Logging verbosity for this script when executed via `yo`.</dd></dl></div><details class="group" id="yo.scripts.&lt;name&gt;.parameters"><summary>parameters <span class="count">(6)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>list of (submodule)</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Example</dt><dd><pre>[
+  {
+    default = 5;
+    description = &quot;Minutes to set&quot;;
+    name = &quot;minutes&quot;;
+    type = &quot;int&quot;;
+  }
+  {
+    description = &quot;Sound file to play&quot;;
+    name = &quot;sound&quot;;
+    optional = true;
+    type = &quot;path&quot;;
+  }
+]</pre></dd><dt>Description</dt><dd>List of parameters that the script accepts. Each parameter becomes a command-line option (e.g., `--name`).</dd></dl><details class="group" id="yo.scripts.&lt;name&gt;.parameters.*"><summary>* <span class="count">(6)</span></summary><div class="children"><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.default"><h3>default</h3><dl><dt>Type</dt><dd><code>null or string or signed integer or boolean or absolute path</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Default value if the parameter is not provided.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.description"><h3>description</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Description</dt><dd>Human-readable explanation of the parameter, shown in `--help`.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.name"><h3>name</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Description</dt><dd>Name of the parameter as passed to the script (example, if parameter name is `seconds` it can be used in the script using `$seconds`).</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.optional"><h3>optional</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>true</code></dd><dt>Description</dt><dd>Whether this parameter can be omitted. Automatically set to `true` if a default is defined.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.type"><h3>type</h3><dl><dt>Type</dt><dd><code>one of &quot;string&quot;, &quot;int&quot;, &quot;path&quot;, &quot;bool&quot;</code></dd><dt>Default</dt><dd><code>&quot;string&quot;</code></dd><dt>Description</dt><dd>Data type of the parameter value. Used for validation and conversion.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.parameters.*.values"><h3>values</h3><dl><dt>Type</dt><dd><code>null or (list of string)</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Example</dt><dd><pre>[
+  &quot;on&quot;
+  &quot;off&quot;
+  &quot;toggle&quot;
+]</pre></dd><dt>Description</dt><dd>If set, restricts the allowed values for this parameter to the given list.</dd></dl></div></div></details></div></details><div class="option" id="yo.scripts.&lt;name&gt;.runAt"><h3>runAt</h3><dl><dt>Type</dt><dd><code>null or (list of string matching the pattern [0-9]{1,2}:[0-9]{2})</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Example</dt><dd><pre>[
+  &quot;07:00&quot;
+  &quot;18:00&quot;
+]</pre></dd><dt>Description</dt><dd>Run this script at specific times daily (format: [HH:MM, ...], 24-hour)</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.runEvery"><h3>runEvery</h3><dl><dt>Type</dt><dd><code>null or string</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd class="undocumented">⚠ Not documented</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.visibleInReadme"><h3>visibleInReadme</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>&quot;category != \&quot;\&quot;&quot;</code></dd><dt>Description</dt><dd class="undocumented">⚠ Not documented</dd></dl></div><details class="group" id="yo.scripts.&lt;name&gt;.voice"><summary>voice <span class="count">(15)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>null or (submodule)</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Description</dt><dd>Voice command configuration for this script.</dd></dl><div class="option" id="yo.scripts.&lt;name&gt;.voice.enabled"><h3>enabled</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>true</code></dd><dt>Description</dt><dd>Whether voice commands are enabled for this script.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.excludes_context"><h3>excludes_context</h3><dl><dt>Type</dt><dd><code>attribute set of (null or string or list of string)</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd class="undocumented">⚠ Not documented</dd></dl></div><details class="group" id="yo.scripts.&lt;name&gt;.voice.fuzzy"><summary>fuzzy <span class="count">(2)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>submodule</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd>Fuzzy matching configuration specific to this script.</dd></dl><div class="option" id="yo.scripts.&lt;name&gt;.voice.fuzzy.enable"><h3>enable</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>true</code></dd><dt>Description</dt><dd>Enable fuzzy matching for this script. Overrides the global setting if set.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.fuzzy.threshold"><h3>threshold</h3><dl><dt>Type</dt><dd><code>floating point number</code></dd><dt>Default</dt><dd><code>0.6</code></dd><dt>Description</dt><dd>Fuzzy similarity threshold (0.0–1.0) required for a match. Lower values allow more permissive matching.</dd></dl></div></div></details><details class="group" id="yo.scripts.&lt;name&gt;.voice.lists"><summary>lists <span class="count">(7)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>attribute set of (submodule)</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Example</dt><dd><pre>{
+  number = {
+    range = {
+      from = 1;
+      to = 10;
+    };
+  };
+  room = {
+    values = [
+      {
+        &quot;in&quot; = &quot;living room|livingroom&quot;;
+        out = &quot;livingroom&quot;;
+      }
+      {
+        &quot;in&quot; = &quot;bedroom&quot;;
+        out = &quot;bedroom&quot;;
+      }
+    ];
+  };
+}</pre></dd><dt>Description</dt><dd>Entity lists used to expand `{parameter}` placeholders in voice sentences.</dd></dl><details class="group" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;"><summary>&lt;name&gt; <span class="count">(7)</span></summary><div class="children"><details class="group" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range"><summary>range <span class="count">(4)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>null or (submodule)</code></dd><dt>Default</dt><dd><code>null</code></dd><dt>Example</dt><dd><pre>{
+  from = 1;
+  multiplier = 1;
+  to = 60;
+}</pre></dd><dt>Description</dt><dd>Define a numeric range instead of an explicit list of values.</dd></dl><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.from"><h3>from</h3><dl><dt>Type</dt><dd><code>signed integer or floating point number</code></dd><dt>Description</dt><dd>Starting value of the range (inclusive).</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.multiplier"><h3>multiplier</h3><dl><dt>Type</dt><dd><code>signed integer or floating point number</code></dd><dt>Default</dt><dd><code>1.0</code></dd><dt>Description</dt><dd>Multiplier applied to each generated number (useful for e.g., seconds to minutes conversion).</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.to"><h3>to</h3><dl><dt>Type</dt><dd><code>signed integer or floating point number</code></dd><dt>Description</dt><dd>Ending value of the range (inclusive).</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.range.type"><h3>type</h3><dl><dt>Type</dt><dd><code>value &quot;number&quot; (singular enum)</code></dd><dt>Default</dt><dd><code>&quot;number&quot;</code></dd><dt>Description</dt><dd>Type of range. Currently only `number` is supported.</dd></dl></div></div></details><details class="group" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values"><summary>values <span class="count">(2)</span></summary><div class="children"><dl><dt>Type</dt><dd><code>list of (submodule)</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Example</dt><dd><pre>[
+  {
+    &quot;in&quot; = &quot;living room|livingroom&quot;;
+    out = &quot;livingroom&quot;;
+  }
+  {
+    &quot;in&quot; = &quot;bedroom&quot;;
+    out = &quot;bedroom&quot;;
+  }
+]</pre></dd><dt>Description</dt><dd>List of input-output mappings for entity recognition.</dd></dl><details class="group" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values.*"><summary>* <span class="count">(2)</span></summary><div class="children"><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values.*.&quot;in&quot;"><h3>&quot;in&quot;</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Description</dt><dd>Input pattern. Can contain alternatives separated by `|`.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.values.*.out"><h3>out</h3><dl><dt>Type</dt><dd><code>string</code></dd><dt>Description</dt><dd>Output value assigned to the parameter when the input pattern matches.</dd></dl></div></div></details></div></details><div class="option" id="yo.scripts.&lt;name&gt;.voice.lists.&lt;name&gt;.wildcard"><h3>wildcard</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>If true, this list acts as a wildcard: any input is accepted and passed through unchanged.</dd></dl></div></div></details></div></details><div class="option" id="yo.scripts.&lt;name&gt;.voice.priority"><h3>priority</h3><dl><dt>Type</dt><dd><code>integer between 1 and 5 (both inclusive)</code></dd><dt>Default</dt><dd><code>3</code></dd><dt>Example</dt><dd><pre>1</pre></dd><dt>Description</dt><dd>Match priority (1 = highest, 5 = lowest). Exact matches are always resolved first regardless of priority.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.requires_context"><h3>requires_context</h3><dl><dt>Type</dt><dd><code>attribute set of (null or string or list of string)</code></dd><dt>Default</dt><dd><code>{ }</code></dd><dt>Description</dt><dd class="undocumented">⚠ Not documented</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.sentences"><h3>sentences</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[ ]</code></dd><dt>Example</dt><dd><pre>[
+  &quot;set a timer for {minutes} minutes&quot;
+  &quot;start a {hours} hour timer&quot;
+]</pre></dd><dt>Description</dt><dd>List of sentence patterns that this script can handle. Supports alternatives `(a|b)`, optionals `[word]`, and parameter references `{name}`.</dd></dl></div><div class="option" id="yo.scripts.&lt;name&gt;.voice.speak"><h3>speak</h3><dl><dt>Type</dt><dd><code>boolean</code></dd><dt>Default</dt><dd><code>false</code></dd><dt>Description</dt><dd>If true, the script’s stdout is sent to text-to-speech and played on connected clients.</dd></dl></div></div></details></div></details></div></details><div class="option" id="yo.sorryPhrases"><h3>sorryPhrases</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[
+  &quot;Buddy, you are speaking Japanese, I dont understand anything.&quot;
+  &quot;I&#x27;m sorry, I did not understand that&quot;
+  &quot;Sorry, can you repeat that&quot;
+  &quot;I did not quite catch that&quot;
+  &quot;Excuse me?!&quot;
+]</code></dd><dt>Description</dt><dd>List of phrases for TTS when no match is found</dd></dl></div><div class="option" id="yo.splitWords"><h3>splitWords</h3><dl><dt>Type</dt><dd><code>list of string</code></dd><dt>Default</dt><dd><code>[
+  &quot;also&quot;
+]</code></dd><dt>Example</dt><dd><pre>[
+  &quot;and&quot;
+  &quot;also&quot;
+]</pre></dd><dt>Description</dt><dd>Words that trigger command chaining. When encountered in a sentence, the input is split and each part is executed separately.</dd></dl></div><div class="option" id="yo.understandsPhrases"><h3>understandsPhrases</h3><dl><dt>Type</dt><dd><code>signed integer</code></dd><dt>Description</dt><dd>Theoretical number of unique spoken phrases the system can understand</dd></dl></div></div></details>
+      <p id="empty">No matching options.</p>
+    </section>
+  </main>
+</div>
+<script>
+
+(function () {
+  const html = document.documentElement;
+  const toggle = document.getElementById('theme-toggle');
+
+  function applyTheme(t) {
+    html.dataset.theme = t;
+    toggle.textContent = t === 'dark' ? '☀️' : '🌙';
+    toggle.title = t === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    try { localStorage.setItem('zigduck-theme', t); } catch (e) {}
+  }
+  let saved = null;
+  try { saved = localStorage.getItem('zigduck-theme'); } catch (e) {}
+  if (saved === 'dark' || saved === 'light') applyTheme(saved);
+  else applyTheme(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  toggle.addEventListener('click', () => {
+    applyTheme(html.dataset.theme === 'dark' ? 'light' : 'dark');
+  });
+
+  const options = Array.from(document.querySelectorAll('main .option'));
+  const allDetails = Array.from(document.querySelectorAll('details'));
+  const sideLis = Array.from(document.querySelectorAll('#sidebar-scroll li'));
+  const search = document.getElementById('search');
+  const empty = document.getElementById('empty');
+  const main = document.getElementById('main');
+
+  const depth = el => { let d = 0; while (el.parentElement) { d++; el = el.parentElement; } return d; };
+  const detailsDesc = allDetails.slice().sort((a, b) => depth(b) - depth(a));
+  const sideLisDesc = sideLis.slice().sort((a, b) => depth(b) - depth(a));
+
+  const initialOpen = new Map();
+  allDetails.forEach(d => initialOpen.set(d, d.open));
+
+  function openAncestors(el) {
+    let p = el.parentElement;
+    while (p) {
+      if (p.tagName === 'DETAILS') p.open = true;
+      p = p.parentElement;
+    }
+  }
+
+  document.querySelectorAll('#sidebar a').forEach(a => {
+    a.addEventListener('click', (e) => {
+      const id = decodeURIComponent(a.getAttribute('href').slice(1));
+      const target = document.getElementById(id);
+      if (!target) return;
+      e.preventDefault();
+      openAncestors(target);
+      openAncestors(a);
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  search.addEventListener('input', () => {
+    const q = search.value.toLowerCase().trim();
+
+    options.forEach(el => el.classList.remove('hidden'));
+    allDetails.forEach(d => d.classList.remove('hidden'));
+    sideLis.forEach(li => li.classList.remove('hidden'));
+
+    if (!q) {
+      initialOpen.forEach((open, d) => { d.open = open; });
+      empty.style.display = 'none';
+      return;
+    }
+
+    options.forEach(el => {
+      if (!el.textContent.toLowerCase().includes(q)) el.classList.add('hidden');
+    });
+
+    detailsDesc.forEach(d => {
+      if (!d.classList.contains('group')) return;
+      const summary = d.querySelector(':scope > summary');
+      const summaryMatch = summary && summary.textContent.toLowerCase().includes(q);
+      if (summaryMatch) d.querySelectorAll('.hidden').forEach(x => x.classList.remove('hidden'));
+      const hasVisible = d.querySelector('.option:not(.hidden)');
+      if (summaryMatch || hasVisible) d.open = true;
+      else d.classList.add('hidden');
+    });
+
+    sideLisDesc.forEach(li => {
+      const own = li.querySelector(':scope > a, :scope > details > summary');
+      const ownMatch = own && own.textContent.toLowerCase().includes(q);
+      const det = li.querySelector(':scope > details');
+
+      if (ownMatch) {
+        li.querySelectorAll('li').forEach(x => x.classList.remove('hidden'));
+        li.querySelectorAll('details').forEach(x => x.open = true);
+      }
+
+      const childVisible = Array.from(li.querySelectorAll(':scope > details > ul > li'))
+        .some(c => !c.classList.contains('hidden'));
+
+      if (!ownMatch && !childVisible) li.classList.add('hidden');
+      else if (det) det.open = true;
+    });
+
+    empty.style.display = main.querySelector('.option:not(.hidden)') ? 'none' : 'block';
+  });
+
+  toggle.textContent = html.dataset.theme === 'dark' ? '☀️' : '🌙';
+})();
+
+</script>
+</body>
+</html>

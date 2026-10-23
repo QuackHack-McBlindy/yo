@@ -9,11 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New auto generated Wiki page for documentation.
+- Now supports Bash completion.
+
 ### Changed
 
 ### Fixed
 
+- `gain` is now properly written to each client in `clients.json`.
+- Fixed the control commands mute/unmute not applying correctly.
+
 ### Removed
+
+- Removed the Rust binary `yo-rs` and it's corresponding `yo.scripts.tests`, sicne it's now redundant. Use `$YO_PREVIEW` instead.
 
 
 ## [0.2.9] - 2026-10-17

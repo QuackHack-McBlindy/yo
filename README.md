@@ -31,21 +31,21 @@
 
 <br>
 
-**Nix Build Time**
-▶ declarative command definitions
-▶ grammar expansion
-▶ parameter/entity expansion
-▶ pattern & phrase generation
-▶ command index generation
-▶ conflict detection
-▶ test generation
-▶ compile-time verification
+**Nix Build Time**<br>
+▶ declarative command definitions<br>
+▶ grammar expansion<br>
+▶ parameter/entity expansion<br>
+▶ pattern & phrase generation<br>
+▶ command index generation<br>
+▶ conflict detection<br>
+▶ test generation<br>
+▶ compile-time verification<br>
 
 
->  **Rust Run Time**
->  At runtime, `yo do` normalizes the input and concurrently evaluates exact and fuzzy matches against the pre-compiled command index.
->  Exact matching always takes precedence; the fuzzy matcher waits for the exact result before it is allowed to dispatch a command.
->  Once a match is selected, parameters are extracted and the corresponding `yo` script is dispatched with those arguments.
+>  **Rust Run Time**<br>
+>  At runtime, `yo do` normalizes the input and concurrently evaluates exact and fuzzy matches against the pre-compiled command index.<br>
+>  Exact matching always takes precedence; the fuzzy matcher waits for the exact result before it is allowed to dispatch a command.<br>
+>  Once a match is selected, parameters are extracted and the corresponding `yo` script is dispatched with those arguments.<br>
 
 
 ```
@@ -77,8 +77,8 @@
 
 <br>
 
-`yo` is **NOT**:
-- **❌ An LLM with shell access!**
+`yo` is **NOT**:<br>
+- **❌ An LLM with shell access!**<br>
 
 <br>
 
@@ -123,7 +123,7 @@
 #### **Enable the service**
 
 
-Example of a minimal server + client service configuration (view `2. Usage` for a full configuration).
+Example of a minimal server + client service configuration (view `2. Usage` for a full configuration).<br>
 
 ```nix
   services.yo-rs = {
@@ -146,11 +146,11 @@ Example of a minimal server + client service configuration (view `2. Usage` for 
 $ sudo nixos-rebuild switch --flake /path/to/flake ...
 ```
 
-**Done!**
+**Done!**<br>
 
-Now you can speak your wake word *(default: `"yo bitch"`)*
-& ask what time it is.
-*or if you prefer CLI:*
+Now you can speak your wake word *(default: `"yo bitch"`)*<br>
+& ask what time it is.<br>
+*or if you prefer CLI:*<br>
 
 ```bash
 ❄️ DOTFILES  on  main [$!+]
@@ -162,9 +162,9 @@ Now you can speak your wake word *(default: `"yo bitch"`)*
 07:17
 ```
 
-Approx: `~0.184 ms`
+Approx: `~0.184 ms`<br>
 
-*But if you don't like Rust, or have a basic setup you can use Bash (Which only depends on `pkgs.jq` and `pkgs.coreutils`) instead by setting:*
+*But if you don't like Rust, or have a basic setup you can use Bash (Which only depends on `pkgs.jq` and `pkgs.coreutils`) instead by setting:*<br>
 
 ```nix
 yo.legacy = true;
@@ -177,8 +177,8 @@ yo.legacy = true;
 <br>
 
 
-**`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**
-**GGML-based bin models from the Whisper family is used for speech-to-text.**
+**`yo` uses ONNX Runtime for text-to-speech inference and wake-word detection.**<br>
+**GGML-based bin models from the Whisper family is used for speech-to-text.**<br>
 
 > **Note:** models are automatically fetched by Nix. Just remember to set a language in the server configuration.
 
@@ -187,6 +187,9 @@ yo.legacy = true;
 
 
 ## **2. Usage**
+
+See all options in the <a href="https://htmlpreview.github.io/?https://github.com/quackhack-mcblindy/yo/blob/main/docs/index.html">yo Wiki</a>.
+<br>
 
 <details><summary><strong>
 Service configuration
@@ -289,7 +292,7 @@ Control Commands
 
 <br>
 
-User can control gain and monitor all clients at real-time using FIFO.
+User can control gain and monitor all clients at real-time using FIFO.<br>
 
 ```bash
 echo "vol <room> <gain>" > /run/user/$UID/yo/control
@@ -302,6 +305,8 @@ echo "help" > /run/user/$UID/yo/control
 ```
 
 <br>
+
+To simplify, there is a [GNOME Shell extension](https://github.com/QuackHack-McBlindy/yo-gnome-shell-extension) that gives a top bar widget for client control.<br>
 
 
 </details>
@@ -564,31 +569,31 @@ Commandline
 
 <br>
 
-**Natural Language Command**
+**Natural Language Command**<br>
 
-Commands are executed from the terminal:
+Commands are executed from the terminal:<br>
 
 ```bash
 $ yo do "turn off all lights in the livingroom"
 ```
 
-Adding `\?` at the end of your command will run it with `DEBUG` logging.
+Adding `\?` at the end of your command will run it with `DEBUG` logging.<br>
 
 <br>
 
-Exact matches are blazing fast.
-Fuzzy matching has great coverage/accuracy.
+Exact matches are blazing fast.<br>
+Fuzzy matching has great coverage/accuracy.<br>
 
-The duck will let you know if you just had an **exact match** by saying:
-`🦆 qwack!`
-if it was an **fuzzy match**:
+The duck will let you know if you just had an **exact match** by saying:<br>
+`🦆 qwack!`<br>
+if it was an **fuzzy match**:<br>
 `🦆 qwack?!`
 
 
-Run `yo --help` to see all your defined yo scripts as a table. *(Can also be viewed at `/etc/yo/table.md`)*
+Run `yo --help` to see all your defined yo scripts as a table. *(Can also be viewed at `/etc/yo/table.md`)*<br>
 
-`yo <script> --help` shows all of the `yo` scripts information as well as the number of generated patterns and phrases for the defined voice commands.
-The ratio could be a good way to measure potential combinatorial explosion as you can see below.
+`yo <script> --help` shows all of the `yo` scripts information as well as the number of generated patterns and phrases for the defined voice commands.<br>
+The ratio could be a good way to measure potential combinatorial explosion as you can see below.<br>
 
 ```bash
 🦆🏠  HOME via 🐍 via 🦀 v1.98.0
@@ -660,23 +665,23 @@ The ratio could be a good way to measure potential combinatorial explosion as yo
 
 <br>
 
-To see a total of generated patterns/phrases and averge benchmarking statistics: `yo do --help`.
+To see a total of generated patterns/phrases and averge benchmarking statistics: `yo do --help`.<br>
 
 <br>
 
-**Text-To-Speech**
+**Text-To-Speech**<br>
 
-If you would run for example:
+If you would run for example:<br>
 
 ```bash
 yo say "this is my spoken text"
 ```
 
-From your yo server, you would hear `this is my spoken text` on all connected client's speakers.
+From your yo server, you would hear `this is my spoken text` on all connected client's speakers.<br>
 
 <br>
 
-If that does not work as epected users may hardcode a list of client IP's:
+If that does not work as epected users may hardcode a list of client IP's:<br>
 
 ```nix
   services.yo-rs = {
@@ -689,23 +694,6 @@ If that does not work as epected users may hardcode a list of client IP's:
 
 <br>
 
-**Runtime Sentence Testing**
-
-Runtime sentence testing is also supported.
-
-```bash
-yo tests
-```
-
-If you have many voice commands it's advised to provide a maximum variants parameter for the tests:
-
-```bash
-yo tests --max-variants 50
-# or if you want to test single script
-yo tests --script <name> --max-variants 200
-```
-
-<br>
 
 </details>
 
@@ -725,12 +713,12 @@ Read more about the feature set in the [docs/](https://github.com/QuackHack-McBl
 ## **Sponsor My Work**
 
 [![Sponsors](https://img.shields.io/github/sponsors/QuackHack-McBlindy?logo=githubsponsors&label=Sponsor&style=flat&labelColor=ff1493&logoColor=fff&color=rgba(234,74,170,0.5) "")](https://github.com/sponsors/QuackHack-McBlindy) [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Sponsor?style=flat&logo=buymeacoffee&logoColor=fff&labelColor=ff1493&color=ff1493)](https://buymeacoffee.com/quackhackmcblindy)
-> 🦯🦆 says ⮞ Hi! I'm QuackHack-McBlindy!
-> Like my work?
-> Buy me a coffee, or become a sponsor.
-> Thanks for supporting open source/hungry developers ♥️🦆!
+> 🦯🦆 says ⮞ Hi! I'm QuackHack-McBlindy!<br>
+> Like my work?<br>
+> Buy me a coffee, or become a sponsor.<br>
+> Thanks for supporting open source/hungry developers ♥️🦆!<br>
 
-♥️₿ *Wallet:* `pungkula.x`
+♥️₿ *Wallet:* `pungkula.x`<br>
 <a href="https://www.buymeacoffee.com/quackhackmcblindy" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 <br>
@@ -738,5 +726,7 @@ Read more about the feature set in the [docs/](https://github.com/QuackHack-McBl
 
 ## **License**
 
-**MIT**  <br>
+This project is licensed under the terms of the MIT license.<br>
+See the `LICENSE` file in the repository for full details.<br>
+
 Contributions are welcomed.
