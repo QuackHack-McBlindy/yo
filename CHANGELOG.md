@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.10] - 2026-10-23
+
+### Added
+
 - New auto generated Wiki page for documentation.
 - Now supports Bash completion.
 
@@ -22,7 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Removed the Rust binary `yo-rs` and it's corresponding `yo.scripts.tests`, sicne it's now redundant. Use `$YO_PREVIEW` instead.
-
 
 ## [0.2.9] - 2026-10-17
 
