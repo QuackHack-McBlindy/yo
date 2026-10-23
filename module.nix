@@ -1,4 +1,4 @@
-{ 
+{
   self,
   config,
   lib,
@@ -25,7 +25,7 @@ let
   cfg = config.yo;
 
   yoVersion = self.packages.${pkgs.system}.yo-rs.version;
-  scripts = cfg.scripts; 
+  scripts = cfg.scripts;
   scriptNames = builtins.attrNames scripts;
   scriptNamesWithIntents = builtins.filter (scriptName:
     let
@@ -36,10 +36,10 @@ let
   ) (builtins.attrNames scriptsWithVoice);
 
 
-  scriptsWithVoice = lib.filterAttrs (_: script: 
+  scriptsWithVoice = lib.filterAttrs (_: script:
     script.voice != null && (script.voice.enabled or true)
   ) config.yo.scripts;
-  
+
   generatedIntents = lib.mapAttrs (name: script: {
     priority = script.voice.priority or 3;
     data = [{
@@ -69,24 +69,24 @@ let
       ) dataList
   ) scriptsWithFuzzy);
 
-  # 🦆 says ⮞ where da magic dynamic regex iz at 
+  # 🦆 says ⮞ where da magic dynamic regex iz at
   makePatternMatcher = scriptName: let
-    dataList = generatedIntents.${scriptName}.data;    
-  in '' # 🦆 says ⮞ diz iz how i pick da script u want 
+    dataList = generatedIntents.${scriptName}.data;
+  in '' # 🦆 says ⮞ diz iz how i pick da script u want
     match_${scriptName}() { # 🦆 says ⮞ shushin' da caps – lowercase life 4 cleaner dyn regex zen ✨
-      local input="$(echo "$1" | tr '[:upper:]' '[:lower:]')" 
+      local input="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
       # 🦆 says ⮞ always show input in debug mode
-      # 🦆 says ⮞ watch the fancy stuff live in action  
+      # 🦆 says ⮞ watch the fancy stuff live in action
       dt_debug "Trying to match for script: ${scriptName}" >&2
       dt_debug "Input: $input" >&2
-      # 🦆 says ⮞ duck presentin' - da madnezz 
+      # 🦆 says ⮞ duck presentin' - da madnezz
       ${lib.concatMapStrings (data:
         lib.concatMapStrings (sentence:
           lib.concatMapStrings (sentenceText: let
             # 🦆 says ⮞ now sentenceText is one of the expanded variants!
-            parts = lib.splitString "{" sentenceText; # 🦆 says ⮞ diggin' out da goodies from curly nests! Gimme dem {param} nuggets! 
-            firstPart = lib.escapeRegex (lib.elemAt parts 0); # 🦆 says ⮞ gotta escape them weird chars 
-            restParts = lib.drop 1 parts;  # 🦆 says ⮞ now we in the variable zone quack?  
+            parts = lib.splitString "{" sentenceText; # 🦆 says ⮞ diggin' out da goodies from curly nests! Gimme dem {param} nuggets!
+            firstPart = lib.escapeRegex (lib.elemAt parts 0); # 🦆 says ⮞ gotta escape them weird chars
+            restParts = lib.drop 1 parts;  # 🦆 says ⮞ now we in the variable zone quack?
             # 🦆 says ⮞ process each part to build regex and params
             regexParts = lib.imap (i: part:
               let
@@ -107,21 +107,21 @@ let
             fullRegex = let
               clean = lib.strings.trim (firstPart + lib.concatStrings (map (v: v.regex) regexParts));
             in "^${clean}$"; # 🦆 says ⮞ mash all regex bits 2gether
-            paramList = map (v: v.param) regexParts; # 🦆 says ⮞ the squad of parameters 
+            paramList = map (v: v.param) regexParts; # 🦆 says ⮞ the squad of parameters
           in ''
             local regex='^${fullRegex}$'
             dt_debug "REGEX: $regex"
-            if [[ "$input" =~ $regex ]]; then  # 🦆 says ⮞ DANG DANG – regex match engaged 
+            if [[ "$input" =~ $regex ]]; then  # 🦆 says ⮞ DANG DANG – regex match engaged
               ${lib.concatImapStrings (i: paramName: ''
-                # 🦆 says ⮞ extract match group #i+1 – param value, come here plz 
+                # 🦆 says ⮞ extract match group #i+1 – param value, come here plz
                 param_value="''${BASH_REMATCH[${toString (i+1)}]}"
-                # 🦆 says ⮞ if param got synonym, apply the duckfilter 
+                # 🦆 says ⮞ if param got synonym, apply the duckfilter
                 if [[ -n "''${param_value:-}" && -v substitutions["$param_value"] ]]; then
                   subbed="''${substitutions["$param_value"]}"
                   if [[ -n "$subbed" ]]; then
                     param_value="$subbed"
                   fi
-                fi           
+                fi
                 ${lib.optionalString (
                   data.lists ? ${paramName} && !(data.lists.${paramName}.wildcard or false)
                 ) ''
@@ -134,11 +134,11 @@ let
                     *) ;;
                   esac
                 ''} # 🦆 says ⮞ declare global param – duck want it everywhere! (for bash access)
-                declare -g "_param_${paramName}"="$param_value"            
+                declare -g "_param_${paramName}"="$param_value"
                 declare -A params=()
                 params["${paramName}"]="$param_value"
                 matched_params+=("$paramName")
-              '') paramList} # 🦆 says ⮞ set dat param as a GLOBAL VAR yo! every duck gotta know 
+              '') paramList} # 🦆 says ⮞ set dat param as a GLOBAL VAR yo! every duck gotta know
               # 🦆 says ⮞ build cmd args: --param valu
               cmd_args=()
               ${lib.concatImapStrings (i: paramName: ''
@@ -169,7 +169,7 @@ let
       # 🦆 says ⮞ skip regex! dat shit iz crazy - use aligned wordz yo
       declare -A params=()
       local input_words=($input)
-      local sentence_words=($matched_sentence)     
+      local sentence_words=($matched_sentence)
       # 🦆 says ⮞ extract params by aligning words cool huh
       for i in ''${!sentence_words[@]}; do
         local word="''${sentence_words[$i]}"
@@ -193,7 +193,7 @@ let
       return 0
     }
   '';
-  
+
   # 🦆 says ⮞ matcher to json yao
   matchers = lib.mapAttrsToList (scriptName: data:
     let
@@ -216,22 +216,22 @@ let
         let
           allData = lib.flatten (map (d: d.lists or {}) intentList.data);
           # 🦆 says ⮞ collect all sentences for diz intent
-          sentences = lib.concatMap (d: d.sentences or []) intentList.data;      
+          sentences = lib.concatMap (d: d.sentences or []) intentList.data;
           # 🦆 says ⮞ expand all sentence variants
           expandedSentences = lib.unique (lib.concatMap expandOptionalWords sentences);
-          # 🦆 says ⮞ "in" > "out" for dem' subz 
-          substitutions = lib.flatten (map (lists: 
-            lib.flatten (lib.mapAttrsToList (_listName: listData: 
+          # 🦆 says ⮞ "in" > "out" for dem' subz
+          substitutions = lib.flatten (map (lists:
+            lib.flatten (lib.mapAttrsToList (_listName: listData:
               if listData ? values then
-                lib.flatten (map (item: 
+                lib.flatten (map (item:
                   let
                     rawIn = item."in";
                     value = item.out;
                     cleaned = lib.removePrefix "[" (lib.removeSuffix "]" rawIn);
-                    variants = lib.splitString "|" cleaned;     
+                    variants = lib.splitString "|" cleaned;
                   in map (v: let
                     cleanV = lib.replaceStrings ["  "] [" "] (lib.strings.trim v);
-                  in {   
+                  in {
                     pattern = if builtins.match ".* .*" cleanV != null
                               then cleanV
                               else "(${cleanV})";
@@ -290,20 +290,20 @@ let
         map (expanded: { # 🦆 says ⮞ ayy, time to expand theze feathers
           script = scriptName; # 🦆 says ⮞ label diz bird wit itz intent script yo
           sentence = expanded; # 🦆 says ⮞ this da expanded sentence duck gon' match against
-          # 🦆 says ⮞ precompute signature for FAAASTEERRr matching - quicky quacky snappy matchin' yo! 
+          # 🦆 says ⮞ precompute signature for FAAASTEERRr matching - quicky quacky snappy matchin' yo!
           signature = let
             words = lib.splitString " " (lib.toLower expanded); # 🦆 says ⮞ lowercase & split likez stale rye
             #sorted = lib.sort (a: b: lib.hasPrefix a b) words; # 🦆 says ⮞ duck sort dem quackz alphabetically-ish quack quack
             sorted = lib.sort (a: b: a < b) words;
-          in builtins.concatStringsSep "|" sorted;  # 🦆 says ⮞ make a fuzzy-flyin’ signature string, pipe separated - yo' know it 
+          in builtins.concatStringsSep "|" sorted;  # 🦆 says ⮞ make a fuzzy-flyin’ signature string, pipe separated - yo' know it
         }) (expandOptionalWords sentence) # 🦆 says ⮞ diz iz where optional wordz becomez reality
       ) data.sentences # 🦆 says ⮞ waddlin' through all yo' sentencez
     ) intent.data # 🦆 says ⮞ scoopin' from every intentz
-  ) generatedIntents; # 🦆 says ⮞ diz da sacred duck scripture — all yo' intents livez here boom  
+  ) generatedIntents; # 🦆 says ⮞ diz da sacred duck scripture — all yo' intents livez here boom
 
   # 🦆 says ⮞ fuzzy index only for allowed yo scriptz dat allow dem fuzzy matchin' yo
-  scriptsWithFuzzy = lib.filterAttrs (_: script: 
-    script.voice != null && 
+  scriptsWithFuzzy = lib.filterAttrs (_: script:
+    script.voice != null &&
     (script.voice.enabled or true) &&
     (script.voice.fuzzy.enable or true)  # 🦆 Must explicitly allow fuzzy
   ) config.yo.scripts;
@@ -311,16 +311,16 @@ let
   splitWordsFile = pkgs.writeText "split-words.json" (builtins.toJSON config.yo.splitWords);
   sorryPhrasesFile = pkgs.writeText "sorry-phrases.json" (builtins.toJSON config.yo.sorryPhrases);
   fuzzyIndexFile = pkgs.writeText "fuzzy-index.json" (builtins.toJSON fuzzyIndex);
-  fuzzyIndexFlatFile = pkgs.writeText "fuzzy-rust-index.json" (builtins.toJSON fuzzyFlatIndex);  
+  fuzzyIndexFlatFile = pkgs.writeText "fuzzy-rust-index.json" (builtins.toJSON fuzzyFlatIndex);
   matcherDir = pkgs.linkFarm "yo-matchers" (
     map (m: { name = "${m.name}.sh"; path = m.value; }) matchers
-  ); 
+  );
 
   # 🦆 duck say ⮞ turn hyphens into underscores so bash is happy
   sanitizeVarName = name: builtins.replaceStrings ["-"] ["_"] name;
 
   # 🦆 says ⮞ priority system 4 runtime optimization
-  scriptRecordsWithIntents = 
+  scriptRecordsWithIntents =
     let # 🦆 says ⮞ calculate priority
       calculatePriority = scriptName:
         generatedIntents.${scriptName}.priority or 3; # Default medium
@@ -329,15 +329,15 @@ let
       makeRecord = scriptName: rec {
         name = scriptName;
         priority = calculatePriority scriptName;
-        hasComplexPatterns = 
-          let 
+        hasComplexPatterns =
+          let
             intent = generatedIntents.${scriptName};
             patterns = lib.concatMap (d: d.sentences) intent.data;
           in builtins.any (p: lib.hasInfix "{" p || lib.hasInfix "[" p) patterns;
-      };    
+      };
     in lib.sort (a: b:
         # 🦆 says ⮞ primary sort: lower number = higher priority
-        a.priority < b.priority 
+        a.priority < b.priority
         # 🦆 says ⮞ secondary sort: simple patterns before complex ones
         || (a.priority == b.priority && !a.hasComplexPatterns && b.hasComplexPatterns)
         # 🦆 says ⮞ third sort: alphabetical for determinism
@@ -349,9 +349,9 @@ let
   failingScripts = lib.filter (script:
     ! ( (script.binary == null && (script.code != null && script.code != "")) ||
         (script.binary != null && (script.code == null || script.code == "")) )
-  ) (lib.attrValues cfg.scripts); 
- 
-  # 🦆 says ⮞ conflict detection - no bad voice intentz quack!  
+  ) (lib.attrValues cfg.scripts);
+
+  # 🦆 says ⮞ conflict detection - no bad voice intentz quack!
   assertionCheckForConflictingSentences = let
     # 🦆 says ⮞ collect all expanded sentences with their script originz
     allExpandedSentences = lib.flatten (lib.mapAttrsToList (scriptName: intent:
@@ -362,13 +362,13 @@ let
             sentence = expanded;
             original = sentence;
             # 🦆 says ⮞ extract parameter positionz & count da fixed words
-            hasWildcardAtEnd = lib.hasSuffix " {search}" (lib.toLower expanded) || 
+            hasWildcardAtEnd = lib.hasSuffix " {search}" (lib.toLower expanded) ||
                               lib.hasSuffix " {param}" (lib.toLower expanded) ||
-                              (lib.hasInfix " {" expanded && 
+                              (lib.hasInfix " {" expanded &&
                                !(lib.hasInfix "} " expanded)); # 🦆 says ⮞ wildcard at end if no } followed by space
             fixedWordCount = let
               words = lib.splitString " " expanded;
-              nonParamWords = lib.filter (word: 
+              nonParamWords = lib.filter (word:
                 !(lib.hasPrefix "{" word) && !(lib.hasSuffix "}" word)
               ) words;
             in lib.length nonParamWords;
@@ -379,7 +379,7 @@ let
     # 🦆 says ⮞ check for prefix conflictz
     checkPrefixConflicts = sentences:
       let
-        sortedSentences = lib.sort (a: b: 
+        sortedSentences = lib.sort (a: b:
           lib.stringLength a.sentence < lib.stringLength b.sentence
         ) sentences;
         conflicts = lib.foldl (acc: shorterItem:
@@ -413,11 +413,11 @@ let
     # 🦆 says ⮞ find prefix conflictz!
     sentencesByText = lib.groupBy (item: item.sentence) allExpandedSentences;
     exactConflicts = lib.filterAttrs (sentence: items:
-      let 
+      let
         uniqueScripts = lib.unique (map (item: item.scriptName) items);
-      in 
+      in
         lib.length uniqueScripts > 1
-    ) sentencesByText; 
+    ) sentencesByText;
     # 🦆 says ⮞ find duplicatez!
     exactConflictList = lib.mapAttrsToList (sentence: items:
       let
@@ -428,22 +428,22 @@ let
         scripts = scripts;
         reason = "Exact pattern match in scripts: ${lib.concatStringsSep ", " scripts}";
       }
-    ) exactConflicts;   
+    ) exactConflicts;
     # 🦆  says ⮞ find prefix conflictz
-    prefixConflicts = checkPrefixConflicts allExpandedSentences;    
+    prefixConflicts = checkPrefixConflicts allExpandedSentences;
     # 🦆  says ⮞ letz put dem conflictz together okay?
     allConflicts = exactConflictList ++ prefixConflicts;
-    hasConflicts = allConflicts != [];    
-    # 🦆  says ⮞ find da prefix conflictz  
+    hasConflicts = allConflicts != [];
+    # 🦆  says ⮞ find da prefix conflictz
   in {
     assertion = !hasConflicts;
-    message = 
+    message =
       if hasConflicts then
         let
           conflictMsgs = map (conflict:
             if conflict.type == "EXACT_CONFLICT" then
               ''
-              🦆 says ⮞ CONFLICT! 
+              🦆 says ⮞ CONFLICT!
                 Pattern "${conflict.sentence}"
                 In scripts: ${lib.concatStringsSep ", " conflict.scripts}
               ''
@@ -469,10 +469,10 @@ let
   # 🦆 says ⮞ category based helper with actual names instead of {param}
   voiceSentencesHelpFile = pkgs.writeText "voice-sentences-help.md" (
     let
-      scriptsWithVoice = lib.filterAttrs (_: script: 
+      scriptsWithVoice = lib.filterAttrs (_: script:
         script.voice != null && script.voice.sentences != [] && (script.voice.enabled or true)
       ) config.yo.scripts;
-      
+
       # 🦆 says ⮞ replace {param} with actual values from voice lists
       replaceParamsWithValues = sentence: voiceData:
         let
@@ -497,30 +497,30 @@ let
                       examples = lib.take 3 (lib.unique expandedValues);
                     in
                       if examples == [] then "ANYTHING"
-                      else "(" + lib.concatStringsSep "|" examples + 
+                      else "(" + lib.concatStringsSep "|" examples +
                            (if lib.length examples < lib.length expandedValues then "|...)" else ")")
                 else
                   "ANYTHING" # 🦆 says ⮞ fallback if param not found
             else
               token;
-          
+
           # 🦆 says ⮞ split sentence and process each token
           tokens = lib.splitString " " sentence;
           processedTokens = map processToken tokens;
         in
           lib.concatStringsSep " " processedTokens;
-      
+
       # 🦆 says ⮞ group by category
-      groupedScripts = lib.groupBy (script: script.category or "🧩 Miscellaneous") 
+      groupedScripts = lib.groupBy (script: script.category or "🧩 Miscellaneous")
         (lib.attrValues scriptsWithVoice);
-      
+
       # 🦆 says ⮞ generate category sections with param replacement
       categorySections = lib.mapAttrsToList (category: scripts:
         let
           scriptLines = map (script:
             let
               # 🦆 says ⮞ replace params in each sentence
-              sentenceLines = lib.concatMapStrings (sentence: 
+              sentenceLines = lib.concatMapStrings (sentence:
                 let processedSentence = replaceParamsWithValues sentence script.voice;
                 in "    - \"${escapeMD processedSentence}\"\n"
               ) script.voice.sentences;
@@ -530,15 +530,15 @@ let
         in
           "# ${category}\n\n${lib.concatStringsSep "\n" scriptLines}"
       ) groupedScripts;
-      
+
       # 🦆 says ⮞ statistics
       totalScripts = lib.length (lib.attrNames config.yo.scripts);
       voiceScripts = lib.length (lib.attrNames scriptsWithVoice);
       totalPatterns = config.yo.generatedPatterns;
-      totalPhrases = config.yo.understandsPhrases;    
-      stats = ''  
+      totalPhrases = config.yo.understandsPhrases;
+      stats = ''
   # ----────----──⋆⋅☆☆☆⋅⋆─────----─ #
-  # Total:  
+  # Total:
   - **Scripts with voice enabled**: ${toString voiceScripts} / ${toString totalScripts}
   - **Generated patterns**: ${toString totalPatterns}
   - **Understandable phrases**: ${toString totalPhrases}
@@ -557,7 +557,7 @@ let
   sysHosts = builtins.attrNames self.nixosConfigurations;
   vmHosts = builtins.filter (host:
     self.nixosConfigurations.${host}.self.config.system.build ? vm
-  ) sysHosts;  
+  ) sysHosts;
   # 🦆 duck say ⮞ comma sep list of your hosts
   sysHostsComma = builtins.concatStringsSep "," sysHosts;
 
@@ -580,7 +580,7 @@ let
         in
           hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59
       else false;
-  
+
   # 🦆 duck say ⮞ validate list of timez
   validateTimes = times:
     if times == null then null
@@ -595,9 +595,9 @@ let
   # 🦆 duck say ⮞ expoort param into shell script
   yoEnvGenVar = script: let
     withDefaults = builtins.filter (p: p.default != null) script.parameters;
-    exports = map (p: 
+    exports = map (p:
       let # 🦆 duck say ⮞ convert dem Nix types 2 shell strings
-        defaultValue = 
+        defaultValue =
           if p.type == "string" then lib.escapeShellArg (toString p.default)
           else if p.type == "int" then toString p.default
           else if p.type == "bool" then (if p.default then "true" else "false")
@@ -616,21 +616,21 @@ let
     # 🦆 duck say ⮞ sort da scriptz by category
     visibleScripts2 = lib.filterAttrs (_: script: script.visibleInReadme) cfg.scripts;
     groupedScripts2 = lib.groupBy (script: script.category) (lib.attrValues visibleScripts2);
-    sortedCategories2 = lib.sort (a: b: 
+    sortedCategories2 = lib.sort (a: b:
       # 🦆 duck say ⮞ system management goes first yo
       if a == "🖥️ System Management" then true
       else if b == "🖥️ System Management" then false
       else a < b # 🦆 duck say ⮞ after dat everything else quack quack
     ) (lib.attrNames groupedScripts2);
-  
-    # 🦆 duck say ⮞ create table rows with category separatorz 
+
+    # 🦆 duck say ⮞ create table rows with category separatorz
     rows = lib.concatMap (category:
-      let  # 🦆 duck say ⮞ sort from A to Ö  
+      let  # 🦆 duck say ⮞ sort from A to Ö
         scripts = lib.sort (a: b: a.name < b.name) groupedScripts.${category};
       in
         [ # 🦆 duck say ⮞ add **BOLD** header table row for category
           "| **${escapeMD category}** | | |"
-        ] 
+        ]
         ++ # 🦆 duck say ⮞ each yo script goes into a table row
         (map (script:
           let # 🦆 duck say ⮞ format list of aliases
@@ -650,13 +650,13 @@ let
         ) scripts)
     ) sortedCategories2;
   in concatStringsSep "\n" rows;
- 
+
   terminalScriptsTableWithHeader = ''
     | Command Syntax               | Aliases    | Description |
     |------------------------------|------------|-------------|
     ${terminalScriptsTable}
   '';
- 
+
   # The yo package
   yoScriptsPackage = pkgs.symlinkJoin {
     name = "yo-scripts";
@@ -703,36 +703,36 @@ let
                             examples = lib.take 3 (lib.unique expandedValues);
                           in
                             if examples == [] then "ANYTHING"
-                            else "(" + lib.concatStringsSep "|" examples + 
+                            else "(" + lib.concatStringsSep "|" examples +
                                  (if lib.length examples < lib.length expandedValues then "|...)" else ")")
                       else
                         "ANYTHING"
                   else
                     token;
-                
+
                 tokens = lib.splitString " " sentence;
                 processedTokens = map processToken tokens;
               in
                 lib.concatStringsSep " " processedTokens;
-            
-            processedSentences = map (sentence: 
+
+            processedSentences = map (sentence:
               replaceParamsWithValues sentence script.voice
             ) script.voice.sentences;
-            
-            sentencesMarkdown = lib.concatMapStrings (sentence: 
+
+            sentencesMarkdown = lib.concatMapStrings (sentence:
               "- \"${escapeMD sentence}\"\n"
             ) processedSentences;
           in
             "## Voice Commands\n\nPatterns: ${formatNumber patterns}  \nPhrases: ${formatNumber phrases}  \nRatio: ${formatNumber ratio}  \n\n"
         else "";
-       
+
         param_usage = lib.concatMapStringsSep " " (param:
           if param.optional
           then "[--${param.name}]"
           else "--${param.name}"
         ) (lib.filter (p: !builtins.elem p.name ["!" "?"]) script.parameters);
-        
-        # Where the magic happens (construction + validation) 
+
+        # Where the magic happens (construction + validation)
         scriptContent = ''
           #!${pkgs.runtimeShell}
 #          set -euo pipefail
@@ -743,18 +743,18 @@ let
 #          trap 'end=$(date +%s.%N); elapsed=$(echo "$end - $start" | bc); printf "[🦆⏱] Total time: %.3f seconds\n" "$elapsed"' EXIT
 
           export DT_LOG_PATH="$HOME/.config/duckTrace/"
-          mkdir -p "$DT_LOG_PATH"   
+          mkdir -p "$DT_LOG_PATH"
           export DT_LOG_FILE="${name}.log"
           touch "$DT_LOG_PATH/$DT_LOG_FILE"
           export DT_LOG_LEVEL="${script.logLevel}"
           DT_MONITOR_HOSTS="${sysHostsComma}";
           DT_MONITOR_PORT="9999";
-      
+
           # PHASE 1: preprocess special flags
           VERBOSE=0
           DRY_RUN=false
           FILTERED_ARGS=()
-          
+
           # Loop through arguments
           while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -762,10 +762,10 @@ let
               '!') DRY_RUN=true; shift ;;
               *) FILTERED_ARGS+=("$1"); shift ;;
             esac
-          done  
+          done
           VERBOSE=$VERBOSE
           export VERBOSE DRY_RUN
-          
+
           # reset arguments without special flags
           set -- "''${FILTERED_ARGS[@]}"
 
@@ -778,7 +778,7 @@ let
           if [ "$VERBOSE" -ge 1 ]; then
             DT_LOG_LEVEL="DEBUG"
           fi
-          
+
           # Parse parameters
           while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -790,8 +790,8 @@ let
                 if [[ -n "${toString (script.parameters != [])}" ]]; then
                   usage_suffix=" [OPTIONS]"
                 fi
-                
-                cat <<EOF | ${pkgs.glow}/bin/glow --width "$width" - # Render as markdown 
+
+                cat <<EOF | ${pkgs.glow}/bin/glow --width "$width" - # Render as markdown
 # yo ${escapeMD script.name}
 ${script.description}
 **Usage:** \`yo ${escapeMD script.name}''${usage_suffix}\`
@@ -799,16 +799,16 @@ ${lib.optionalString (script.parameters != []) ''
 
 # ▶ Parameters
 ${lib.concatStringsSep "\n\n" (map (param: ''
-**\`--${param.name}\`**  
-${param.description}  
+**\`--${param.name}\`**
+${param.description}
 ${lib.optionalString param.optional "*(optional)*"} ${lib.optionalString (param.default != null) (let
-  defaultText = 
-    if param.type == "bool" then 
+  defaultText =
+    if param.type == "bool" then
       (if param.default then "true" else "false")
-    else 
+    else
       (toString param.default);
 in "*(default: ${defaultText})*")}
-${lib.optionalString (param.values != null && param.type == "string") 
+${lib.optionalString (param.values != null && param.type == "string")
   "*(allowed: ${lib.concatStringsSep ", " param.values})*"}
 '') script.parameters)}
 ''}
@@ -821,10 +821,10 @@ EOF
               --*) # Parse named parameters (--param)
                 param_name=''${1##--}
                 # Check param existence
-                if [[ " ${concatMapStringsSep " " (p: 
+                if [[ " ${concatMapStringsSep " " (p:
                       if p.type == "bool" then p.name else ""
                     ) script.parameters} " =~ " $param_name " ]]; then
-                  
+
                   # Boolean flag - presence means true, but also allow explicit true/false
                   if [[ $# -gt 1 && ( "$2" == "true" || "$2" == "false" ) ]]; then
                     PARAMS["$param_name"]="$2"
@@ -857,7 +857,7 @@ EOF
                 ${sanitizeVarName param.name}="''${POSITIONAL[${toString idx}]}"
               fi
             '') script.parameters)}
-            
+
           # Assign named parameters
           ${concatStringsSep "\n" (map (param: ''
             if [[ -n "''${PARAMS[${param.name}]:-}" ]]; then
@@ -874,7 +874,7 @@ EOF
           ''}
 
           # Parameter type validation
-          ${concatStringsSep "\n" (map (param: 
+          ${concatStringsSep "\n" (map (param:
             optionalString (param.type != "string") ''
               if [ -n "''${${sanitizeVarName param.name}:-}" ]; then
                 case "${param.type}" in
@@ -903,7 +903,7 @@ EOF
 
 
           # Values validation - explicit allowed list
-          ${concatStringsSep "\n" (map (param: 
+          ${concatStringsSep "\n" (map (param:
             optionalString (param.values != null && param.type == "string") ''
               if [ -n "''${${sanitizeVarName param.name}:-}" ]; then
                 allowed_values=(${lib.concatMapStringsSep " " (v: "'${lib.escapeShellArg v}'") param.values})
@@ -924,7 +924,7 @@ EOF
 
 
           # Boolean defaults - false if not provided
-          ${concatStringsSep "\n" (map (param: 
+          ${concatStringsSep "\n" (map (param:
             optionalString (param.type == "bool" && param.default != null) ''
               if [[ -z "''${${sanitizeVarName param.name}:-}" ]]; then
                 ${param.name}=${if param.default then "true" else "false"}
@@ -932,12 +932,12 @@ EOF
             '') script.parameters)}
 
 
-          ${concatStringsSep "\n" (map (param: 
+          ${concatStringsSep "\n" (map (param:
             optionalString (param.default != null) ''
               if [[ -z "''${${sanitizeVarName param.name}:-}" ]]; then
                 ${sanitizeVarName param.name}=${
-                  if param.type == "string" then 
-                    "'${lib.escapeShellArg (toString param.default)}'" 
+                  if param.type == "string" then
+                    "'${lib.escapeShellArg (toString param.default)}'"
                   else if param.type == "int" then
                     "${toString param.default}"
                   else if param.type == "bool" then
@@ -949,8 +949,8 @@ EOF
                 }
               fi
             '') script.parameters)}
-            
-          # Check required parameters - if missing - error out 
+
+          # Check required parameters - if missing - error out
           ${concatStringsSep "\n" (map (param: ''
             ${optionalString (!param.optional && param.default == null) ''
               if [[ -z "''${${sanitizeVarName param.name}:-}" ]]; then
@@ -963,7 +963,7 @@ EOF
 
           # Execution
 
-          # Binary with args 
+          # Binary with args
           ${if script.binary != null then ''
             args=()
             ${concatStringsSep "\n" (map (param: ''
@@ -972,16 +972,16 @@ EOF
               fi
             '') script.parameters)}
             ${lib.escapeShellArg script.binary} "''${args[@]}"
-          '' else '' # Else exec code 
+          '' else '' # Else exec code
             ${script.code}
-          ''}          
+          ''}
         '';
         # Generate entrypoint
         mainScript = pkgs.writeShellScriptBin "yo-${script.name}" scriptContent;
-      in  
+      in
         pkgs.runCommand "yo-script-${script.name}" {} ''
           mkdir -p $out/bin
-          ln -s ${mainScript}/bin/yo-${script.name} $out/bin/yo-${script.name} 
+          ln -s ${mainScript}/bin/yo-${script.name} $out/bin/yo-${script.name}
           ${concatMapStrings (alias: ''
             ln -s ${mainScript}/bin/yo-${script.name} $out/bin/yo-${alias}
           '') script.aliases}
@@ -990,7 +990,7 @@ EOF
   };
 
   yo-rs-with-models = config.services.yo-rs.package.override { language = config.services.yo-rs.server.language; model = config.services.yo-rs.server.whisper; };
-  
+
   totalPatterns = config.yo.generatedPatterns;
   totalPhrases = config.yo.understandsPhrases;
   ratio = if totalPatterns == 0 then "N/A"
@@ -1000,7 +1000,7 @@ EOF
     #!${pkgs.runtimeShell}
     set -o noglob
     script_dir="${yoScriptsPackage}/bin"
-          
+
     print_version() {
       echo "yo version ${yoVersion}"
       echo "Copyright (C) 2026 QuackHack-McBlindy.com"
@@ -1013,13 +1013,13 @@ EOF
       cat <<EOF | ${pkgs.glow}/bin/glow --width $width -
     # ──────⋆⋅☆☆☆⋅⋆──────
     **Usage:** \`yo <command> [arguments]\`
-    # ──────⋆⋅☆☆☆⋅⋆────── 
+    # ──────⋆⋅☆☆☆⋅⋆──────
     ## 🦆✨ Available Commands
     Parameters inside brackets are [optional]
     | Command Syntax               | Aliases    | Description |
     |------------------------------|------------|-------------|
     ${terminalScriptsTable}
-    # ──────⋆⋅☆☆☆⋅⋆────── 
+    # ──────⋆⋅☆☆☆⋅⋆──────
     ## Detailed Help
     For specific command help: \`yo <command> --help\`
     \`yo do --help\` will list all defined voice intents.
@@ -1052,7 +1052,20 @@ EOF
     mkdir -p $out/bin
     ln -s ${yoWrapper}/bin/yo $out/bin/yo
   '';
-          
+
+
+  # bash completion for yo scripts
+  yoCompletion = pkgs.writeText "yo-completion.bash" ''
+    _yo_completion() {
+      local cur=''${COMP_WORDS[COMP_CWORD]}
+      local commands=""
+      ${lib.concatMapStrings (script:
+        ''commands+=" ${script.name} ${lib.concatStringsSep " " script.aliases}" ''
+      ) (lib.attrValues cfg.scripts)}
+      COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
+    }
+    complete -F _yo_completion yo
+  '';
 in {
   imports = [
     ./options.nix
@@ -1061,31 +1074,35 @@ in {
   ];
 
   config = mkMerge [
-    {  
+    {
       yo.pkgs = yoScriptsPackage;
-  
+
       # Global counters
       yo.generatedPatterns = countTotalGeneratedPatterns cfg.scripts;
       yo.understandsPhrases = countTotalUnderstoodPhrases cfg.scripts;
-  
-  
-      # Generate configuration files in /etc/yo  
+
+
+      # Generate configuration files in /etc/yo
       environment.etc = {
         "yo/split-words.json".source = splitWordsFile;
         "yo/sorry-phrases.json".source = sorryPhrasesFile;
         "yo/intent-data.json".source = intentDataFile;
         "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;
         "yo/fuzzy-entity-dict.json".source = fuzzyEntityDictFile;
-        "yo/table.md".source = terminalScriptsTableFile; 
+        "yo/table.md".source = terminalScriptsTableFile;
       };
-  
+
       environment.systemPackages = [
         config.yo.pkgs
         pkgs.glow
         yoCli
         yoScriptsPackage
+        (pkgs.runCommand "yo-bash-completion" {} ''
+          mkdir -p $out/share/bash-completion/completions
+          cp ${yoCompletion} $out/share/bash-completion/completions/yo
+        '')
       ];
-  
+
       # systemd services and timers
       systemd.user.services = mkMerge [
         (mapAttrs' (name: script:
@@ -1113,7 +1130,7 @@ in {
             };
           })
         ) cfg.scripts)
-  
+
         (mapAttrs' (name: script:
           nameValuePair "yo-${name}-periodic" (mkIf (script.runEvery != null) {
             enable = true;
@@ -1137,7 +1154,7 @@ in {
             };
           })
         ) cfg.scripts)
-  
+
         (mapAttrs' (name: script:
           nameValuePair "yo-${name}-scheduled" (mkIf (script.runAt != null) {
             enable = true;
@@ -1170,8 +1187,8 @@ in {
           })
         ) cfg.scripts)
       ];
-  
-      
+
+
       systemd.user.timers = mkMerge [
         (mapAttrs' (name: script:
           nameValuePair "yo-${name}-periodic" (mkIf (script.runEvery != null) {
@@ -1191,7 +1208,7 @@ in {
             };
           })
         ) cfg.scripts)
-      
+
         (foldl' recursiveUpdate {} (mapAttrsToList (name: script:
           if script.runAt != null then
             listToAttrs (map (timeStr:
@@ -1209,9 +1226,9 @@ in {
         ) cfg.scripts))
       ];
     }
-    
-      
-    (mkIf (!cfg.legacy) {      
+
+
+    (mkIf (!cfg.legacy) {
       yo.scripts.do = {
         description = "do is a natural language to shell script translator thIt runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
         binary = "${yo-rs-with-models}/bin/yo-do";
@@ -1232,7 +1249,7 @@ in {
               "$(group_number ${toString (totalPhrases / totalPatterns)})"
           else
             printf '**Ratio (phrases / patterns):** N/A\n'
-          fi          
+          fi
           if [ -f "$HOME/.config/yo/exec.txt" ]; then
             first_line=$(head -n 1 "$HOME/.config/yo/exec.txt")
             printf '**Execution time:** %s\n' "$first_line"
@@ -1240,60 +1257,44 @@ in {
           if [ -f "$HOME/.config/yo/whisper-bench.txt" ]; then
             first_line=$(head -n 1 "$HOME/.config/yo/whisper-bench.txt")
             printf '**Transcription time:** %s\n' "$first_line"
-          fi          
+          fi
         '';
         parameters = [
-          { name = "input"; description = "Text to translate"; optional = true; } 
+          { name = "input"; description = "Text to translate"; optional = true; }
           { name = "room"; type = "string"; description = "Optional client area (used for context)"; optional = true; }
         ];
         voice.fuzzy.enable = false;
         voice.fuzzy.threshold = 0.0;
       };
-  
-      yo.scripts.tests = {
-        description = "Extensive automated run-time sentence testing for the yo do"; 
-        binary = "${yo-rs-with-models}/bin/yo-tests";      
-        category = "🗣️ Voice";
-        parameters = [
-          { name = "input"; description = "Text to test as a single  sentence test"; optional = true; }
-          { name = "stats"; type = "bool"; description = "Flag to display voice commands information like generated regex patterns, generated phrases and ratio"; optional = true; }    
-          { name = "fuzzy"; type = "int"; description = "Minimum procentage for considering fuzzy matching sucessful. (1-100)"; default = builtins.floor (config.yo.fuzzy.threshold * 100); }
-          { name = "script"; type = "string"; description = "Extensive sentence testing of the specified script"; optional = true; }
-          { name = "max-variants"; type = "int"; description = "Maximum number of variants tested peer sentence."; optional = true; default = 50; }
-        ];
-        voice.fuzzy.enable = false;
-        voice.fuzzy.threshold = 0.0;
-      };  
-  
-  
+
       yo.scripts.say = {
         description = "Text to speech with baked in model and full duplex audio streaming";
         binary = "${yo-rs-with-models}/bin/yo-say";
         category = "🗣️ Voice";
         logLevel = "WARNING";
         parameters = [
-          { name = "text"; description = "Input text that should be spoken"; optional = false; }      
+          { name = "text"; description = "Input text that should be spoken"; optional = false; }
           { name = "model"; description = "File name of the model"; default = config.services.yo-rs.server.onnxPath; }
           { name = "blocking"; type = "bool"; description = "Wait for TTS playback to finish"; default = false; }
           ({ name = "path"; description = "Specify a file path where wav will be saved to disk"; optional = true; }
            // lib.optionalAttrs (config.services.yo-rs.server.ttsSavePath != null) {
              default = config.services.yo-rs.server.ttsSavePath;
            })
-          { name = "length-scale"; description = "Speech speed"; optional = true; default = config.services.yo-rs.server.ttsSpeed; }                    
+          { name = "length-scale"; description = "Speech speed"; optional = true; default = config.services.yo-rs.server.ttsSpeed; }
         ];
         voice.fuzzy.enable = false;
         voice.fuzzy.threshold = 0.0;
       };
     })
-    
+
     (mkIf cfg.legacy (import ./legacy.nix {
       inherit config lib pkgs;
       inherit generatedIntents scriptsWithVoice fuzzyFlatIndex
               splitWordsFile sorryPhrasesFile intentDataFile
               fuzzyIndexFile matcherDir matcherSourceScript
               yoScriptsPackage;
-    }))    
+    }))
 
 
-  
+
   ];}

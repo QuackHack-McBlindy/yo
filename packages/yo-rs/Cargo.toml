@@ -2,7 +2,7 @@
 # PACKAFGE INFO
 [package]
 name    = "yo-rs"
-version = "0.2.9"
+version = "0.2.10"
 edition = "2021"
 # ───────────────────────────────────────────────────────────────────────
 description = """
@@ -75,9 +75,3 @@ path = "src/yo-do.rs"
 [[bin]]
 name = "yo-say"
 path = "src/yo-say.rs"
-
-
-# Run-time Sentences testing
-[[bin]]
-name = "yo-tests"
-path = "src/yo-tests.rs"

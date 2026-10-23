@@ -496,16 +496,6 @@ in {
         };
       };
 
-      environment.etc."yo/clients.json" = {
-        text = builtins.toJSON (
-          map (ip: {
-            room = "client";
-            ip = ip;
-            connected_at = 0;
-          }) cfg.client.ttsClients
-        );
-      };
-
     })
 
   ];}

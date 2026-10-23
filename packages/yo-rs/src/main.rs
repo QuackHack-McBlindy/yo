@@ -45,10 +45,14 @@ struct ClientEntry {
     room: String,
     ip: String,
     connected_at: u64,
+    #[serde(default = "default_gain")]
+    gain: f32,
 }
 
+fn default_gain() -> f32 { 1.0 }
+
 struct ClientRegistry {
-    entries: HashMap<(String, String), (usize, u64)>,
+    entries: HashMap<(String, String), (usize, u64, f32)>,
     file_path: PathBuf,
 }
 
@@ -66,36 +70,48 @@ impl ClientRegistry {
         }
     }
 
-    fn add_connection(&mut self, room: &str, ip: &str) {
+
+    fn add_connection(&mut self, room: &str, ip: &str, gain: f32) {
         let key = (room.to_string(), ip.to_string());
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        let (count, _) = self.entries.entry(key).or_insert((0, now));
-        *count += 1;
-        self.save();
+        let entry = self.entries.entry(key).or_insert((0, now, gain));
+        entry.0 += 1;
+        entry.2 = gain;
     }
 
     fn remove_connection(&mut self, room: &str, ip: &str) {
         let key = (room.to_string(), ip.to_string());
         if let std::collections::hash_map::Entry::Occupied(mut entry) = self.entries.entry(key) {
-            let (count, _) = entry.get_mut();
-            if *count > 1 {
-                *count -= 1;
-            } else { entry.remove(); }
+            let rec = entry.get_mut();
+            if rec.0 > 1 { rec.0 -= 1; } else { entry.remove(); }
             self.save();
         }
     }
+
+    fn set_gain_for(&mut self, id: &str, gain: f32) {
+        let mut changed = false;
+        for ((room, _), rec) in self.entries.iter_mut() {
+            if room == id {
+                rec.2 = gain;
+                changed = true;
+            }
+        }
+        if changed { self.save(); }
+    }
+
 
     fn save(&self) {
         let entries: Vec<ClientEntry> = self
             .entries
             .iter()
-            .map(|((room, ip), &(_, connected_at))| ClientEntry {
+            .map(|((room, ip), &(_, connected_at, gain))| ClientEntry {
                 room: room.clone(),
                 ip: ip.clone(),
                 connected_at,
+                gain,
             })
             .collect();
 
@@ -103,15 +119,12 @@ impl ClientRegistry {
             dt_error!("failed to serialize client list: {}", e);
             "[]".to_string()
         });
-
         let tmp_path = self.file_path.with_extension(".tmp");
         if let Err(e) = std::fs::write(&tmp_path, &json) {
             dt_error!("failed to write client list to {:?}: {}", tmp_path, e);
             return;
         }
-        if let Err(e) = std::fs::rename(&tmp_path, &self.file_path) {
-            dt_error!("failed to rename client list: {}", e);
-        }
+        if let Err(e) = std::fs::rename(&tmp_path, &self.file_path) { dt_error!("failed to rename client list: {}", e); }
     }
 }
 
@@ -510,7 +523,7 @@ async fn handle_client_async(
             .collect();
 
 
-        let gain = audio_ctl.gain(&client_id);
+        let gain = if audio_ctl.is_muted() { 0.0 } else { audio_ctl.gain(&client_id) };
         if (gain - 1.0).abs() > f32::EPSILON {
             for s in &mut samples { *s *= gain; }
         }
@@ -849,7 +862,7 @@ async fn handle_client_esp_async(
             .collect();
 
         let mut samples = samples;
-        let gain = audio_ctl.gain(&client_id);
+        let gain = if audio_ctl.is_muted() { 0.0 } else { audio_ctl.gain(&client_id) };
         if (gain - 1.0).abs() > f32::EPSILON {
             for s in &mut samples { *s *= gain; }
         }
@@ -1103,8 +1116,8 @@ async fn handle_new_client_async(
     let display_id = if room.is_empty() {
         format!("client@{}", peer_addr)
     } else { room.clone() };
+    audio_ctl.set_gain(&display_id, handshake_gain);
     if (handshake_gain - 1.0).abs() > f32::EPSILON {
-        audio_ctl.set_gain(&display_id, handshake_gain);
         dt_info!("[{}] gain from handshake: {}", display_id, handshake_gain);
     }
     dt_info!("📡 ☑️ 🎙️ {} Connected [{}]", display_id, peer_addr);
@@ -1132,7 +1145,7 @@ async fn handle_new_client_async(
         let registry_room = "esp".to_string();
         {
             let mut reg = client_registry.lock().unwrap();
-            reg.add_connection(&registry_room, &peer_ip);
+            reg.add_connection(&registry_room, &peer_ip, handshake_gain);
         }
 
         let sender_ip = peer_ip.clone();
@@ -1172,7 +1185,7 @@ async fn handle_new_client_async(
 
     if !room.is_empty() {
         let mut reg = client_registry.lock().unwrap();
-        reg.add_connection(&room, &peer_ip);
+        reg.add_connection(&room, &peer_ip, handshake_gain);
     }
 
     let wake_model = if custom_wake_word_provided {
@@ -1419,6 +1432,7 @@ async fn main() -> Result<()> {
 
     {
         let audio_ctl = Arc::clone(&audio_ctl);
+        let client_registry = Arc::clone(&client_registry);
         let control_fifo = control_fifo.clone();
         std::thread::spawn(move || {
             loop {
@@ -1438,7 +1452,14 @@ async fn main() -> Result<()> {
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     match parts.as_slice() {
                         ["vol", id, val] => match val.parse::<f32>() {
-                            Ok(v)  => { audio_ctl.set_gain(id, v); dt_info!("gain({}) = {}", id, v); }
+                            Ok(v) => {
+                                audio_ctl.set_gain(id, v);
+                                client_registry
+                                    .lock()
+                                    .unwrap_or_else(|p| p.into_inner())
+                                    .set_gain_for(id, v);
+                                dt_info!("gain({}) = {}", id, v);
+                            }
                             Err(_) => dt_error!("bad gain: {}", val),
                         },
                         ["mute", "all"] => {

@@ -1,0 +1,1006 @@
+{
+  "yo.fuzzy": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "Global fuzzy matching configuration.",
+    "loc": [
+      "yo",
+      "fuzzy"
+    ],
+    "readOnly": false,
+    "type": "submodule"
+  },
+  "yo.fuzzy.conflict": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "Build-time sentence conflict detection settings for fuzzy matching.",
+    "loc": [
+      "yo",
+      "fuzzy",
+      "conflict"
+    ],
+    "readOnly": false,
+    "type": "submodule"
+  },
+  "yo.fuzzy.conflict.detection": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Enable deep build-time sentence conflict detection for fuzzy near-duplicates. May increase build time significantly.",
+    "loc": [
+      "yo",
+      "fuzzy",
+      "conflict",
+      "detection"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.fuzzy.conflict.threshold": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "80"
+    },
+    "description": "Jaccard similarity percentage (0–100) above which two sentences are considered conflicting.",
+    "loc": [
+      "yo",
+      "fuzzy",
+      "conflict",
+      "threshold"
+    ],
+    "readOnly": false,
+    "type": "signed integer"
+  },
+  "yo.fuzzy.enable": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "description": "Enable fuzzy matching globally. Can be overridden per script.",
+    "loc": [
+      "yo",
+      "fuzzy",
+      "enable"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.fuzzy.threshold": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0.8"
+    },
+    "description": "Global fuzzy similarity threshold (0.0–1.0). Scripts may override this.",
+    "loc": [
+      "yo",
+      "fuzzy",
+      "threshold"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "yo.generatedPatterns": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Number of regex patterns generated at build time",
+    "loc": [
+      "yo",
+      "generatedPatterns"
+    ],
+    "readOnly": true,
+    "type": "signed integer"
+  },
+  "yo.legacy": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Use the legacy Bash-based shell translator instead of the Rust interpreter. The Bash version has fewer dependencies but lower performance. Not recommended if user is generating many patterns.",
+    "loc": [
+      "yo",
+      "legacy"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.pkgs": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "The final yo scripts package",
+    "loc": [
+      "yo",
+      "pkgs"
+    ],
+    "readOnly": true,
+    "type": "package"
+  },
+  "yo.scripts": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "Attribute set of scripts to be made available",
+    "loc": [
+      "yo",
+      "scripts"
+    ],
+    "readOnly": false,
+    "type": "attribute set of (submodule)"
+  },
+  "yo.scripts.<name>.aliases": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "Alternative names for invoking this script from the command line (e.g., `yo <alias>`).",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"tim\"\n  \"stopwatch\"\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "aliases"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "yo.scripts.<name>.autoStart": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "Whether to start this script automatically at boot. Requires all mandatory parameters to have defaults.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "autoStart"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.binary": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Path to an executable binary to run instead of inline code. Mutually exclusive with `code`.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "\"/path/to/my-tool/or/script\""
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "binary"
+    ],
+    "readOnly": false,
+    "type": "null or absolute path"
+  },
+  "yo.scripts.<name>.category": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"\""
+    },
+    "description": "Category used for grouping scripts in `yo --help`.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "\"🛖 Home Automation\""
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "category"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.code": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "\n          Inline shell code to execute when the script is invoked. Mutually exclusive with `binary`.\n          The script parameters are exposed as variables.  \n        ",
+    "example": {
+      "_type": "literalExpression",
+      "text": "''\n  echo \"Hello, $name!\"\n''"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "code"
+    ],
+    "readOnly": false,
+    "type": "null or strings concatenated with \"\\n\""
+  },
+  "yo.scripts.<name>.description": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"\""
+    },
+    "description": "A short, human-readable description of what the script does. Shown in `yo --help` and the generated command table.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "\"Set a timer for a specified duration.\""
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "description"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.filePath": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "This option has no description.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "filePath"
+    ],
+    "readOnly": true,
+    "type": "string"
+  },
+  "yo.scripts.<name>.helpFooter": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"\""
+    },
+    "description": "Additional markdown appended to the script's `--help` output. Useful for examples/notes/stats.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "''\n  Examples:\n    yo timer --minutes 5\n    yo timer --hours 1 --minutes 30''"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "helpFooter"
+    ],
+    "readOnly": false,
+    "type": "strings concatenated with \"\\n\""
+  },
+  "yo.scripts.<name>.logLevel": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"INFO\""
+    },
+    "description": "Logging verbosity for this script when executed via `yo`.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "\"DEBUG\""
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "logLevel"
+    ],
+    "readOnly": false,
+    "type": "one of \"DEBUG\", \"INFO\", \"WARNING\", \"ERROR\", \"CRITICAL\""
+  },
+  "yo.scripts.<name>.parameters": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "List of parameters that the script accepts. Each parameter becomes a command-line option (e.g., `--name`).",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  {\n    default = 5;\n    description = \"Minutes to set\";\n    name = \"minutes\";\n    type = \"int\";\n  }\n  {\n    description = \"Sound file to play\";\n    name = \"sound\";\n    optional = true;\n    type = \"path\";\n  }\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters"
+    ],
+    "readOnly": false,
+    "type": "list of (submodule)"
+  },
+  "yo.scripts.<name>.parameters.*.default": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Default value if the parameter is not provided.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "default"
+    ],
+    "readOnly": false,
+    "type": "null or string or signed integer or boolean or absolute path"
+  },
+  "yo.scripts.<name>.parameters.*.description": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Human-readable explanation of the parameter, shown in `--help`.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "description"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.parameters.*.name": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Name of the parameter as passed to the script (example, if parameter name is `seconds` it can be used in the script using `$seconds`).",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "name"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.parameters.*.optional": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "description": "Whether this parameter can be omitted. Automatically set to `true` if a default is defined.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "optional"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.parameters.*.type": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"string\""
+    },
+    "description": "Data type of the parameter value. Used for validation and conversion.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "type"
+    ],
+    "readOnly": false,
+    "type": "one of \"string\", \"int\", \"path\", \"bool\""
+  },
+  "yo.scripts.<name>.parameters.*.values": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "If set, restricts the allowed values for this parameter to the given list.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"on\"\n  \"off\"\n  \"toggle\"\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "parameters",
+      "*",
+      "values"
+    ],
+    "readOnly": false,
+    "type": "null or (list of string)"
+  },
+  "yo.scripts.<name>.runAt": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Run this script at specific times daily (format: [HH:MM, ...], 24-hour)",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"07:00\"\n  \"18:00\"\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "runAt"
+    ],
+    "readOnly": false,
+    "type": "null or (list of string matching the pattern [0-9]{1,2}:[0-9]{2})"
+  },
+  "yo.scripts.<name>.runEvery": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "This option has no description.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "runEvery"
+    ],
+    "readOnly": false,
+    "type": "null or string"
+  },
+  "yo.scripts.<name>.visibleInReadme": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"category != \\\"\\\"\""
+    },
+    "description": "This option has no description.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "visibleInReadme"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.voice": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Voice command configuration for this script.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice"
+    ],
+    "readOnly": false,
+    "type": "null or (submodule)"
+  },
+  "yo.scripts.<name>.voice.enabled": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "description": "Whether voice commands are enabled for this script.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "enabled"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.voice.excludes_context": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "This option has no description.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "excludes_context"
+    ],
+    "readOnly": false,
+    "type": "attribute set of (null or string or list of string)"
+  },
+  "yo.scripts.<name>.voice.fuzzy": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "Fuzzy matching configuration specific to this script.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "fuzzy"
+    ],
+    "readOnly": false,
+    "type": "submodule"
+  },
+  "yo.scripts.<name>.voice.fuzzy.enable": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "true"
+    },
+    "description": "Enable fuzzy matching for this script. Overrides the global setting if set.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "fuzzy",
+      "enable"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.voice.fuzzy.threshold": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "0.6"
+    },
+    "description": "Fuzzy similarity threshold (0.0–1.0) required for a match. Lower values allow more permissive matching.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "fuzzy",
+      "threshold"
+    ],
+    "readOnly": false,
+    "type": "floating point number"
+  },
+  "yo.scripts.<name>.voice.lists": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "Entity lists used to expand `{parameter}` placeholders in voice sentences.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "{\n  number = {\n    range = {\n      from = 1;\n      to = 10;\n    };\n  };\n  room = {\n    values = [\n      {\n        \"in\" = \"living room|livingroom\";\n        out = \"livingroom\";\n      }\n      {\n        \"in\" = \"bedroom\";\n        out = \"bedroom\";\n      }\n    ];\n  };\n}"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists"
+    ],
+    "readOnly": false,
+    "type": "attribute set of (submodule)"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.range": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "null"
+    },
+    "description": "Define a numeric range instead of an explicit list of values.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "{\n  from = 1;\n  multiplier = 1;\n  to = 60;\n}"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "range"
+    ],
+    "readOnly": false,
+    "type": "null or (submodule)"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.range.from": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Starting value of the range (inclusive).",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "range",
+      "from"
+    ],
+    "readOnly": false,
+    "type": "signed integer or floating point number"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.range.multiplier": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "1.0"
+    },
+    "description": "Multiplier applied to each generated number (useful for e.g., seconds to minutes conversion).",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "range",
+      "multiplier"
+    ],
+    "readOnly": false,
+    "type": "signed integer or floating point number"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.range.to": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Ending value of the range (inclusive).",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "range",
+      "to"
+    ],
+    "readOnly": false,
+    "type": "signed integer or floating point number"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.range.type": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "\"number\""
+    },
+    "description": "Type of range. Currently only `number` is supported.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "range",
+      "type"
+    ],
+    "readOnly": false,
+    "type": "value \"number\" (singular enum)"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.values": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "List of input-output mappings for entity recognition.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  {\n    \"in\" = \"living room|livingroom\";\n    out = \"livingroom\";\n  }\n  {\n    \"in\" = \"bedroom\";\n    out = \"bedroom\";\n  }\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "values"
+    ],
+    "readOnly": false,
+    "type": "list of (submodule)"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.values.*.\"in\"": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Input pattern. Can contain alternatives separated by `|`.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "values",
+      "*",
+      "in"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.values.*.out": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Output value assigned to the parameter when the input pattern matches.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "values",
+      "*",
+      "out"
+    ],
+    "readOnly": false,
+    "type": "string"
+  },
+  "yo.scripts.<name>.voice.lists.<name>.wildcard": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "If true, this list acts as a wildcard: any input is accepted and passed through unchanged.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "lists",
+      "<name>",
+      "wildcard"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.scripts.<name>.voice.priority": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "3"
+    },
+    "description": "Match priority (1 = highest, 5 = lowest). Exact matches are always resolved first regardless of priority.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "1"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "priority"
+    ],
+    "readOnly": false,
+    "type": "integer between 1 and 5 (both inclusive)"
+  },
+  "yo.scripts.<name>.voice.requires_context": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "{ }"
+    },
+    "description": "This option has no description.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "requires_context"
+    ],
+    "readOnly": false,
+    "type": "attribute set of (null or string or list of string)"
+  },
+  "yo.scripts.<name>.voice.sentences": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "List of sentence patterns that this script can handle. Supports alternatives `(a|b)`, optionals `[word]`, and parameter references `{name}`.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"set a timer for {minutes} minutes\"\n  \"start a {hours} hour timer\"\n]"
+    },
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "sentences"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "yo.scripts.<name>.voice.speak": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "false"
+    },
+    "description": "If true, the script’s stdout is sent to text-to-speech and played on connected clients.",
+    "loc": [
+      "yo",
+      "scripts",
+      "<name>",
+      "voice",
+      "speak"
+    ],
+    "readOnly": false,
+    "type": "boolean"
+  },
+  "yo.sorryPhrases": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[\n  \"Buddy, you are speaking Japanese, I dont understand anything.\"\n  \"I'm sorry, I did not understand that\"\n  \"Sorry, can you repeat that\"\n  \"I did not quite catch that\"\n  \"Excuse me?!\"\n]"
+    },
+    "description": "List of phrases for TTS when no match is found",
+    "loc": [
+      "yo",
+      "sorryPhrases"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "yo.splitWords": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[\n  \"also\"\n]"
+    },
+    "description": "Words that trigger command chaining. When encountered in a sentence, the input is split and each part is executed separately.",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"and\"\n  \"also\"\n]"
+    },
+    "loc": [
+      "yo",
+      "splitWords"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
+  "yo.understandsPhrases": {
+    "declarations": [
+      "/nix/store/59r8vrxshgjngknd7663qzyadx6lfqa8-source/options.nix"
+    ],
+    "description": "Theoretical number of unique spoken phrases the system can understand",
+    "loc": [
+      "yo",
+      "understandsPhrases"
+    ],
+    "readOnly": true,
+    "type": "signed integer"
+  }
+}

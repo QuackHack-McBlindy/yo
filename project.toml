@@ -1,0 +1,42 @@
+# project.toml — configuration for hooks/build-docs.py
+[options]
+include = ["yo", "services.yo-rs"]
+
+[project]
+name        = "yo"
+url         = "https://QuackHack-McBlindy.com"
+url_label   = "QuackHack-McBlindy.com"
+description = '''
+<p>
+  Welcome to the <strong>{name}</strong> Wiki.<br>
+  The options on this website are automatically generated on every release<br>
+  to stay in sync.<br>
+</p>
+<p>
+  Use the <strong>search box</strong> on the left to filter options,<br>
+  or click any group to expand it and browse the tree.<br>
+</p>
+'''
+
+quick_start_config = '''
+  services.yo-rs = {
+    server = {
+      enable         = true;
+      language       = "swedish"; # "english" by default
+      whisper        = "base";
+      shellTranslate = true;
+    };
+    client.enable = true;
+  };
+'''
+
+# overrides
+# github    = "https://github.com/quackhack-mcblindy/yo"
+# changelog = "https://github.com/quackhack-mcblindy/yo/blob/main/CHANGELOG.md"
+
+[paths]
+sources = ["hooks/options.json", "hooks/service.json"]
+dst = "docs/index.html"
+logo = "images/logo.png"
+screenshot_dirs = ["Screenshots", "screenshots"]
+screenshot_exts = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif"]
