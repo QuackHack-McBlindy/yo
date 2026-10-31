@@ -1,8 +1,7 @@
 <!-- VERSIONS_START -->
 
 ![License](https://img.shields.io/badge/license-MIT-black?style=flat-square&logo=opensourceinitiative&logoColor=white)
-![yo](https://img.shields.io/badge/yo-0.2.11-black?style=flat)
-![Fast](https://img.shields.io/badge/⚡-0.1ms-black?style=flat)
+
 
 <!-- VERSIONS_END -->
 
