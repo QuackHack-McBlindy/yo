@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+### Removed
+
+
+## [0.2.11] - 2026-10-31
+
+### Added
+
+### Changed
+
 - New option: `yo.<name>.voice.sentences` now support `{ phrase = "sentence pattern here"; prefix = "subcommand"; }`, which adds the prefix as a string next to the binary when executing. Simple string still supported like before.
 
 ### Fixed
