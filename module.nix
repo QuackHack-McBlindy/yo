@@ -9,10 +9,8 @@ let
 
   utils = import ./lib { inherit lib; };
   inherit (utils)
-    cartesianProductOfLists
     expandOptionalWords
     expandListInputVariants
-    expandToRegex
     makeEntityResolver
     escapeMD
     makeTimerName
@@ -57,14 +55,15 @@ let
         lib.concatMap (sentence:
           map (expanded: {
             script = scriptName;
-            sentence = expanded;
+            sentence = expanded;                    # ← still fine (expanded string)
+            prefix   = sentence.prefix;             # ← NEW
             signature = let
               words = lib.splitString " " (lib.toLower expanded);
               sorted = lib.sort (a: b: a < b) words;
             in builtins.concatStringsSep "|" sorted;
             fuzzy_threshold = fuzzyThreshold;
-            fuzzy_enabled = true;   # scriptsWithFuzzy already filters enabled scripts
-          }) (expandOptionalWords sentence)
+            fuzzy_enabled = true;
+          }) (expandOptionalWords sentence.phrase)
         ) data.sentences
       ) dataList
   ) scriptsWithFuzzy);
@@ -140,7 +139,7 @@ let
                 matched_params+=("$paramName")
               '') paramList} # 🦆 says ⮞ set dat param as a GLOBAL VAR yo! every duck gotta know
               # 🦆 says ⮞ build cmd args: --param valu
-              cmd_args=()
+              cmd_args=(${lib.concatMapStringsSep " " lib.escapeShellArg (lib.filter (s: s != "") (lib.splitString " " sentence.prefix))})
               ${lib.concatImapStrings (i: paramName: ''
                 value="''${BASH_REMATCH[${toString i}]}"
                 cmd_args+=(--${paramName} "$value")
@@ -152,7 +151,7 @@ let
               dt_debug "ARGS: ''${cmd_args[@]}"
               return 0
             fi
-          '') (expandOptionalWords sentence)
+          '') (expandOptionalWords sentence.phrase)
         ) data.sentences
       ) dataList}
       return 1
@@ -166,6 +165,7 @@ let
     match_fuzzy_${scriptName}() {
       local input="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
       local matched_sentence="$2"
+      local prefix="''${3:-}"
       # 🦆 says ⮞ skip regex! dat shit iz crazy - use aligned wordz yo
       declare -A params=()
       local input_words=($input)
@@ -187,6 +187,10 @@ let
       done
       # 🦆 says ⮞ build da paramz
       cmd_args=()
+      if [[ -n "$prefix" ]]; then
+        read -ra _pfx <<< "$prefix"
+        cmd_args+=("''${_pfx[@]}")
+      fi
       for param in "''${!params[@]}"; do
         cmd_args+=(--"$param" "''${params[$param]}")
       done
@@ -217,8 +221,11 @@ let
           allData = lib.flatten (map (d: d.lists or {}) intentList.data);
           # 🦆 says ⮞ collect all sentences for diz intent
           sentences = lib.concatMap (d: d.sentences or []) intentList.data;
-          # 🦆 says ⮞ expand all sentence variants
-          expandedSentences = lib.unique (lib.concatMap expandOptionalWords sentences);
+          # 🦆 says ⮞ expand all sentence variants, preserve prefix
+          expandedSentences = lib.unique (lib.concatMap
+            (s: map (phrase: { inherit phrase; prefix = s.prefix; })
+                    (expandOptionalWords s.phrase))
+            sentences);
           # 🦆 says ⮞ "in" > "out" for dem' subz
           substitutions = lib.flatten (map (lists:
             lib.flatten (lib.mapAttrsToList (_listName: listData:
@@ -290,13 +297,14 @@ let
         map (expanded: { # 🦆 says ⮞ ayy, time to expand theze feathers
           script = scriptName; # 🦆 says ⮞ label diz bird wit itz intent script yo
           sentence = expanded; # 🦆 says ⮞ this da expanded sentence duck gon' match against
+          prefix = sentence.prefix;
           # 🦆 says ⮞ precompute signature for FAAASTEERRr matching - quicky quacky snappy matchin' yo!
           signature = let
             words = lib.splitString " " (lib.toLower expanded); # 🦆 says ⮞ lowercase & split likez stale rye
             #sorted = lib.sort (a: b: lib.hasPrefix a b) words; # 🦆 says ⮞ duck sort dem quackz alphabetically-ish quack quack
             sorted = lib.sort (a: b: a < b) words;
           in builtins.concatStringsSep "|" sorted;  # 🦆 says ⮞ make a fuzzy-flyin’ signature string, pipe separated - yo' know it
-        }) (expandOptionalWords sentence) # 🦆 says ⮞ diz iz where optional wordz becomez reality
+        }) (expandOptionalWords sentence.phrase) # 🦆 says ⮞ diz iz where optional wordz becomez reality
       ) data.sentences # 🦆 says ⮞ waddlin' through all yo' sentencez
     ) intent.data # 🦆 says ⮞ scoopin' from every intentz
   ) generatedIntents; # 🦆 says ⮞ diz da sacred duck scripture — all yo' intents livez here boom
@@ -332,7 +340,7 @@ let
         hasComplexPatterns =
           let
             intent = generatedIntents.${scriptName};
-            patterns = lib.concatMap (d: d.sentences) intent.data;
+            patterns = lib.concatMap (d: map (s: s.phrase) d.sentences) intent.data;
           in builtins.any (p: lib.hasInfix "{" p || lib.hasInfix "[" p) patterns;
       };
     in lib.sort (a: b:
@@ -360,7 +368,7 @@ let
           map (expanded: {
             inherit scriptName;
             sentence = expanded;
-            original = sentence;
+            original = sentence.phrase;
             # 🦆 says ⮞ extract parameter positionz & count da fixed words
             hasWildcardAtEnd = lib.hasSuffix " {search}" (lib.toLower expanded) ||
                               lib.hasSuffix " {param}" (lib.toLower expanded) ||
@@ -372,10 +380,11 @@ let
                 !(lib.hasPrefix "{" word) && !(lib.hasSuffix "}" word)
               ) words;
             in lib.length nonParamWords;
-          }) (expandOptionalWords sentence)
+          }) (expandOptionalWords sentence.phrase)
         ) data.sentences
       ) intent.data
     ) generatedIntents);
+
     # 🦆 says ⮞ check for prefix conflictz
     checkPrefixConflicts = sentences:
       let
@@ -521,7 +530,7 @@ let
             let
               # 🦆 says ⮞ replace params in each sentence
               sentenceLines = lib.concatMapStrings (sentence:
-                let processedSentence = replaceParamsWithValues sentence script.voice;
+                let processedSentence = replaceParamsWithValues sentence.phrase script.voice;
                 in "    - \"${escapeMD processedSentence}\"\n"
               ) script.voice.sentences;
             in
@@ -716,7 +725,7 @@ let
                 lib.concatStringsSep " " processedTokens;
 
             processedSentences = map (sentence:
-              replaceParamsWithValues sentence script.voice
+              replaceParamsWithValues sentence.phrase script.voice
             ) script.voice.sentences;
 
             sentencesMarkdown = lib.concatMapStrings (sentence:
@@ -1230,7 +1239,7 @@ in {
 
     (mkIf (!cfg.legacy) {
       yo.scripts.do = {
-        description = "do is a natural language to shell script translator thIt runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
+        description = "do is a natural language to shell script translator that runs exact and fuzzy pattern matching at runtime with automatic parameter resolution and seamless shell script execution";
         binary = "${yo-rs-with-models}/bin/yo-do";
         category = "🗣️ Voice";
         logLevel = "INFO";

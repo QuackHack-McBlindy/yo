@@ -1,4 +1,4 @@
-{ 
+{
   config,
   lib,
   ...
@@ -21,7 +21,7 @@
         type = lib.types.str;
         default = "";
         description = "A short, human-readable description of what the script does. Shown in `yo --help` and the generated command table.";
-        example = "Set a timer for a specified duration.";   
+        example = "Set a timer for a specified duration.";
       };
       category = lib.mkOption {
         type = lib.types.str;
@@ -72,9 +72,9 @@
         default = null;
         description = "
           Inline shell code to execute when the script is invoked. Mutually exclusive with `binary`.
-          The script parameters are exposed as variables.  
+          The script parameters are exposed as variables.
         ";
-        example = ''  
+        example = ''
           echo "Hello, $name!"
         '';
       };
@@ -108,15 +108,15 @@
         readOnly = true;
         default = 0.0;
         description = "Ratio of `voicePhrases` to `voicePatterns`. Indicates combinatorial expansion; higher values mean more phrases per pattern.";
-      };    
+      };
       parameters = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {
-            name = lib.mkOption { 
+            name = lib.mkOption {
               type = lib.types.str;
               description = "Name of the parameter as passed to the script (example, if parameter name is `seconds` it can be used in the script using `$seconds`).";
             };
-            description = lib.mkOption { 
+            description = lib.mkOption {
               type = lib.types.str;
               description = "Human-readable explanation of the parameter, shown in `--help`.";
             };
@@ -127,8 +127,8 @@
               default = null;
               description = "Default value if the parameter is not provided.";
             };
-            optional = lib.mkOption { 
-              type = lib.types.bool; 
+            optional = lib.mkOption {
+              type = lib.types.bool;
               default = ./default != null;
               description = "Whether this parameter can be omitted. Automatically set to `true` if a default is defined.";
             };
@@ -164,14 +164,14 @@
               type = lib.types.bool;
               default = false;
               description = "If true, the script’s stdout is sent to text-to-speech and played on connected clients.";
-            };            
+            };
             priority = lib.mkOption {
               type = lib.types.ints.between 1 5;
               default = 3;
               description = "Match priority (1 = highest, 5 = lowest). Exact matches are always resolved first regardless of priority.";
               example = 1;
             };
-            
+
             fuzzy = lib.mkOption {
               type = lib.types.submodule {
                 options = {
@@ -190,15 +190,41 @@
               default = {};
               description = "Fuzzy matching configuration specific to this script.";
             };
+
             sentences = lib.mkOption {
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.listOf (lib.types.coercedTo
+                lib.types.str
+                (phrase: { inherit phrase; prefix = ""; })
+                (lib.types.submodule {
+                  options = {
+                    phrase = lib.mkOption {
+                      type = lib.types.str;
+                      description = ''
+                        Sentence pattern. Supports alternatives `(a|b)`, optionals `[word]`,
+                        and parameter references `{name}`.
+                      '';
+                    };
+                    prefix = lib.mkOption {
+                      type = lib.types.str;
+                      default = "";
+                      description = ''
+                        Tokens emitted before the resolved parameters when this sentence
+                        is matched. `prefix = "snapshot"` produces
+                        `zigduck-cli snapshot <args>` instead of `zigduck-cli <args>`.
+                        Empty string (default) emits nothing extra.
+                      '';
+                    };
+                  };
+                })
+              );
               default = [];
-              description = "List of sentence patterns that this script can handle. Supports alternatives `(a|b)`, optionals `[word]`, and parameter references `{name}`.";
+              description = "List of sentence patterns this script can handle.";
               example = [
                 "set a timer for {minutes} minutes"
-                "start a {hours} hour timer"
+                { phrase = "{action} [en] snapshot {name}"; prefix = "snapshot"; }
               ];
             };
+
             requires_context = lib.mkOption {
               type = lib.types.attrsOf (lib.types.nullOr (lib.types.oneOf [ lib.types.str (lib.types.listOf lib.types.str) ]));
               default = {};
@@ -210,18 +236,18 @@
             lists = lib.mkOption {
               type = lib.types.attrsOf (lib.types.submodule {
                 options = {
-                  wildcard = lib.mkOption { 
-                    type = lib.types.bool; 
+                  wildcard = lib.mkOption {
+                    type = lib.types.bool;
                     default = false;
                     description = "If true, this list acts as a wildcard: any input is accepted and passed through unchanged.";
                   };
                   values = lib.mkOption {
                     type = lib.types.listOf (lib.types.submodule {
-                      options."in" = lib.mkOption { 
+                      options."in" = lib.mkOption {
                         type = lib.types.str;
                         description = "Input pattern. Can contain alternatives separated by `|`.";
                       };
-                      options.out = lib.mkOption { 
+                      options.out = lib.mkOption {
                         type = lib.types.str;
                         description = "Output value assigned to the parameter when the input pattern matches.";
                       };
@@ -236,20 +262,20 @@
                   range = lib.mkOption {
                     type = lib.types.nullOr (lib.types.submodule {
                       options = {
-                        type = lib.mkOption { 
+                        type = lib.mkOption {
                           type = lib.types.enum ["number"];
                           default = "number";
                           description = "Type of range. Currently only `number` is supported.";
                         };
-                        from = lib.mkOption { 
+                        from = lib.mkOption {
                           type = lib.types.number;
                           description = "Starting value of the range (inclusive).";
                         };
-                        to   = lib.mkOption { 
+                        to   = lib.mkOption {
                           type = lib.types.number;
                           description = "Ending value of the range (inclusive).";
                         };
-                        multiplier = lib.mkOption { 
+                        multiplier = lib.mkOption {
                           type = lib.types.number;
                           default = 1.0;
                           description = "Multiplier applied to each generated number (useful for e.g., seconds to minutes conversion).";
@@ -270,7 +296,7 @@
                   { "in" = "bedroom"; out = "bedroom"; }
                 ];
                 number.range = { from = 1; to = 10; };
-              };  
+              };
             };
           };
         });
@@ -342,7 +368,7 @@
         else times;
 
 in {
-  options.yo = {  
+  options.yo = {
     pkgs = lib.mkOption {
       type = lib.types.package;
       readOnly = true;
@@ -374,7 +400,7 @@ in {
     fuzzy = lib.mkOption {
       type = lib.types.submodule {
         options = {
-          enable = lib.mkOption { 
+          enable = lib.mkOption {
             type = lib.types.bool;
             default = true;
             description = "Enable fuzzy matching globally. Can be overridden per script.";
@@ -422,5 +448,5 @@ in {
       readOnly = true;
       description = "Theoretical number of unique spoken phrases the system can understand";
     };
-    
+
   };}

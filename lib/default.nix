@@ -89,53 +89,6 @@ rec {
     in lib.unique (lib.filter (s: s != "") variants);
 
 
-  expandToRegex = sentence: data:
-    let
-      convertPattern = token:
-        if lib.hasPrefix "(" token then
-          let
-            clean = lib.removePrefix "(" (lib.removeSuffix ")" token);
-            alternatives = lib.splitString "|" clean;
-            escaped = map lib.escapeRegex alternatives;
-          in "(?:" + lib.concatStringsSep "|" escaped + ")"
-        else if lib.hasPrefix "[" token then
-          let
-            clean = lib.removePrefix "[" (lib.removeSuffix "]" token);
-            alternatives = lib.splitString "|" clean;
-            escaped = map lib.escapeRegex alternatives;
-          in "(?:" + lib.concatStringsSep "|" escaped + ")?"
-        else
-          lib.escapeRegex token;
-
-      tokenize = s:
-        let
-          groups = builtins.match "([^{]*)(\{[^}]*\})?(.*)" s;
-        in
-          if groups == null then [s]
-          else let
-            prefix = builtins.elemAt groups 0;
-            param = builtins.elemAt groups 1;
-            rest = builtins.elemAt groups 2;
-            tokens = if prefix != "" then [prefix] else [];
-            tokensWithParam = if param != null then tokens ++ [param] else tokens;
-          in tokensWithParam ++ tokenize rest;
-
-      tokens = tokenize sentence;
-      regexParts = map (token:
-        if lib.hasPrefix "{" token then
-          let
-            param = lib.removePrefix "{" (lib.removeSuffix "}" token);
-            isWildcard = data.lists.${param}.wildcard or false;
-          in if isWildcard then "(.*)" else "\\b([^ ]+)\\b"
-        else
-          convertPattern token
-      ) tokens;
-
-      regex = "^" + lib.concatStrings regexParts + "$";
-    in
-      regex;
-
-
   makeEntityResolver = data: listName:
     lib.concatMapStrings (entity:
       let
@@ -160,63 +113,11 @@ rec {
     lib.foldl (acc: r: lib.replaceStrings [ (builtins.elemAt r 0) ] [ (builtins.elemAt r 1) ] acc) str replacements;
 
 
-  isValidTime = timeStr:
-    let
-      matches = builtins.match "([0-9]{1,2}):([0-9]{2})" timeStr;
-    in
-      if matches != null then
-        let
-          hourStr = builtins.elemAt matches 0;
-          minuteStr = builtins.elemAt matches 1;
-          cleanNumber = str:
-            if builtins.substring 0 1 str == "0" && builtins.stringLength str > 1
-            then builtins.substring 1 (builtins.stringLength str) str
-            else str;
-          hour = builtins.fromJSON (cleanNumber hourStr);
-          minute = builtins.fromJSON (cleanNumber minuteStr);
-        in
-          hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59
-      else false;
-
-  sanitizeVarName = name: builtins.replaceStrings ["-"] ["_"] name;
-
-  validateTimes = times:
-    if times == null then null
-    else
-      let
-        invalidTimes = lib.filter (time: !isValidTime time) times;
-      in
-        if invalidTimes != [] then
-          throw "🦆 duck say ⮞ fuck ❌ Invalid time format in runAt: ${lib.concatStringsSep ", " invalidTimes}. Use HH:MM (24-hour format)"
-        else times;
-
-
   makeTimerName = scriptName: timeStr:
     let
       safeTime = replaceStrings [":"] ["-"] timeStr;
     in
       "yo-${scriptName}-at-${safeTime}";
-
-  yoEnvGenVar = script: let
-    withDefaults = builtins.filter (p: p.default != null) script.parameters;
-    exports = map (p:
-      let
-        defaultValue =
-          if p.type == "string" then lib.escapeShellArg (toString p.default)
-          else if p.type == "int" then toString p.default
-          else if p.type == "bool" then (if p.default then "true" else "false")
-          else if p.type == "path" then lib.escapeShellArg (toString p.default)
-          else lib.escapeShellArg (toString p.default);
-      in
-        "export ${sanitizeVarName p.name}=${defaultValue}"
-    ) withDefaults;
-  in lib.concatStringsSep "\n" exports;
-
-
-  nixosVersion = let
-    raw = builtins.readFile /etc/os-release;
-    versionMatch = builtins.match ".*VERSION_ID=([0-9\\.]+).*" raw;
-  in builtins.replaceStrings [ "." ] [ "%2E" ] (builtins.elemAt versionMatch 0);
 
 
   countGeneratedPatterns = script:
@@ -224,17 +125,16 @@ rec {
       0
     else
       let
-        expandedSentences = lib.concatMap expandOptionalWords script.voice.sentences;
+        expandedSentences = lib.concatMap (s: expandOptionalWords s.phrase) script.voice.sentences;
       in
         lib.length expandedSentences;
-
 
   countUnderstoodPhrases = script:
     if script.voice == null then
       0
     else
       let
-        expandedSentences = lib.concatMap expandOptionalWords script.voice.sentences;
+        expandedSentences = lib.concatMap (s: expandOptionalWords s.phrase) script.voice.sentences;
 
         extractParamNames = sentence:
           let
