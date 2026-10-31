@@ -1,4 +1,4 @@
-{ 
+{
   config,
   lib,
   ...
@@ -86,7 +86,8 @@
         map (expanded: {
           inherit scriptName;
           sentence = expanded;
-          original = sentence;
+          original = sentence.phrase;
+          prefix = sentence.prefix;
           hasWildcardAtEnd = lib.hasSuffix " {search}" (lib.toLower expanded) ||
                               lib.hasSuffix " {param}" (lib.toLower expanded) ||
                               (lib.hasInfix " {" expanded && !(lib.hasInfix "} " expanded));
@@ -96,12 +97,12 @@
               !(lib.hasPrefix "{" word) && !(lib.hasSuffix "}" word)
             ) words;
           in lib.length nonParamWords;
-        }) (expandOptionalWords sentence)
+        }) (expandOptionalWords sentence.phrase)
       ) data.sentences
     ) intent.data
   ) generatedIntents);
 
-  # Check for prefix conflicts (shorter wildcard pattern is prefix of longer)  
+  # Check for prefix conflicts (shorter wildcard pattern is prefix of longer)
   checkPrefixConflicts = sentences:
     let
       sortedSentences = lib.sort (a: b:
@@ -134,7 +135,7 @@
           ) [] sortedSentences)
       ) [] sortedSentences;
     in conflicts;
-  
+
 
   # Find exact duplicates
   sentencesByText = lib.groupBy (item: item.sentence) allExpandedSentences;
@@ -148,16 +149,41 @@
   exactConflictList = lib.mapAttrsToList (sentence: items:
     let
       scripts = lib.unique (map (item: item.scriptName) items);
+      prefixes = lib.unique (map (item: item.prefix or "") items);
+      prefixNote = if lib.length prefixes > 1
+        then " (prefixes differ: ${lib.concatStringsSep ", " (map (p: if p == "" then "∅" else p) prefixes)})"
+        else "";
     in {
       type = "EXACT_CONFLICT";
       sentence = sentence;
       scripts = scripts;
-      reason = "Exact pattern match in scripts: ${lib.concatStringsSep ", " scripts}";
+      reason = "Exact pattern match in scripts: ${lib.concatStringsSep ", " scripts}${prefixNote}";
     }
   ) exactConflicts;
 
   prefixConflicts = checkPrefixConflicts allExpandedSentences;
-  allConflicts = exactConflictList ++ prefixConflicts;
+  allConflicts = exactConflictList ++ prefixConflicts
+    ++ (map (m: {
+      type = "PREFIX_MISMATCH";
+      sentence = m.phrase;
+      scripts = [ m.script ];
+      reason = "Same phrase with different prefixes: ${lib.concatStringsSep ", " m.prefixes}";
+    }) prefixMismatches);
+
+  prefixMismatches = let
+    byScriptAndPhrase = lib.groupBy (item: "${item.scriptName}|${item.original}") allExpandedSentences;
+  in lib.mapAttrsToList (key: items:
+    let
+      prefixes = lib.unique (map (i: i.prefix) items);
+      parts = lib.splitString "|" key;
+    in {
+      type = "PREFIX_MISMATCH";
+      script = lib.elemAt parts 0;
+      phrase = lib.elemAt parts 1;
+      prefixes = prefixes;
+    }
+  ) (lib.filterAttrs (_: items: lib.length (lib.unique (map (i: i.prefix) items)) > 1) byScriptAndPhrase);
+
   hasConflicts = allConflicts != [];
 
   voiceConflictAssertion = {
@@ -179,6 +205,13 @@
                 Longer:  "${conflict.longer}"
                 Scripts: ${lib.concatStringsSep ", " conflict.scripts}
                 Reason:  ${conflict.reason}
+              ''
+            else if conflict.type == "PREFIX_MISMATCH" then
+              ''
+              🦆 says ⮞ CONFLICT!
+                Script: "${lib.head conflict.scripts}"
+                Phrase: "${conflict.sentence}"
+                Reason: ${conflict.reason}
               ''
             else
               ""
@@ -246,7 +279,7 @@
     in
       if union == 0 then 100 else (inter * 100) / union;
 
-  
+
   fuzzyDuplicates = let
     n = builtins.length allExpandedSentences;
     indices = lib.range 0 (n - 1);

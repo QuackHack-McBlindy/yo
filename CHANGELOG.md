@@ -11,10 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- New option: `yo.<name>.voice.sentences` now support `{ phrase = "sentence pattern here"; prefix = "subcommand"; }`, which adds the prefix as a string next to the binary when executing. Simple string still supported like before.
+
 ### Fixed
 
 ### Removed
 
+- Removed lagacy sentence testing.
+- Removed dead code from `lib/default.nix`.
 
 ## [0.2.10] - 2026-10-23
 
@@ -32,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- Removed the Rust binary `yo-rs` and it's corresponding `yo.scripts.tests`, sicne it's now redundant. Use `$YO_PREVIEW` instead.
+- Removed the Rust test binary `yo-rs` and it's corresponding `yo.scripts.tests`, sicne it's now redundant. Use `$YO_PREVIEW` instead.
 
 ## [0.2.9] - 2026-10-17
 

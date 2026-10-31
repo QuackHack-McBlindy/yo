@@ -39,6 +39,7 @@ struct CompiledPattern {
     regex: Regex,
     param_names: Vec<String>,
     script_name: String,
+    prefix: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,14 +137,14 @@ struct EntityList {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct VoiceData {
-    sentences: Vec<String>,
+    //sentences: Vec<String>,
     lists: HashMap<String, EntityList>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ScriptIntentData {
     substitutions: Vec<Substitution>,
-    sentences: Vec<String>,
+ //   sentences: Vec<String>,
     voice_data: Option<HashMap<String, VoiceData>>,
 }
 
@@ -157,7 +158,7 @@ struct ListValue {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct IntentData {
     substitutions: Vec<Substitution>,
-    sentences: Vec<String>,
+    sentences: Vec<SentenceEntry>,
     lists: HashMap<String, ListConfig>,
     #[serde(default)]
     speak: bool,
@@ -170,9 +171,18 @@ struct Substitution {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct SentenceEntry {
+    phrase: String,
+    #[serde(default)]
+    prefix: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct FuzzyIndexEntry {
     script: String,
     sentence: String,
+    #[serde(default)]
+    prefix: String,
     signature: String,
     #[serde(default = "default_fuzzy_threshold")]
     fuzzy_threshold: f32,
@@ -564,12 +574,13 @@ impl YoDo {
             let mut patterns_for_script = Vec::new();
 
             for sentence in &intent.sentences {
-                for variant in self.expand_optional_words(sentence) {
+                for variant in self.expand_optional_words(&sentence.phrase) {
                     if let Some((regex, param_names)) = self.build_pattern_matcher(script_name, &variant) {
                         patterns_for_script.push(CompiledPattern {
                             regex,
                             param_names,
                             script_name: script_name.clone(),
+                            prefix: sentence.prefix.clone(),
                         });
                     }
                 }
@@ -804,7 +815,7 @@ impl YoDo {
             }
             adjusted_priority = adjusted_priority.max(0);
             let has_complex_patterns = intent.sentences.iter().any(|s| {
-                s.contains('{') || s.contains('[') || s.contains('(')
+                s.phrase.contains('{') || s.phrase.contains('[') || s.phrase.contains('(')
             });
 
             script_priorities.push(ScriptPriority {
@@ -873,6 +884,9 @@ impl YoDo {
                     if let Some(captures) = pattern.regex.captures(&resolved_text) {
                         let mut args = Vec::new();
                         let mut valid_pattern = true;
+                        for word in pattern.prefix.split_whitespace() {
+                            args.push(word.to_string());
+                        }
 
                         for (i, param_name) in pattern.param_names.iter().enumerate() {
                             if let Some(matched) = captures.get(i + 1) {
@@ -941,9 +955,8 @@ impl YoDo {
         matrix[a_len][b_len]
     }
 
-    fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, String, i32)> {
+    fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, String, String, i32)> {
         use rayon::prelude::*;
-
         let normalized_input = text.to_lowercase();
         dt_debug(&format!("Fuzzy matching against {} entries", self.fuzzy_index.len()));
 
@@ -954,30 +967,30 @@ impl YoDo {
                 let normalized_sentence = entry.sentence.to_lowercase();
                 let distance = self.levenshtein_distance(&normalized_input, &normalized_sentence);
                 let max_len = normalized_input.len().max(normalized_sentence.len());
-                if max_len == 0 {
-                    return None;
-                }
+                if max_len == 0 { return None; }
                 let score = 100 - (distance * 100 / max_len) as i32;
                 let threshold = (entry.fuzzy_threshold * 100.0) as i32;
                 if score >= threshold {
-                    Some((entry.script.clone(), entry.sentence.clone(), score))
+                    Some((
+                        entry.script.clone(),
+                        entry.sentence.clone(),
+                        entry.prefix.clone(),
+                        score,
+                    ))
                 } else { None }
             })
-            .max_by_key(|&(_, _, score)| score)
+            .max_by_key(|&(_, _, _, score)| score)
     }
-
 
     fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
-
-        let (script_name, _sentence, score) = self.find_best_fuzzy_match(text)?;
+        let (script_name, _sentence, prefix, score) = self.find_best_fuzzy_match(text)?;
         dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
-
         let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
         let intent = self.intent_data.get(&script_name)?;
 
         for sentence in &intent.sentences {
-            for pattern_str in self.expand_optional_words(sentence) {
+            for pattern_str in self.expand_optional_words(&sentence.phrase) {
                 let pattern_words: Vec<String> = pattern_str
                     .split_whitespace()
                     .map(|s| s.to_string())
@@ -986,6 +999,9 @@ impl YoDo {
                 let alignment = self.align_words(&pattern_words, &input_words);
 
                 let mut args = Vec::new();
+                for word in prefix.split_whitespace() {
+                    args.push(word.to_string());
+                }
                 let mut valid = true;
 
                 for (i, word) in pattern_words.iter().enumerate() {
@@ -1091,9 +1107,20 @@ impl YoDo {
         if result.args.is_empty() {
             println!("   └─ 🦆 says ⮞ no parameters yo");
         } else {
-            for chunk in result.args.chunks(2) {
-                if chunk.len() == 2 {
-                    println!("   └─⮞ {} {}", chunk[0], chunk[1]);
+            let first_flag = result
+                .args
+                .iter()
+                .position(|a| a.starts_with("--"))
+                .unwrap_or(result.args.len());
+
+            if first_flag > 0 {
+                println!("   └─⮞ {}", result.args[..first_flag].join(" "));
+            }
+            for chunk in result.args[first_flag..].chunks(2) {
+                match chunk.len() {
+                    2 => println!("   └─⮞ {} {}", chunk[0], chunk[1]),
+                    1 => println!("   └─⮞ {}", chunk[0]),
+                    _ => {}
                 }
             }
         }
@@ -1492,8 +1519,8 @@ mod tests {
     {
       "timer": {
         "sentences": [
-          "set a timer for {minutes} minutes and {seconds} seconds",
-          "start timer {minutes} minutes"
+          {"phrase": "set a timer for {minutes} minutes and {seconds} seconds"},
+          {"phrase": "start timer {minutes} minutes"}
         ],
         "lists": {
           "minutes": { "wildcard": false, "values": [ {"in": "5", "out": "5"}, {"in": "10", "out": "10"} ] },
@@ -1503,7 +1530,7 @@ mod tests {
       },
       "reminder": {
         "sentences": [
-          "set a reminder for {time} to {task}"
+          {"phrase": "set a reminder for {time} to {task}", "prefix": "reminder"}
         ],
         "lists": {
           "time": { "wildcard": false, "values": [ {"in": "8am", "out": "08:00"} ] },
@@ -1513,8 +1540,8 @@ mod tests {
       },
       "play": {
         "sentences": [
-          "play [some] music by {artist}",
-          "play {song} by {artist}"
+          {"phrase": "play [some] music by {artist}"},
+          {"phrase": "play {song} by {artist}"}
         ],
         "lists": {
           "artist": { "wildcard": false, "values": [] },
@@ -1540,6 +1567,7 @@ mod tests {
       {
         "script": "reminder",
         "sentence": "set a reminder for 8am to buy milk",
+        "prefix": "reminder",
         "signature": "reminder_8am_buy milk",
         "fuzzy_threshold": 0.8,
         "fuzzy_enabled": true
@@ -1684,7 +1712,7 @@ mod tests {
         let yodo = create_test_yodo();
         let result = yodo.exact_match("set a reminder for 8am to buy milk and eggs").unwrap();
         assert_eq!(result.script_name, "reminder");
-        assert_eq!(result.args, vec!["--time", "08:00", "--task", "buy milk and eggs"]);
+        assert_eq!(result.args, vec!["reminder", "--time", "08:00", "--task", "buy milk and eggs"]);
     }
 
     #[test]
@@ -1738,7 +1766,7 @@ mod tests {
         let yodo = create_test_yodo();
         let best = yodo.find_best_fuzzy_match("set a timr for 5 minuts and 30 secnds");
         assert!(best.is_some());
-        let (script, _sentence, score) = best.unwrap();
+        let (script, _sentence, _prefix, score) = best.unwrap();
         assert_eq!(script, "timer");
         assert!(score >= 70);
     }
@@ -1817,6 +1845,24 @@ mod tests {
         assert!(result.is_ok());
         let memory = YoDo::load_memory_data().unwrap();
         assert_eq!(memory.context.last_action, script);
+    }
+
+    #[test]
+    fn test_exact_match_prepends_prefix() {
+        let yodo = create_test_yodo();
+        let result = yodo.exact_match("set a reminder for 8am to buy milk").unwrap();
+        assert_eq!(result.script_name, "reminder");
+        assert_eq!(result.args.first(), Some(&"reminder".to_string()));
+        assert!(result.args.contains(&"--time".to_string()));
+        assert!(result.args.contains(&"08:00".to_string()));
+    }
+
+    #[test]
+    fn test_fuzzy_match_prepends_prefix() {
+        let yodo = create_test_yodo();
+        let result = yodo.fuzzy_match("set a remindr for 8am to buy milk").unwrap();
+        assert_eq!(result.script_name, "reminder");
+        assert_eq!(result.args.first(), Some(&"reminder".to_string()));
     }
 
     #[test]
