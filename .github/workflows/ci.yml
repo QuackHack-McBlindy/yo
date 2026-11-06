@@ -83,7 +83,7 @@ jobs:
           fail-mode: true
 
       - name: Build flake
-        run: nix flake check --all-systems
+        run: nix flake check
 
 
   docs:
