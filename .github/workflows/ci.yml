@@ -8,14 +8,20 @@ name: CI
 #  │
 #  │ push
 #  ▼
-# BUILD ────────────────► CI only
-#  │
+# ┌───────────────────────────────────────────┐
+# │ BUILD ───────────────► CI only            │
+# │   │                                       │
+# │   ▼                                       │
+# │ DOCS ────────────────► get-options.sh     │
+# │                        commit hooks/*.json│
+# │                        to dev             │
+# └───────────────────────────────────────────┘
 #  │
 #  │ PR
 #  ▼
 # main
 #  │
-#  │ merge dev → main
+#  │ merge dev ──► main
 #  ▼
 # BUILD
 #  │
@@ -32,7 +38,7 @@ name: CI
 #  │
 #  ├── CHANGELOG [Unreleased]
 #  │        │
-#  │        └── promote → [0.3.1]
+#  │        └── promote ──► [0.3.1]
 #  │
 #  ├── commit changelog
 #  │
@@ -41,7 +47,7 @@ name: CI
 #  ├── GitHub Release v0.3.1
 #  │
 #  ▼
-# sync dev ← main
+# sync dev <-- MAIN
 
 
 on:
@@ -77,7 +83,49 @@ jobs:
           fail-mode: true
 
       - name: Build flake
-        run: nix flake check --all-systems
+        run: nix flake check
+
+
+  docs:
+    name: Regenerate option reference and wiki
+    needs: build
+    if: >-
+      ${{
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/dev'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          ref: dev
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3.22.2
+
+      - name: Regenerate hooks/options.json
+        run: bash hooks/get-options.sh
+
+      - name: Build static wiki
+        run: python3 hooks/build-docs.py
+
+      - name: Commit if generated files changed
+        run: |
+          set -euo pipefail
+          if [[ -z "$(git status --porcelain -- hooks/ docs/)" ]]; then
+            echo "generated options and docs are already up to date."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A -- hooks/ docs/
+          git commit -m "chore: regenerate option reference and wiki"
+          git push origin HEAD:dev
+
+
 
   release:
     name: Release

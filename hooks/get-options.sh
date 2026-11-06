@@ -1,42 +1,32 @@
 #!/usr/bin/env bash
 # hooks/get-options.sh
 # run before build-docs.sh
-# usage:
-# bash hooks/get-options.sh \
-#   --flake /path/to/your/flake \
-#   --hostname desktop
+# USAGE:
+# bash hooks/get-options.sh
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"   # repo root
-HOOKS_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"       # hooks/ (where this script lives)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
+HOOKS_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_TOML="$SCRIPT_DIR/project.toml"
 FLAKE_REF="$SCRIPT_DIR"
-HOSTNAME_ARG="${HOSTNAME:-}"
 option1=""
 OPTIONAL_ARG2=""
 
 usage() {
   cat >&2 <<'EOF'
-Usage: get-options.sh [--flake REF] [--hostname HOST]
-                      [--option1 PATH] [--option2 PATH]
+Usage: get-options.sh [--option1 PATH] [--option2 PATH]
 
 Options:
-  --flake REF       Nix flake path or reference (defaults to project directory)
-  --hostname HOST   NixOS configuration name (defaults to $HOSTNAME)
   --option1 PATH    Attribute path for options.json (overrides project.toml)
   --option2 PATH    Attribute path for service.json (overrides project.toml)
   -h, --help        Show this help
-
-Default option paths are read from project.toml:
-  [options]
-  include = ["yo", "services.yo-rs"]
 EOF
 }
 
 
 if [[ ! -f "$PROJECT_TOML" ]]; then
-  echo "Error: project.toml not found: $PROJECT_TOML" >&2
+  echo "error: project.toml not found: $PROJECT_TOML" >&2
   exit 1
 fi
 
@@ -55,34 +45,42 @@ for option in config.get("options", {}).get("include", []):
 option1="${CONFIG_OPTIONS[0]:-}"
 OPTIONAL_ARG2="${CONFIG_OPTIONS[1]:-}"
 
+CONFIG_EXCLUDES_JSON=$(
+  python3 -c '
+import sys, tomllib, json
+
+with open(sys.argv[1], "rb") as f:
+    config = tomllib.load(f)
+
+print(json.dumps(config.get("options", {}).get("exclude_prefixes", [])))
+' "$PROJECT_TOML"
+)
+
+CONFIG_KEEP_JSON=$(
+  python3 -c '
+import sys, tomllib, json
+
+with open(sys.argv[1], "rb") as f:
+    config = tomllib.load(f)
+
+print(json.dumps(config.get("options", {}).get("keep_attrs", [])))
+' "$PROJECT_TOML"
+)
+
+CONFIG_PROJECT_NAME=$(
+  python3 -c '
+import sys, tomllib
+
+with open(sys.argv[1], "rb") as f:
+    config = tomllib.load(f)
+
+print(config.get("project", {}).get("name", ""))
+' "$PROJECT_TOML"
+)
+
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --flake)
-      [[ $# -ge 2 ]] || {
-        echo "Missing value for --flake" >&2
-        usage
-        exit 1
-      }
-      FLAKE_REF="$2"
-      shift 2
-      ;;
-    --flake=*)
-      FLAKE_REF="${1#*=}"
-      shift
-      ;;
-    --hostname)
-      [[ $# -ge 2 ]] || {
-        echo "Missing value for --hostname" >&2
-        usage
-        exit 1
-      }
-      HOSTNAME_ARG="$2"
-      shift 2
-      ;;
-    --hostname=*)
-      HOSTNAME_ARG="${1#*=}"
-      shift
-      ;;
     --option1)
       [[ $# -ge 2 ]] || {
         echo "Missing value for --option1" >&2
@@ -121,8 +119,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-: "${FLAKE_REF:?--flake must not be empty}"
-: "${HOSTNAME_ARG:?--hostname (or \$HOSTNAME) is required}"
+: "${FLAKE_REF:?Project flake must not be empty}"
 : "${option1:?No options configured in project.toml; provide --option1}"
 
 
@@ -142,11 +139,57 @@ build_doc() {
       --print-out-paths \
       --expr "
         let
-          flake = builtins.getFlake \"${FLAKE_REF}\";
-          pkgs = flake.inputs.nixpkgs.legacyPackages.x86_64-linux;
-          cfg = flake.nixosConfigurations.\"${HOSTNAME_ARG}\";
+          flake        = builtins.getFlake \"${FLAKE_REF}\";
+          nixpkgs      = flake.inputs.nixpkgs;
+          system       = builtins.currentSystem;
+          pkgs         = nixpkgs.legacyPackages.\${system};
+          lib          = nixpkgs.lib;
+          projectName  = \"${CONFIG_PROJECT_NAME}\";
+          flakeInputs  = flake.inputs or {};
+
+          inputsForModules = flakeInputs // {
+            self = flake;
+          } // lib.optionalAttrs (projectName != \"\" && !(flakeInputs ? \${projectName})) {
+            \${projectName} = flake;
+          };
+
+          optionsRoot =
+            if flake ? options then
+              flake.options
+            else if flake ? nixosModules && flake.nixosModules != {} then
+              (lib.nixosSystem {
+                inherit system;
+                specialArgs = {
+                  self   = flake;
+                  inputs = inputsForModules;
+                };
+                modules = builtins.attrValues flake.nixosModules;
+              }).options
+            else
+              throw \"Flake exposes neither 'options' nor any 'nixosModules'; cannot generate options doc\";
+
+          optPath  = \"${opt_path}\";
+          excludes = builtins.fromJSON ''
+            ${CONFIG_EXCLUDES_JSON}
+          '';
+
+          keepName = name: _value:
+            let
+              fullName = \"\${optPath}.\${name}\";
+              isExcluded = builtins.any
+                (p: fullName == p || lib.hasPrefix \"\${p}.\" fullName)
+                excludes;
+            in
+              !isExcluded;
+
+          rootOptions = lib.attrByPath (lib.splitString \".\" optPath)
+            (throw \"Option path '\${optPath}' not found in flake options\")
+            optionsRoot;
+
+          filtered = lib.filterAttrs keepName rootOptions;
+
           doc = pkgs.nixosOptionsDoc {
-            options = cfg.options.${opt_path};
+            options = filtered;
             warningsAreErrors = false;
           };
         in
@@ -167,7 +210,6 @@ if [[ -n "$OPTIONAL_ARG2" ]]; then
   files+=("$HOOKS_DIR/service.json")
 fi
 
-# echo undocumented options and examples.
 for f in "${files[@]}"; do
   jq -r --arg f "$(basename "$f")" '
     def undoc:
