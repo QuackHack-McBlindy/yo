@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.12] - 2026-11-06
+
+### Added
+
 - Added basic flake checks.
 - CI now builds and updates the option documentation.
 
@@ -21,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ### Removed
-
 
 ## [0.2.11] - 2026-10-31
 
