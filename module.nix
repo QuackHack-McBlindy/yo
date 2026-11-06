@@ -795,10 +795,7 @@ let
                 width=$(tput cols 2>/dev/null || echo 100)
                 help_footer=$(${script.helpFooter}) # Generate help footer
 
-                usage_suffix=""
-                if [[ -n "${toString (script.parameters != [])}" ]]; then
-                  usage_suffix=" [OPTIONS]"
-                fi
+                usage_suffix=${lib.escapeShellArg (lib.optionalString (script.parameters != []) " [OPTIONS]")}
 
                 cat <<EOF | ${pkgs.glow}/bin/glow --width "$width" - # Render as markdown
 # yo ${escapeMD script.name}
@@ -915,7 +912,7 @@ EOF
           ${concatStringsSep "\n" (map (param:
             optionalString (param.values != null && param.type == "string") ''
               if [ -n "''${${sanitizeVarName param.name}:-}" ]; then
-                allowed_values=(${lib.concatMapStringsSep " " (v: "'${lib.escapeShellArg v}'") param.values})
+                allowed_values=(${lib.concatMapStringsSep " " (v: lib.escapeShellArg v) param.values})
                 value_found=false
                 for allowed in "''${allowed_values[@]}"; do
                   if [[ "''${${sanitizeVarName param.name}}" == "$allowed" ]]; then

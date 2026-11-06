@@ -9,9 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added basic flake checks.
+- CI now builds and updates the option documentation.
+
+
 ### Changed
 
 ### Fixed
+
+- Fixed double-quoting issue in values validation when setting an explicit allowed list.
+
 
 ### Removed
 
