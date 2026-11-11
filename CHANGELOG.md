@@ -13,10 +13,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Removed
+
+
+## [0.2.13] - 2026-11-11
+
+### Added
+
+### Changed
+
+### Fixed
+
 - Removed a redundant and broken phrase counter.
 
 ### Removed
-
 
 ## [0.2.12] - 2026-11-06
 
