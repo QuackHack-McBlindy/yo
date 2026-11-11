@@ -1,7 +1,7 @@
 {
   "yo.fuzzy": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -17,7 +17,7 @@
   },
   "yo.fuzzy.conflict": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -34,7 +34,7 @@
   },
   "yo.fuzzy.conflict.detection": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -52,7 +52,7 @@
   },
   "yo.fuzzy.conflict.threshold": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -70,7 +70,7 @@
   },
   "yo.fuzzy.enable": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -87,7 +87,7 @@
   },
   "yo.fuzzy.threshold": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -104,7 +104,7 @@
   },
   "yo.generatedPatterns": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Number of regex patterns generated at build time",
     "loc": [
@@ -116,7 +116,7 @@
   },
   "yo.legacy": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -132,7 +132,7 @@
   },
   "yo.pkgs": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "The final yo scripts package",
     "loc": [
@@ -144,7 +144,7 @@
   },
   "yo.scripts": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -160,7 +160,7 @@
   },
   "yo.scripts.<name>.aliases": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -182,7 +182,7 @@
   },
   "yo.scripts.<name>.autoStart": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -204,7 +204,7 @@
   },
   "yo.scripts.<name>.binary": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -226,7 +226,7 @@
   },
   "yo.scripts.<name>.category": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -248,7 +248,7 @@
   },
   "yo.scripts.<name>.code": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -270,7 +270,7 @@
   },
   "yo.scripts.<name>.description": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -292,7 +292,7 @@
   },
   "yo.scripts.<name>.filePath": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "This option has no description.",
     "loc": [
@@ -306,7 +306,7 @@
   },
   "yo.scripts.<name>.helpFooter": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -328,7 +328,7 @@
   },
   "yo.scripts.<name>.logLevel": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -350,7 +350,7 @@
   },
   "yo.scripts.<name>.parameters": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -372,7 +372,7 @@
   },
   "yo.scripts.<name>.parameters.*.default": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -392,7 +392,7 @@
   },
   "yo.scripts.<name>.parameters.*.description": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Human-readable explanation of the parameter, shown in `--help`.",
     "loc": [
@@ -408,7 +408,7 @@
   },
   "yo.scripts.<name>.parameters.*.name": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Name of the parameter as passed to the script (example, if parameter name is `seconds` it can be used in the script using `$seconds`).",
     "loc": [
@@ -424,7 +424,7 @@
   },
   "yo.scripts.<name>.parameters.*.optional": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -444,7 +444,7 @@
   },
   "yo.scripts.<name>.parameters.*.type": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -464,7 +464,7 @@
   },
   "yo.scripts.<name>.parameters.*.values": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -488,7 +488,7 @@
   },
   "yo.scripts.<name>.runAt": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -510,7 +510,7 @@
   },
   "yo.scripts.<name>.runEvery": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -528,7 +528,7 @@
   },
   "yo.scripts.<name>.visibleInReadme": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -546,7 +546,7 @@
   },
   "yo.scripts.<name>.voice": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -564,7 +564,7 @@
   },
   "yo.scripts.<name>.voice.enabled": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -583,7 +583,7 @@
   },
   "yo.scripts.<name>.voice.excludes_context": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -602,7 +602,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -621,7 +621,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy.enable": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -641,7 +641,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy.threshold": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -661,7 +661,7 @@
   },
   "yo.scripts.<name>.voice.lists": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -684,7 +684,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -709,7 +709,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.from": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Starting value of the range (inclusive).",
     "loc": [
@@ -727,7 +727,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.multiplier": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -749,7 +749,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.to": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Ending value of the range (inclusive).",
     "loc": [
@@ -767,7 +767,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.type": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -789,7 +789,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -814,7 +814,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values.*.\"in\"": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Input pattern. Can contain alternatives separated by `|`.",
     "loc": [
@@ -833,7 +833,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values.*.out": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Output value assigned to the parameter when the input pattern matches.",
     "loc": [
@@ -852,7 +852,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.wildcard": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -873,7 +873,7 @@
   },
   "yo.scripts.<name>.voice.priority": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -896,7 +896,7 @@
   },
   "yo.scripts.<name>.voice.requires_context": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -915,7 +915,7 @@
   },
   "yo.scripts.<name>.voice.sentences": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -938,7 +938,7 @@
   },
   "yo.scripts.<name>.voice.sentences.*.phrase": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Sentence pattern. Supports alternatives `(a|b)`, optionals `[word]`,\nand parameter references `{name}`.\n",
     "loc": [
@@ -955,7 +955,7 @@
   },
   "yo.scripts.<name>.voice.sentences.*.prefix": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -976,7 +976,7 @@
   },
   "yo.scripts.<name>.voice.speak": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -995,7 +995,7 @@
   },
   "yo.sorryPhrases": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -1011,7 +1011,7 @@
   },
   "yo.splitWords": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -1031,7 +1031,7 @@
   },
   "yo.understandsPhrases": {
     "declarations": [
-      "/nix/store/758s3yavvnsqx5fkzskaw3c0srsjszxn-source/options.nix"
+      "/nix/store/zyfbmagxinjkcdfmdybdwsz1i9fxqdah-source/options.nix"
     ],
     "description": "Theoretical number of unique spoken phrases the system can understand",
     "loc": [

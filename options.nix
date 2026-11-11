@@ -319,8 +319,7 @@
       );
       voicePatterns = lib.mkDefault (countGeneratedPatterns config);
       voicePhrases  = lib.mkDefault (countUnderstoodPhrases config);
-      voiceRatio = if config.voicePatterns == 0 then 0.0
-                     else (builtins.toFloat config.voicePhrases) / (builtins.toFloat config.voicePatterns);
+
     };
   });
 
