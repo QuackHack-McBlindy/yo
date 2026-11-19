@@ -23,7 +23,7 @@ let
   cfg = config.yo;
 
   yoVersion = self.packages.${pkgs.system}.yo-rs.version;
-  scripts = cfg.scripts;
+  scripts = lib.filterAttrs (_: script: script.enable or true) cfg.scripts;
   scriptNames = builtins.attrNames scripts;
   scriptNamesWithIntents = builtins.filter (scriptName:
     let
@@ -36,7 +36,7 @@ let
 
   scriptsWithVoice = lib.filterAttrs (_: script:
     script.voice != null && (script.voice.enabled or true)
-  ) config.yo.scripts;
+  ) scripts;
 
   generatedIntents = lib.mapAttrs (name: script: {
     priority = script.voice.priority or 3;
@@ -251,7 +251,7 @@ let
           # 🦆 says ⮞ include the lists data for wildcard detection
           lists = lib.foldl (acc: d: acc // (d.lists or {})) {} intentList.data;
           # 🦆 says ⮞ tts output
-          speak = cfg.scripts.${_scriptName}.voice.speak or false;
+          speak = scripts.${_scriptName}.voice.speak or false;
         in {
           inherit substitutions;
           sentences = expandedSentences;
@@ -313,8 +313,8 @@ let
   scriptsWithFuzzy = lib.filterAttrs (_: script:
     script.voice != null &&
     (script.voice.enabled or true) &&
-    (script.voice.fuzzy.enable or true)  # 🦆 Must explicitly allow fuzzy
-  ) config.yo.scripts;
+    (script.voice.fuzzy.enable or true)
+  ) scripts;
 
   splitWordsFile = pkgs.writeText "split-words.json" (builtins.toJSON config.yo.splitWords);
   sorryPhrasesFile = pkgs.writeText "sorry-phrases.json" (builtins.toJSON config.yo.sorryPhrases);
@@ -357,7 +357,7 @@ let
   failingScripts = lib.filter (script:
     ! ( (script.binary == null && (script.code != null && script.code != "")) ||
         (script.binary != null && (script.code == null || script.code == "")) )
-  ) (lib.attrValues cfg.scripts);
+  ) (lib.attrValues scripts);
 
   # 🦆 says ⮞ conflict detection - no bad voice intentz quack!
   assertionCheckForConflictingSentences = let
@@ -478,9 +478,10 @@ let
   # 🦆 says ⮞ category based helper with actual names instead of {param}
   voiceSentencesHelpFile = pkgs.writeText "voice-sentences-help.md" (
     let
-      scriptsWithVoice = lib.filterAttrs (_: script:
-        script.voice != null && script.voice.sentences != [] && (script.voice.enabled or true)
-      ) config.yo.scripts;
+    scriptsWithVoice = lib.filterAttrs (_: script:
+      script.voice != null && script.voice.sentences != [] &&
+      (script.voice.enabled or true)
+    ) scripts;
 
       # 🦆 says ⮞ replace {param} with actual values from voice lists
       replaceParamsWithValues = sentence: voiceData:
@@ -570,37 +571,6 @@ let
   # 🦆 duck say ⮞ comma sep list of your hosts
   sysHostsComma = builtins.concatStringsSep "," sysHosts;
 
-  # 🦆 duck say ⮞ validate time format - HH:MM (24h)
-  isValidTime = timeStr:
-    let
-      matches = builtins.match "([0-9]{1,2}):([0-9]{2})" timeStr;
-    in
-      if matches != null then
-        let
-          hourStr = builtins.elemAt matches 0;
-          minuteStr = builtins.elemAt matches 1;
-          # 🦆 duck say ⮞ remove leading zeros for JSON parsin'
-          cleanNumber = str:
-            if builtins.substring 0 1 str == "0" && builtins.stringLength str > 1
-            then builtins.substring 1 (builtins.stringLength str) str
-            else str;
-          hour = builtins.fromJSON (cleanNumber hourStr);
-          minute = builtins.fromJSON (cleanNumber minuteStr);
-        in
-          hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59
-      else false;
-
-  # 🦆 duck say ⮞ validate list of timez
-  validateTimes = times:
-    if times == null then null
-    else
-      let
-        invalidTimes = lib.filter (time: !isValidTime time) times;
-      in
-        if invalidTimes != [] then
-          throw "🦆 duck say ⮞ fuck ❌ Invalid time format in runAt: ${lib.concatStringsSep ", " invalidTimes}. Use HH:MM (24-hour format)"
-        else times;
-
   # 🦆 duck say ⮞ expoort param into shell script
   yoEnvGenVar = script: let
     withDefaults = builtins.filter (p: p.default != null) script.parameters;
@@ -621,9 +591,9 @@ let
   terminalScriptsTableFile = pkgs.writeText "yo-helptext.md" terminalScriptsTableWithHeader;
   # 🦆 duck say ⮞ markdown help text
   terminalScriptsTable = let # 🦆 duck say ⮞ categorize scripts
-    groupedScripts = lib.groupBy (script: script.category) (lib.attrValues cfg.scripts);
+    groupedScripts = lib.groupBy (script: script.category) (lib.attrValues scripts);
     # 🦆 duck say ⮞ sort da scriptz by category
-    visibleScripts2 = lib.filterAttrs (_: script: script.visibleInReadme) cfg.scripts;
+    visibleScripts2 = lib.filterAttrs (_: script: script.visibleInReadme) scripts;
     groupedScripts2 = lib.groupBy (script: script.category) (lib.attrValues visibleScripts2);
     sortedCategories2 = lib.sort (a: b:
       # 🦆 duck say ⮞ system management goes first yo
@@ -992,7 +962,7 @@ EOF
             ln -s ${mainScript}/bin/yo-${script.name} $out/bin/yo-${alias}
           '') script.aliases}
         ''
-    ) cfg.scripts;
+    ) scripts;
   };
 
   yo-rs-with-models = config.services.yo-rs.package.override { language = config.services.yo-rs.server.language; model = config.services.yo-rs.server.whisper; };
@@ -1067,7 +1037,7 @@ EOF
       local commands=""
       ${lib.concatMapStrings (script:
         ''commands+=" ${script.name} ${lib.concatStringsSep " " script.aliases}" ''
-      ) (lib.attrValues cfg.scripts)}
+      ) (lib.attrValues scripts)}
       COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
     }
     complete -F _yo_completion yo
@@ -1084,8 +1054,8 @@ in {
       yo.pkgs = yoScriptsPackage;
 
       # Global counters
-      yo.generatedPatterns = countTotalGeneratedPatterns cfg.scripts;
-      yo.understandsPhrases = countTotalUnderstoodPhrases cfg.scripts;
+      yo.generatedPatterns = countTotalGeneratedPatterns scripts;
+      yo.understandsPhrases = countTotalUnderstoodPhrases scripts;
 
 
       # Generate configuration files in /etc/yo

@@ -108,12 +108,14 @@ in {
     port = mkOption {
       type = types.port;
       default = 12345;
+      example = 11223;
       description = "Listening port for yo.";
     };
 
     openFirewall = mkOption {
       type = types.bool;
       default = false;
+      example = true;
       description = "Wether to open the firewall for the configured port.";
     };
 
@@ -123,123 +125,142 @@ in {
       host = mkOption {
         type = types.str;
         default = "0.0.0.0:${toString cfg.port}";
+        example = "0.0.0.0:12345";
         description = "Listening address and port for the server.";
       };
 
       awakeSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/ding.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/ding.wav";
         description = "Path to a custom WAV file played on wake detection.";
       };
 
       doneSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/done.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/done.wav";
         description = "Path to a custom WAV file played on successful command execution.";
       };
 
       failSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/fail.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/fail.wav";
         description = "Path to a custom WAV file played on successful command execution.";
       };
 
       wakeWordPath = mkOption {
         type = types.nullOr types.path;
         default = null;
+        example = null;
         description = "Path to the wake‑word ONNX model.";
       };
 
       threshold = mkOption {
         type = types.float;
         default = 0.5;
+        example = 0.8;
         description = "Detection threshold (0.0–1.0).";
       };
 
       whisper = mkOption {
         type = types.enum [ "tiny" "base" "small" "medium" "large" ];
         default = "base";
+        example = "medium";
         description = "Speech to text Whisper GGML model size.";
       };
       whisperPath = mkOption {
         type = types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/stt/ggml-" + cfg.server.whisper + ".bin";
+        example = "${yo-rs-with-models}/share/yo-rs/models/stt/ggml-" + cfg.server.whisper + ".bin";
         description = "Path to the Whisper GGML model.";
       };
 
       shellTranslate = mkOption {
         type = types.bool;
         default = false;
+        example = true;
         description = "Translate the transcription to shell command and execute.";
       };
 
       beamSize = mkOption {
         type = types.int;
         default = 0;
+        example = 5;
         description = "Beam size for Whisper (0 = greedy).";
       };
 
       temperature = mkOption {
         type = types.float;
         default = 0.2;
+        example = 1.0;
         description = "Whisper sampling temperature.";
       };
 
       language = mkOption {
         type = types.enum (lib.attrNames languageToVoice);
         default = "english";
+        example = "swedish";
         description = "Language to use for transcription and text-to-speech";
       };
 
       threads = mkOption {
         type = types.int;
         default = 4;
+        example = 8;
         description = "Number of threads for Whisper inference.";
       };
 
       execCommand = mkOption {
         type = types.nullOr types.str;
         default = null;
+        example = "yo-do";
         description = ''
           Command to execute with the transcribed text as the final argument.
           The command is run with the same environment as the server.
-          Example: `"yo do"`.
         '';
       };
 
       vadPath = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/vad/silero_vad.onnx";
+        example = "${yo-rs-with-models}/share/yo-rs/models/vad/silero_vad.onnx";
         description = "Voice Activation Detection ONNX model path.";
       };
 
       onnxPath = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/models/tts/${selectedVoice}.onnx";
+        example = "${yo-rs-with-models}/share/yo-rs/models/tts/${selectedVoice}.onnx";
         description = "Path to the text-to-speech ONNX model.";
       };
 
       ttsSavePath = mkOption {
         type = types.nullOr types.path;
         default = null;
+        example = null;
         description = "Location to save the text-to-speech audio as a wav file (optional).";
       };
 
       ttsSpeed = mkOption {
         type = types.str;
         default = "1.0";
+        example = "0.7";
         description = "Length scale used when synthesizing text-to-speech audio. This controls the speech speed.";
       };
 
       debug = mkOption {
         type = types.bool;
         default = false;
+        example = true;
         description = "Enable debug logging (prints probabilities, timings).";
       };
 
       logFile = mkOption {
         type = types.nullOr types.path;
         default = null;
+        example = "~/log.txt";
         description = ''
           Path to a custom log file path.
           Use absolute path.
@@ -270,12 +291,14 @@ in {
       uri = mkOption {
         type = types.str;
         default = "127.0.0.1:12345";
+        example = "192.168.1.111:12345";
         description = "Server address to connect to.";
       };
 
       room = mkOption {
         type = types.nullOr types.str;
         default = null;
+        example = "livingroom";
         description = ''
           Optional room identifier sent to the server. Used for context/memory for the shell translator.
           Passed to `yo do` as `--room <value>` (only when `shellTranslate` is enabled).
@@ -285,6 +308,7 @@ in {
       gain = mkOption {
         type = types.float;
         default = 1.0;
+        example = 2.0;
         description = ''
           Microphone gain multiplier applied server-side for this client.
           Sent to the server as part of the room handshake.
@@ -295,24 +319,28 @@ in {
       awakeSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/ding.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/ding.wav";
         description = "Path to a custom WAV file played on wake detection (client‑side).";
       };
 
       doneSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/done.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/done.wav";
         description = "Path to a custom WAV file played on successful command execution (client‑side).";
       };
 
       failSound = mkOption {
         type = types.nullOr types.path;
         default = "${yo-rs-with-models}/share/yo-rs/fail.wav";
+        example = "${yo-rs-with-models}/share/yo-rs/fail.wav";
         description = "Path to a custom WAV file played on successful command execution (client‑side).";
       };
 
       awakeCmd = mkOption {
         type = types.nullOr types.str;
         default = null;
+        example = "echo 'hello world'";
         description = ''
           Command to execute on the client when wake word is detected.
           The command is run in a background thread; output is logged.
@@ -322,6 +350,7 @@ in {
       doneCmd = mkOption {
         type = types.nullOr types.str;
         default = null;
+        example = "echo 'hello world'";
         description = ''
           Command to execute on the client after a successful voice command.
           The command is run in a background thread; output is logged.
@@ -331,6 +360,7 @@ in {
       failCmd = mkOption {
         type = types.nullOr types.str;
         default = null;
+        example = "echo 'hello world'";
         description = ''
           Command to execute if a voice command execution has failed.
           The command is run in a background thread; output is logged.
@@ -340,24 +370,28 @@ in {
       silenceThreshold = mkOption {
         type = types.float;
         default = 0.005;
+        example = 0.01;
         description = "RMS threshold below which audio is considered silence.";
       };
 
       silenceTimeout = mkOption {
         type = types.float;
         default = 1.0;
+        example = 2.0;
         description = "Seconds of silence before stopping recording.";
       };
 
       maxDuration = mkOption {
         type = types.float;
         default = 5.0;
+        example = 7.0;
         description = "Maximum recording length (fallback).";
       };
 
       ttsClients = mkOption {
         type = types.listOf types.str;
         default = [ ];
+        example = [ "192.168.1.111" "192.168.1.123" ];
         description = "optional list of hardcoded client IP addresses for text-to-spech streams.";
       };
 
@@ -370,6 +404,7 @@ in {
       logFile = mkOption {
         type = types.nullOr types.path;
         default = null;
+        example = null;
         description = ''
           Path to a custom log file path.
           Use absolute path.
@@ -379,6 +414,7 @@ in {
       debug = mkOption {
         type = types.bool;
         default = false;
+        example = true;
         description = "Print RMS values during recording.";
       };
 

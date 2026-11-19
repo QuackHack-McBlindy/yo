@@ -17,6 +17,23 @@
         default = name;
         description = "Script name derived from attribute key";
       };
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = true;
+        example = false;
+        description = ''
+          Whether this script is enabled.
+
+          When `false` the script is **completely removed** from the build:
+          - no `yo-<name>` / alias wrappers are generated
+          - it is not listed in `yo --help` or bash completion
+          - no voice intent, regex matcher, fuzzy-index entry, or
+            entity-substitution data is generated
+          - no `autoStart` / `runAt` / `runEvery` systemd units are created
+          - it is skipped by all build-time assertions (alias conflicts,
+            parameter validation, fuzzy duplicate detection, …)
+        '';
+      };
       description = lib.mkOption {
         type = lib.types.str;
         default = "";
@@ -109,6 +126,8 @@
         default = 0.0;
         description = "Ratio of `voicePhrases` to `voicePatterns`. Indicates combinatorial expansion; higher values mean more phrases per pattern.";
       };
+
+
       parameters = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {

@@ -1,17 +1,7 @@
 #!/usr/bin/env python3
 """Convert nixosOptionsDoc options.json + service.json to beginner-friendly static Wiki HTML.
 
-Reads hooks/options.json and hooks/service.json (either may be absent, but at
-least one must exist), merges them, and writes docs/index.html.
-Optionally bundles a Screenshots/ directory into docs/screenshots/ and
-renders them as a gallery.
-
-Project metadata (name, URLs, description) and all input/output paths are
-loaded from ``project.toml`` at the project root. A copy next to the script
-is used as a fallback. If no TOML file exists, built-in defaults are used.
-
-Usage (typically from the project root)::
-
+Usage
     python3 hooks/build-docs.py
     python3 hooks/build-docs.py --config other.toml
 """
