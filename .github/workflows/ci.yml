@@ -77,7 +77,7 @@ jobs:
           fail-mode: true
 
       - name: Build flake
-        run: nix flake check --all-systems
+        run: nix flake check
 
       - name: Generate options/service JSON
         run: bash hooks/get-options.sh
