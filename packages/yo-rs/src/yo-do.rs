@@ -955,12 +955,12 @@ impl YoDo {
         matrix[a_len][b_len]
     }
 
-    fn find_best_fuzzy_match(&self, text: &str) -> Option<(String, String, String, i32)> {
+
+
+    fn score_fuzzy_candidates(&self, text: &str) -> Vec<(String, String, String, i32)> {
         use rayon::prelude::*;
         let normalized_input = text.to_lowercase();
-        dt_debug(&format!("Fuzzy matching against {} entries", self.fuzzy_index.len()));
-
-        self.fuzzy_index
+        let mut scored: Vec<(String, String, String, i32)> = self.fuzzy_index
             .par_iter()
             .filter(|entry| entry.fuzzy_enabled)
             .filter_map(|entry| {
@@ -971,23 +971,38 @@ impl YoDo {
                 let score = 100 - (distance * 100 / max_len) as i32;
                 let threshold = (entry.fuzzy_threshold * 100.0) as i32;
                 if score >= threshold {
-                    Some((
-                        entry.script.clone(),
-                        entry.sentence.clone(),
-                        entry.prefix.clone(),
-                        score,
-                    ))
-                } else { None }
+                    Some((entry.script.clone(), entry.sentence.clone(), entry.prefix.clone(), score))
+                } else {
+                    None
+                }
             })
-            .max_by_key(|&(_, _, _, score)| score)
+            .collect();
+        scored.sort_by(|a, b| b.3.cmp(&a.3));
+        scored
     }
 
-    fn fuzzy_match(&self, text: &str) -> Option<MatchResult> {
+    fn fuzzy_match(&self, text: &str)
+        -> (Option<MatchResult>, Vec<(String, String, i32)>)
+    {
         dt_debug(&format!("Starting FUZZY match for: '{}'", text));
-        let (script_name, _sentence, prefix, score) = self.find_best_fuzzy_match(text)?;
+        let scored = self.score_fuzzy_candidates(text);
+        let display: Vec<(String, String, i32)> = scored.iter()
+            .map(|(s, sent, _, sc)| (s.clone(), sent.clone(), *sc))
+            .collect();
+
+        let Some((script_name, _sentence, prefix, score)) = scored.first() else {
+            return (None, display);
+        };
+        let script_name = script_name.clone();
+        let prefix = prefix.clone();
+        let score = *score;
+
         dt_info(&format!("Fuzzy match: {} (score: {}%)", script_name, score));
+
         let input_words: Vec<String> = text.split_whitespace().map(|s| s.to_string()).collect();
-        let intent = self.intent_data.get(&script_name)?;
+        let Some(intent) = self.intent_data.get(&script_name) else {
+            return (None, display);
+        };
 
         for sentence in &intent.sentences {
             for pattern_str in self.expand_optional_words(&sentence.phrase) {
@@ -1026,25 +1041,30 @@ impl YoDo {
                 }
 
                 if valid {
-                    return Some(MatchResult {
-                        script_name,
+                    return (Some(MatchResult {
+                        script_name: script_name.clone(),
                         args,
                         matched_sentence: text.to_string(),
                         processing_time: std::time::Duration::default(),
                         match_type: "fuzzy".to_string(),
-                    });
+                    }), display);
                 }
             }
         }
 
-        Some(MatchResult {
+        (Some(MatchResult {
             script_name,
             args: Vec::new(),
             matched_sentence: text.to_string(),
             processing_time: std::time::Duration::default(),
             match_type: "fuzzy".to_string(),
-        })
+        }), display)
     }
+
+
+
+
+
 
     fn update_memory_context(&self, script_name: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         if self.preview { return Ok(()); }
@@ -1231,29 +1251,17 @@ impl YoDo {
     }
 
 
-    fn process_single_input(&self, input: &str, total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn process_single_input(&self, input: &str, _total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
         let normalized = Self::normalize_input(input);
 
-        let fuzzy_candidates: Vec<(String, String, i32)> = self.fuzzy_index.iter()
-            .filter(|entry| entry.fuzzy_enabled)
-            .filter_map(|entry| {
-                let normalized_input = input.to_lowercase();
-                let normalized_sentence = entry.sentence.to_lowercase();
-                let distance = self.levenshtein_distance(&normalized_input, &normalized_sentence);
-                let max_len = normalized_input.len().max(normalized_sentence.len());
-                if max_len == 0 { return None; }
-                let score = 100 - (distance * 100 / max_len) as i32;
-                let threshold = (entry.fuzzy_threshold * 100.0) as i32;
-                if score >= threshold {
-                    Some((entry.script.clone(), entry.sentence.clone(), score))
-                } else {
-                    None
-                }
-            })
-            .collect();
-
         if race {
+            #[derive(Debug)]
+            enum RaceResult {
+                Match(MatchResult),
+                NoMatch(Vec<(String, String, i32)>),
+            }
+
             let (tx, rx) = std::sync::mpsc::channel();
             let tx_exact = tx.clone();
             let tx_fuzzy = tx;
@@ -1262,85 +1270,95 @@ impl YoDo {
             let normalized_clone = normalized.clone();
             let exact_handle = std::thread::spawn(move || {
                 if let Some(m) = self_clone.exact_match(&normalized_clone) {
-                    let _ = tx_exact.send(m);
+                    let _ = tx_exact.send(RaceResult::Match(m));
                 }
             });
 
             let self_clone = self.clone();
             let normalized_clone = normalized.clone();
             let fuzzy_handle = std::thread::spawn(move || {
-                if let Some(m) = self_clone.fuzzy_match(&normalized_clone) {
-                    let _ = tx_fuzzy.send(m);
-                }
+                let (m, scores) = self_clone.fuzzy_match(&normalized_clone);
+                let msg = match m {
+                    Some(m) => RaceResult::Match(m),
+                    None => RaceResult::NoMatch(scores),
+                };
+                let _ = tx_fuzzy.send(msg);
             });
 
-            match rx.recv() {
-                Ok(match_result) => {
-                    let part_elapsed = part_start.elapsed();
-                    let _ = self.log_intent_time(part_elapsed.as_millis());
-                    dt_info(&format!("Match found ({}): {}", match_result.match_type, match_result.script_name));
-                    let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
-                    let final_result = MatchResult {
-                        script_name: match_result.script_name,
-                        args: match_result.args,
-                        matched_sentence: match_result.matched_sentence,
-                        processing_time: part_elapsed,
-                        match_type: match_result.match_type,
-                    };
-                    let _ = exact_handle.join();
-                    let _ = fuzzy_handle.join();
-                    self.execute_script(&final_result)?;
-                    return Ok(());
-                }
-                Err(_) => {
-                    let _ = exact_handle.join();
-                    let _ = fuzzy_handle.join();
+            let mut winner: Option<MatchResult> = None;
+            let mut scores: Vec<(String, String, i32)> = Vec::new();
+            for _ in 0..2 {
+                match rx.recv() {
+                    Ok(RaceResult::Match(m)) => { winner = Some(m); break; }
+                    Ok(RaceResult::NoMatch(s)) => { scores = s; }
+                    Err(_) => break,
                 }
             }
-        } else {
-            let yo_do_clone = self.clone();
-            let normalized_clone = normalized.clone();
-            let (fuzzy_tx, fuzzy_rx) = std::sync::mpsc::channel();
-            let fuzzy_handle = std::thread::spawn(move || {
-                let result = yo_do_clone.fuzzy_match(&normalized_clone);
-                let _ = fuzzy_tx.send(result);
-            });
+            let _ = exact_handle.join();
+            let _ = fuzzy_handle.join();
 
-            if let Some(match_result) = self.exact_match(&normalized) {
+            if let Some(match_result) = winner {
                 let part_elapsed = part_start.elapsed();
                 let _ = self.log_intent_time(part_elapsed.as_millis());
-                dt_debug(&format!("Exact match found: {}", match_result.script_name));
+                dt_info(&format!("Match found ({}): {}", match_result.match_type, match_result.script_name));
                 let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
                 let final_result = MatchResult {
                     script_name: match_result.script_name,
                     args: match_result.args,
                     matched_sentence: match_result.matched_sentence,
                     processing_time: part_elapsed,
-                    match_type: "exact".to_string(),
+                    match_type: match_result.match_type,
                 };
-                let _ = fuzzy_handle.join();
                 self.execute_script(&final_result)?;
                 return Ok(());
             }
 
-            if let Ok(Some(match_result)) = fuzzy_rx.recv() {
-                let part_elapsed = part_start.elapsed();
-                let _ = self.log_intent_time(part_elapsed.as_millis());
-                dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
-                let final_result = MatchResult {
-                    script_name: match_result.script_name,
-                    args: match_result.args,
-                    matched_sentence: match_result.matched_sentence,
-                    processing_time: part_elapsed,
-                    match_type: "fuzzy".to_string(),
-                };
-                let _ = self.log_successful_command(&final_result.script_name, &final_result.args, final_result.processing_time);
-                let _ = fuzzy_handle.join();
-                self.execute_script(&final_result)?;
-                return Ok(());
-            }
+            return self.report_no_match(input, &scores, part_start);
         }
 
+        // NON-RACE: exact first; fuzzy only if exact fails
+        if let Some(match_result) = self.exact_match(&normalized) {
+            let part_elapsed = part_start.elapsed();
+            let _ = self.log_intent_time(part_elapsed.as_millis());
+            dt_debug(&format!("Exact match found: {}", match_result.script_name));
+            let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
+            let final_result = MatchResult {
+                script_name: match_result.script_name,
+                args: match_result.args,
+                matched_sentence: match_result.matched_sentence,
+                processing_time: part_elapsed,
+                match_type: "exact".to_string(),
+            };
+            self.execute_script(&final_result)?;
+            return Ok(());
+        }
+
+        let (fuzzy_result, fuzzy_scores) = self.fuzzy_match(&normalized);
+        if let Some(match_result) = fuzzy_result {
+            let part_elapsed = part_start.elapsed();
+            let _ = self.log_intent_time(part_elapsed.as_millis());
+            dt_info(&format!("Fuzzy match found: {}", match_result.script_name));
+            let _ = self.log_successful_command(&match_result.script_name, &match_result.args, part_elapsed);
+            let final_result = MatchResult {
+                script_name: match_result.script_name,
+                args: match_result.args,
+                matched_sentence: match_result.matched_sentence,
+                processing_time: part_elapsed,
+                match_type: "fuzzy".to_string(),
+            };
+            self.execute_script(&final_result)?;
+            return Ok(());
+        }
+
+        self.report_no_match(input, &fuzzy_scores, part_start)
+    }
+
+    fn report_no_match(
+        &self,
+        input: &str,
+        fuzzy_candidates: &[(String, String, i32)],
+        part_start: Instant,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let part_elapsed = part_start.elapsed();
         println!("   ┌─(yo-do)");
         println!("   │ 🦆 qwack! {}", input);
@@ -1351,7 +1369,6 @@ impl YoDo {
                 .filter(|(_, _, score)| *score >= 50)
                 .take(3)
                 .collect();
-
             for (script, sentence, score) in top_candidates {
                 println!("   │   {}%: '{}' -> yo {}", score, sentence, script);
             }
@@ -1363,7 +1380,7 @@ impl YoDo {
         }
 
         dt_debug("No match found for part, logging statistics...");
-        let _ = self.log_failed_command(input, &fuzzy_candidates);
+        let _ = self.log_failed_command(input, fuzzy_candidates);
         Err("No match found for this part".into())
     }
 
@@ -1741,7 +1758,8 @@ mod tests {
     #[test]
     fn test_fuzzy_match_typo() {
         let yodo = create_test_yodo();
-        let result = yodo.fuzzy_match("set a timr for 5 minuts and 30 secnds").unwrap();
+        let (result, _scores) = yodo.fuzzy_match("set a timr for 5 minuts and 30 secnds");
+        let result = result.unwrap();
         assert_eq!(result.script_name, "timer");
         assert!(result.args.contains(&"--minutes".to_string()));
         assert!(result.args.contains(&"--seconds".to_string()));
@@ -1750,25 +1768,25 @@ mod tests {
     #[test]
     fn test_fuzzy_match_distinguishes_timer_reminder() {
         let yodo = create_test_yodo();
-        let result = yodo.fuzzy_match("set a remindr for 8am to buy milk").unwrap();
-        assert_eq!(result.script_name, "reminder");
+        let (result, _) = yodo.fuzzy_match("set a remindr for 8am to buy milk");
+        assert_eq!(result.unwrap().script_name, "reminder");
     }
 
     #[test]
     fn test_fuzzy_match_threshold() {
         let mut yodo = create_test_yodo();
         yodo.fuzzy_index[0].fuzzy_threshold = 0.99;
-        assert!(yodo.fuzzy_match("completely unrelated sentence").is_none());
+        let (result, _) = yodo.fuzzy_match("completely unrelated sentence");
+        assert!(result.is_none());
     }
 
     #[test]
-    fn test_find_best_fuzzy_match() {
+    fn test_score_fuzzy_candidates() {
         let yodo = create_test_yodo();
-        let best = yodo.find_best_fuzzy_match("set a timr for 5 minuts and 30 secnds");
-        assert!(best.is_some());
-        let (script, _sentence, _prefix, score) = best.unwrap();
-        assert_eq!(script, "timer");
-        assert!(score >= 70);
+        let scored = yodo.score_fuzzy_candidates("set a timr for 5 minuts and 30 secnds");
+        assert!(!scored.is_empty());
+        assert_eq!(scored[0].0, "timer");
+        assert!(scored[0].3 >= 70);
     }
 
     #[test]
@@ -1857,10 +1875,12 @@ mod tests {
         assert!(result.args.contains(&"08:00".to_string()));
     }
 
+
     #[test]
     fn test_fuzzy_match_prepends_prefix() {
         let yodo = create_test_yodo();
-        let result = yodo.fuzzy_match("set a remindr for 8am to buy milk").unwrap();
+        let (result, _) = yodo.fuzzy_match("set a remindr for 8am to buy milk");
+        let result = result.unwrap();
         assert_eq!(result.script_name, "reminder");
         assert_eq!(result.args.first(), Some(&"reminder".to_string()));
     }
@@ -1871,11 +1891,14 @@ mod tests {
         assert!(yodo.exact_match("").is_none());
     }
 
+
     #[test]
     fn test_empty_input_fuzzy_match() {
         let yodo = create_test_yodo();
-        assert!(yodo.fuzzy_match("").is_none());
+        let (result, _) = yodo.fuzzy_match("");
+        assert!(result.is_none());
     }
+
 
     #[test]
     fn test_no_patterns_compiled() {
@@ -1884,6 +1907,7 @@ mod tests {
         yodo.precompile_patterns();
         yodo.calculate_processing_order();
         assert!(yodo.exact_match("anything").is_none());
-        assert!(yodo.fuzzy_match("anything").is_none());
+        let (result, _) = yodo.fuzzy_match("anything");
+        assert!(result.is_none());
     }
 }

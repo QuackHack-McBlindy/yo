@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added option: `yo.scripts.<name>.enable` - set to `false` to effectively disable the script entirely.
+
+### Changed
+
+### Fixed
+
+- Fixed the timer on `yo-do` for mathing intent, now properly aligned.
+
+### Removed
+
+- Removed docs job from CI.
+
+## [0.2.13] - 2026-11-11
+
+### Added
+
 ### Changed
 
 ### Fixed
