@@ -4,41 +4,19 @@
 
 name: CI
 
-# dev
-#  │
-#  │ push
-#  ▼
-# BUILD ────────────────► CI only
-#  │
-#  │
-#  │ PR
-#  ▼
-# main
-#  │
-#  │ merge dev --> main
-#  ▼
-# BUILD
-#  │
-#  ▼
-# RELEASE
-#  │
-#  ├── latest tag: v0.3.0
-#  │
-#  ├── next version: v0.3.1
-#  │
-#  ├── Nix package versions
-#  │        │
-#  │        └── majority MUST be 0.3.1
-#  │
 #  ├── CHANGELOG [Unreleased]
 #  │        │
 #  │        └── promote --> [0.3.1]
 #  │
-#  ├── commit changelog
+#  ├── create changelog commit locally
 #  │
-#  ├── tag v0.3.1
+#  ├── create and push tag v0.3.1
 #  │
-#  ├── GitHub Release v0.3.1
+#  ├── publish GitHub Release v0.3.1
+#  │
+#  ├── verify GitHub Release is published
+#  │
+#  ├── push changelog commit to main
 #  │
 #  ▼
 # sync dev <-- MAIN
@@ -138,21 +116,18 @@ jobs:
         if: steps.merge.outputs.release != 'true'
         run: echo "No release required."
 
+
       - name: Determine and validate next version
         if: steps.merge.outputs.release == 'true'
         id: version
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
+          git fetch origin --tags
+
           latest_tag="$(
-            gh api \
-              --paginate \
-              "/repos/${GITHUB_REPOSITORY}/tags?per_page=100" \
-              --jq '.[].name' |
-              grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' |
-              sed 's/^v//' |
+            git tag --list |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
               sort -V |
               tail -n 1
           )"
@@ -163,7 +138,6 @@ jobs:
             exit 1
           fi
 
-          latest_tag="v${latest_tag}"
           current_version="${latest_tag#v}"
 
           IFS='.' read -r major minor patch <<< "$current_version"
@@ -189,8 +163,6 @@ jobs:
             echo "error: flake exposes no packages for ${system}"
             exit 1
           fi
-
-          echo "Packages for ${system}:"
 
           declare -A version_counts=()
 
@@ -235,112 +207,183 @@ jobs:
 
           if (( majority_count * 2 <= package_count )); then
             echo "error: no package version has a majority"
-            echo "  packages: ${package_count}"
-            echo "  highest count: ${majority_count}"
             exit 1
           fi
 
-          echo "Majority package version: ${majority_version}"
-          echo "Expected release version:  ${expected_version}"
+          echo "Majority package version: $majority_version"
 
-          if [[ "$majority_version" != "$expected_version" ]]; then
-            echo "error: version mismatch"
-            echo "  latest Git tag:        $latest_tag"
-            echo "  expected next version: $expected_version"
-            echo "  majority package:      $majority_version"
-            exit 1
+
+          if [[ "$majority_version" == "$current_version" ]]; then
+
+            if ! git show-ref --verify --quiet "refs/tags/$latest_tag"; then
+              echo "error: package version matches latest tag, but tag is unavailable"
+              exit 1
+            fi
+
+            release_sha=$(git rev-parse "${latest_tag}^{commit}")
+            parent_sha=$(git rev-parse "${release_sha}^")
+
+            if [[ "$parent_sha" != "$GITHUB_SHA" ]]; then
+              echo "error: existing tag does not belong to this merge"
+              echo "tag commit: $release_sha"
+              echo "tag parent: $parent_sha"
+              echo "merge SHA:  $GITHUB_SHA"
+              exit 1
+            fi
+
+
+            echo "Existing tag: $latest_tag"
+            echo "Release commit: $release_sha"
+            echo "Merge commit: $GITHUB_SHA"
+
+            expected_tag="$latest_tag"
+
+          else
+
+
+            if [[ "$majority_version" != "$expected_version" ]]; then
+              echo "error: version mismatch"
+              echo "  latest Git tag:        $latest_tag"
+              echo "  expected next version: $expected_version"
+              echo "  majority package:      $majority_version"
+              exit 1
+            fi
+
+            echo "Normal release validation passed."
+
           fi
 
-          echo "Version validation passed."
-          echo "Release: $expected_tag"
-
+          echo "Release version: $expected_tag"
           echo "version=$expected_tag" >> "$GITHUB_OUTPUT"
 
-      - name: Ensure tag does not already exist
-        if: steps.merge.outputs.release == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          if git show-ref --tags --verify --quiet "refs/tags/$VERSION"; then
-            echo "error: tag $VERSION already exists"
-            exit 1
-          fi
 
-      - name: Fetch dev CHANGELOG and verify [Unreleased]
-        if: steps.merge.outputs.release == 'true'
-        env:
-          DEV_SHA: ${{ steps.merge.outputs.head_sha }}
-        run: |
-          set -euo pipefail
-          git show "${DEV_SHA}:CHANGELOG.md" > CHANGELOG.md
-          if ! awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit} f' CHANGELOG.md \
-               | grep -qE '^\s*[-*+]\s'; then
-            echo "error: dev [Unreleased] section is empty; nothing to release"
-            exit 1
-          fi
-
-
-      - name: Promote changelog
-        if: steps.merge.outputs.release == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          python3 hooks/promote-changelog.py "${VERSION#v}"
-
-      - name: Extract release notes
-        if: steps.merge.outputs.release == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          v="${VERSION#v}"
-
-          awk -v v="$v" '
-            $0 ~ "^## \\[" v "\\]" {found=1; next}
-            found && /^## \[/ {exit}
-            found {print}
-          ' CHANGELOG.md > /tmp/notes.md
-
-          test -s /tmp/notes.md \
-            || { echo "error: empty release notes"; exit 1; }
-
-      - name: Commit changelog
-        if: steps.merge.outputs.release == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add CHANGELOG.md
-          git commit -m "chore(release): $VERSION [skip ci]"
-
-          git push origin HEAD:main
-
-      - name: Create and push tag
-        if: steps.merge.outputs.release == 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-
-          git tag -a "$VERSION" -m "$VERSION"
-          git push origin "$VERSION"
-
-      - name: Create GitHub Release
+      - name: Publish release safely
         if: steps.merge.outputs.release == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
+          DEV_SHA: ${{ steps.merge.outputs.head_sha }}
+          BASE_SHA: ${{ github.sha }}
         run: |
-          gh release create "$VERSION" \
-            --title "$VERSION" \
-            --notes-file /tmp/notes.md \
-            --verify-tag \
-            --latest
+          set -euo pipefail
+
+          echo "Preparing release $VERSION"
+
+          if git ls-remote --exit-code --tags origin \
+               "refs/tags/$VERSION" >/dev/null 2>&1; then
+
+            echo "Existing tag found: $VERSION"
+            git fetch origin "refs/tags/$VERSION:refs/tags/$VERSION"
+
+            release_sha=$(git rev-parse "${VERSION}^{commit}")
+            parent_sha=$(git rev-parse "${release_sha}^")
+
+            if [[ "$parent_sha" != "$BASE_SHA" ]]; then
+              echo "error: existing tag points to an unexpected commit"
+              echo "tag:    $release_sha"
+              echo "parent: $parent_sha"
+              echo "base:   $BASE_SHA"
+              exit 1
+            fi
+
+          else
+
+            echo "Preparing new release commit"
+
+            git show "${DEV_SHA}:CHANGELOG.md" > CHANGELOG.md
+
+            if ! awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit} f' CHANGELOG.md |
+                 grep -qE '^[[:space:]]*[-*+][[:space:]]'; then
+              echo "error: [Unreleased] section is empty"
+              exit 1
+            fi
+
+            python3 hooks/promote-changelog.py "${VERSION#v}"
+
+            awk -v v="${VERSION#v}" '
+              $0 ~ "^## \\[" v "\\]" {found=1; next}
+              found && /^## \[/ {exit}
+              found {print}
+            ' CHANGELOG.md > /tmp/notes.md
+
+            test -s /tmp/notes.md || {
+              echo "error: release notes are empty"
+              exit 1
+            }
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            git add CHANGELOG.md
+            git commit -m "chore(release): $VERSION [skip ci]"
+
+            release_sha=$(git rev-parse HEAD)
+
+            git tag -a "$VERSION" -m "$VERSION"
+
+            git push origin "$VERSION"
+          fi
+
+
+          git show "${release_sha}:CHANGELOG.md" > /tmp/release-changelog.md
+
+          awk -v v="${VERSION#v}" '
+            $0 ~ "^## \\[" v "\\]" {found=1; next}
+            found && /^## \[/ {exit}
+            found {print}
+          ' /tmp/release-changelog.md > /tmp/notes.md
+
+          test -s /tmp/notes.md || {
+            echo "error: tagged release has no changelog notes"
+            exit 1
+          }
+
+
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "GitHub Release already exists: $VERSION"
+          else
+            echo "Creating GitHub Release: $VERSION"
+
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --notes-file /tmp/notes.md \
+              --verify-tag \
+              --latest
+          fi
+
+
+          release_status=$(
+            gh release view "$VERSION" \
+              --json isDraft,isPrerelease \
+              --jq '[.isDraft, .isPrerelease] | @tsv'
+          )
+
+          if [[ "$release_status" != $'false\tfalse' ]]; then
+            echo "error: release is not published as a stable release"
+            exit 1
+          fi
+
+          echo "GitHub Release published: $VERSION"
+
+
+          git fetch origin main
+
+          remote_main=$(git rev-parse origin/main)
+
+          if git merge-base --is-ancestor "$release_sha" origin/main; then
+            echo "Release commit already exists on main."
+          elif [[ "$remote_main" == "$BASE_SHA" ]]; then
+            git push origin "$release_sha:refs/heads/main"
+            echo "Promoted changelog pushed to main."
+          else
+            echo "error: main advanced unexpectedly."
+            echo "Release is published, but changelog sync needs recovery."
+            echo "Release commit: $release_sha"
+            echo "Current main:   $remote_main"
+            exit 1
+          fi
+
+          echo "Release $VERSION completed successfully."
 
 
       - name: Sync dev with main

@@ -316,6 +316,14 @@ let
     (script.voice.fuzzy.enable or true)
   ) scripts;
 
+  contextWordsFile =
+    pkgs.writeText "context-config.json" (builtins.toJSON {
+      pronouns            = cfg.pronouns;
+      entity_flags        = [ "--device" "--entity" "--target" "--item" "--name" ];
+      server_aliases      = {};
+      environment_scripts = {};
+    });
+
   splitWordsFile = pkgs.writeText "split-words.json" (builtins.toJSON config.yo.splitWords);
   sorryPhrasesFile = pkgs.writeText "sorry-phrases.json" (builtins.toJSON config.yo.sorryPhrases);
   fuzzyIndexFile = pkgs.writeText "fuzzy-index.json" (builtins.toJSON fuzzyIndex);
@@ -1061,6 +1069,7 @@ in {
       # Generate configuration files in /etc/yo
       environment.etc = {
         "yo/split-words.json".source = splitWordsFile;
+        "yo/context-config.json".source = contextWordsFile;
         "yo/sorry-phrases.json".source = sorryPhrasesFile;
         "yo/intent-data.json".source = intentDataFile;
         "yo/fuzzy-index.json".source = fuzzyIndexFlatFile;

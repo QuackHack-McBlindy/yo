@@ -45,6 +45,8 @@ struct CompiledPattern {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct MemoryContext {
     last_action: String,
+    #[serde(default)]
+    last_args: Vec<String>,
     active_servers: Vec<String>,
     environment: String,
     user_preferences: HashMap<String, String>,
@@ -55,6 +57,61 @@ struct CommandHistory {
     recent_commands: Vec<RecentCommand>,
     confirmed_matches: HashMap<String, u32>,
 }
+
+const DEFAULT_CONTEXT_CONFIG_PATH: &str = "/etc/yo/context-config.json";
+
+fn default_entity_flags() -> Vec<String> {
+    vec![
+        "--device".into(),
+        "--entity".into(),
+        "--target".into(),
+        "--item".into(),
+        "--name".into(),
+    ]
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ContextConfig {
+    /// Words that refer to a previously mentioned entity, e.g. ["it", "that",
+    /// "den", "det", "denna", "detta"]. Empty list disables the feature.
+    #[serde(default)]
+    pronouns: Vec<String>,
+
+    /// Arg flags whose value is considered "the current entity".
+    #[serde(default = "default_entity_flags")]
+    entity_flags: Vec<String>,
+
+    /// Map of literal arg value -> server name to activate,
+    /// e.g. { "dads": "dads_media_server" }.
+    #[serde(default)]
+    server_aliases: HashMap<String, String>,
+
+    /// Map of script name -> environment label written to memory,
+    /// e.g. { "deploy": "deployment" }.
+    #[serde(default)]
+    environment_scripts: HashMap<String, String>,
+}
+
+impl Default for ContextConfig {
+    fn default() -> Self {
+        Self {
+            pronouns: Vec::new(),          // safe default: feature off
+            entity_flags: default_entity_flags(),
+            server_aliases: HashMap::new(),
+            environment_scripts: HashMap::new(),
+        }
+    }
+}
+
+fn load_context_config() -> ContextConfig {
+    let path = std::env::var("YO_CONTEXT_CONFIG")
+        .unwrap_or_else(|_| DEFAULT_CONTEXT_CONFIG_PATH.to_string());
+    match fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => ContextConfig::default(),
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RecentCommand {
@@ -217,6 +274,7 @@ struct YoDo {
     processing_order: Vec<ScriptPriority>,
     fuzzy_threshold: i32,
     debug: bool,
+    context_config: ContextConfig,
     memory_data: MemoryData,
     split_words: Vec<String>,
     sorry_phrases: Vec<String>,
@@ -239,6 +297,7 @@ impl YoDo {
             MemoryData {
                 context: MemoryContext {
                     last_action: "".to_string(),
+                    last_args: Vec::new(),
                     active_servers: Vec::new(),
                     environment: "default".to_string(),
                     user_preferences: HashMap::new(),
@@ -262,8 +321,49 @@ impl YoDo {
             sorry_phrases,
             compiled_patterns: HashMap::new(),
             preview,
+            context_config: load_context_config(),
         }
     }
+
+
+    fn resolve_context_references(&self, input: &str) -> String {
+        if self.context_config.pronouns.is_empty() {
+            return input.to_string();
+        }
+
+        let args = &self.memory_data.context.last_args;
+        let Some(entity) = self.context_config.entity_flags
+            .iter()
+            .find_map(|flag| {
+                args.windows(2)
+                    .find(|pair| pair[0] == *flag)
+                    .map(|pair| pair[1].as_str())
+            })
+        else {
+            return input.to_string();
+        };
+
+        let alternation = self.context_config.pronouns
+            .iter()
+            .map(|p| regex::escape(p))
+            .collect::<Vec<_>>()
+            .join("|");
+
+        let Ok(pronouns) = Regex::new(&format!(r"(?i)\b({})\b", alternation)) else {
+            return input.to_string();
+        };
+
+        let resolved = pronouns.replace_all(input, entity).into_owned();
+        if resolved != input {
+            dt_debug(&format!(
+                "🦆 Context resolution: '{}' → '{}'",
+                input, resolved
+            ));
+        }
+        resolved
+    }
+
+
 
     fn log_intent_time(&self, ms: u128) -> io::Result<()> {
         if self.preview { return Ok(()); }
@@ -444,6 +544,7 @@ impl YoDo {
         let context: MemoryContext = if let Ok(file) = std::fs::File::open(&context_path) {
             serde_json::from_reader(file).unwrap_or_else(|_| MemoryContext {
                 last_action: "".to_string(),
+                last_args: Vec::new(),
                 active_servers: Vec::new(),
                 environment: "default".to_string(),
                 user_preferences: HashMap::new(),
@@ -451,6 +552,7 @@ impl YoDo {
         } else {
             MemoryContext {
                 last_action: "".to_string(),
+                last_args: Vec::new(),
                 active_servers: Vec::new(),
                 environment: "default".to_string(),
                 user_preferences: HashMap::new(),
@@ -1061,12 +1163,7 @@ impl YoDo {
         }), display)
     }
 
-
-
-
-
-
-    fn update_memory_context(&self, script_name: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    fn update_memory_context(&mut self, script_name: &str, args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         if self.preview { return Ok(()); }
         let stats_dir = std::env::var("HOME").unwrap_or_else(|_| ".".to_string()) + "/.local/share/yo/stats";
         let context_path = format!("{}/current_context.json", stats_dir);
@@ -1074,33 +1171,36 @@ impl YoDo {
 
         let mut context = self.memory_data.context.clone();
         context.last_action = script_name.to_string();
+        context.last_args = args.to_vec();
 
         let mut active_servers = Vec::new();
         for arg in args {
-            if arg.contains("dads") || arg == "--server" && args.iter().any(|a| a == "dads") {
-                active_servers.push("dads_media_server".to_string());
-            }
-            if arg.contains("moms") || arg == "--server" && args.iter().any(|a| a == "moms") {
-                active_servers.push("moms_media_server".to_string());
+            if let Some(server) = self.context_config.server_aliases.get(arg) {
+                active_servers.push(server.clone());
             }
         }
         if !active_servers.is_empty() {
             context.active_servers = active_servers;
         }
-        if script_name == "deploy" {
-            context.environment = "deployment".to_string();
-        } else {
-            context.environment = "default".to_string();
-        }
 
+        context.environment = self
+            .context_config
+            .environment_scripts
+            .get(script_name)
+            .cloned()
+            .unwrap_or_else(|| "default".to_string());
+
+        self.memory_data.context = context.clone();
         let context_json = serde_json::to_string_pretty(&context)?;
         std::fs::write(&context_path, context_json)?;
-        dt_debug(&format!("Updated memory context: last_action={}, environment={}",
-            context.last_action, context.environment));
+        dt_debug(&format!(
+            "Updated memory context: last_action={}, environment={}",
+            context.last_action, context.environment
+        ));
         Ok(())
     }
 
-    fn execute_script(&self, result: &MatchResult) -> Result<(), Box<dyn std::error::Error>> {
+    fn execute_script(&mut self, result: &MatchResult) -> Result<(), Box<dyn std::error::Error>> {
         if self.preview {
             if result.args.is_empty() {
                 println!("yo {}", result.script_name);
@@ -1115,9 +1215,7 @@ impl YoDo {
         dt_debug!("🦆MEMORY:SENTENCE:{}", result.matched_sentence);
         dt_debug!("🦆MEMORY:TYPE:{}", result.match_type);
 
-        if let Err(e) = self.update_memory_context(&result.script_name, &result.args) {
-            dt_debug(&format!("Failed to update memory context: {}", e));
-        }
+
 
         println!("   ┌─(yo-{})", result.script_name);
         let quack = if result.match_type == "exact" {
@@ -1162,6 +1260,10 @@ impl YoDo {
         if !output.status.success() {
             eprintln!("🦆 says ⮞ fuck ❌ Script execution failed with status: {}", output.status);
             return Ok(());
+        }
+
+        if let Err(e) = self.update_memory_context(&result.script_name, &result.args) {
+            dt_debug(&format!("Failed to update memory context: {}", e));
         }
 
         if should_speak {
@@ -1251,9 +1353,10 @@ impl YoDo {
     }
 
 
-    fn process_single_input(&self, input: &str, _total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
+    fn process_single_input(&mut self, input: &str, _total_start: Instant, race: bool) -> Result<(), Box<dyn std::error::Error>> {
         let part_start = Instant::now();
         let normalized = Self::normalize_input(input);
+        let normalized = self.resolve_context_references(&normalized);
 
         if race {
             #[derive(Debug)]
@@ -1856,13 +1959,22 @@ mod tests {
     #[test]
     fn test_update_memory_context() {
         let _guard = TempHomeGuard::new();
-        let yodo = create_test_yodo();
-        let script = "timer";
-        let args = vec!["--minutes".to_string(), "5".to_string()];
+        let mut yodo = create_test_yodo();
+
+        let script = "house";
+        let args = vec![
+            "--state".to_string(),
+            "OFF".to_string(),
+            "--device".to_string(),
+            "PC".to_string(),
+        ];
         let result = yodo.update_memory_context(script, &args);
         assert!(result.is_ok());
+        assert_eq!(yodo.memory_data.context.last_action, script);
+        assert_eq!(yodo.memory_data.context.last_args, args);
         let memory = YoDo::load_memory_data().unwrap();
         assert_eq!(memory.context.last_action, script);
+        assert_eq!(memory.context.last_args, args);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 {
   "yo.fuzzy": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -17,7 +17,7 @@
   },
   "yo.fuzzy.conflict": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -34,7 +34,7 @@
   },
   "yo.fuzzy.conflict.detection": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -52,7 +52,7 @@
   },
   "yo.fuzzy.conflict.threshold": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -70,7 +70,7 @@
   },
   "yo.fuzzy.enable": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -87,7 +87,7 @@
   },
   "yo.fuzzy.threshold": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -104,7 +104,7 @@
   },
   "yo.generatedPatterns": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Number of regex patterns generated at build time",
     "loc": [
@@ -116,7 +116,7 @@
   },
   "yo.legacy": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -132,7 +132,7 @@
   },
   "yo.pkgs": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "The final yo scripts package",
     "loc": [
@@ -142,9 +142,29 @@
     "readOnly": true,
     "type": "package"
   },
+  "yo.pronouns": {
+    "declarations": [
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
+    ],
+    "default": {
+      "_type": "literalExpression",
+      "text": "[ ]"
+    },
+    "description": "Words that refer to the previously used entity (the value of any\n`entityFlags` in `last_args`). Each word is matched case-insensitively\nas a whole word. When this list is empty the feature is disabled and\nthe input is passed through untouched.\n",
+    "example": {
+      "_type": "literalExpression",
+      "text": "[\n  \"it\"\n  \"that\"\n  \"den\"\n  \"det\"\n  \"denna\"\n  \"detta\"\n]"
+    },
+    "loc": [
+      "yo",
+      "pronouns"
+    ],
+    "readOnly": false,
+    "type": "list of string"
+  },
   "yo.scripts": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -160,7 +180,7 @@
   },
   "yo.scripts.<name>.aliases": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -182,7 +202,7 @@
   },
   "yo.scripts.<name>.autoStart": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -204,7 +224,7 @@
   },
   "yo.scripts.<name>.binary": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -226,7 +246,7 @@
   },
   "yo.scripts.<name>.category": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -248,7 +268,7 @@
   },
   "yo.scripts.<name>.code": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -270,7 +290,7 @@
   },
   "yo.scripts.<name>.description": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -292,7 +312,7 @@
   },
   "yo.scripts.<name>.enable": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -314,7 +334,7 @@
   },
   "yo.scripts.<name>.filePath": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "This option has no description.",
     "loc": [
@@ -328,7 +348,7 @@
   },
   "yo.scripts.<name>.helpFooter": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -350,7 +370,7 @@
   },
   "yo.scripts.<name>.logLevel": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -372,7 +392,7 @@
   },
   "yo.scripts.<name>.parameters": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -394,7 +414,7 @@
   },
   "yo.scripts.<name>.parameters.*.default": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -414,7 +434,7 @@
   },
   "yo.scripts.<name>.parameters.*.description": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Human-readable explanation of the parameter, shown in `--help`.",
     "loc": [
@@ -430,7 +450,7 @@
   },
   "yo.scripts.<name>.parameters.*.name": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Name of the parameter as passed to the script (example, if parameter name is `seconds` it can be used in the script using `$seconds`).",
     "loc": [
@@ -446,7 +466,7 @@
   },
   "yo.scripts.<name>.parameters.*.optional": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -466,7 +486,7 @@
   },
   "yo.scripts.<name>.parameters.*.type": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -486,7 +506,7 @@
   },
   "yo.scripts.<name>.parameters.*.values": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -510,7 +530,7 @@
   },
   "yo.scripts.<name>.runAt": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -532,7 +552,7 @@
   },
   "yo.scripts.<name>.runEvery": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -550,7 +570,7 @@
   },
   "yo.scripts.<name>.visibleInReadme": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -568,7 +588,7 @@
   },
   "yo.scripts.<name>.voice": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -586,7 +606,7 @@
   },
   "yo.scripts.<name>.voice.enabled": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -605,7 +625,7 @@
   },
   "yo.scripts.<name>.voice.excludes_context": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -624,7 +644,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -643,7 +663,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy.enable": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -663,7 +683,7 @@
   },
   "yo.scripts.<name>.voice.fuzzy.threshold": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -683,7 +703,7 @@
   },
   "yo.scripts.<name>.voice.lists": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -706,7 +726,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -731,7 +751,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.from": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Starting value of the range (inclusive).",
     "loc": [
@@ -749,7 +769,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.multiplier": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -771,7 +791,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.to": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Ending value of the range (inclusive).",
     "loc": [
@@ -789,7 +809,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.range.type": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -811,7 +831,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -836,7 +856,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values.*.\"in\"": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Input pattern. Can contain alternatives separated by `|`.",
     "loc": [
@@ -855,7 +875,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.values.*.out": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Output value assigned to the parameter when the input pattern matches.",
     "loc": [
@@ -874,7 +894,7 @@
   },
   "yo.scripts.<name>.voice.lists.<name>.wildcard": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -895,7 +915,7 @@
   },
   "yo.scripts.<name>.voice.priority": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -918,7 +938,7 @@
   },
   "yo.scripts.<name>.voice.requires_context": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -937,7 +957,7 @@
   },
   "yo.scripts.<name>.voice.sentences": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -960,7 +980,7 @@
   },
   "yo.scripts.<name>.voice.sentences.*.phrase": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Sentence pattern. Supports alternatives `(a|b)`, optionals `[word]`,\nand parameter references `{name}`.\n",
     "loc": [
@@ -977,7 +997,7 @@
   },
   "yo.scripts.<name>.voice.sentences.*.prefix": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -998,7 +1018,7 @@
   },
   "yo.scripts.<name>.voice.speak": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -1017,7 +1037,7 @@
   },
   "yo.sorryPhrases": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -1033,7 +1053,7 @@
   },
   "yo.splitWords": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -1053,7 +1073,7 @@
   },
   "yo.understandsPhrases": {
     "declarations": [
-      "/nix/store/wgmlajkja93hx69ygws5cn9g86vs9dw4-source/options.nix"
+      "/nix/store/gp98y5ngzzw07p2pcrvlzygh7s2b2i9x-source/options.nix"
     ],
     "description": "Theoretical number of unique spoken phrases the system can understand",
     "loc": [
