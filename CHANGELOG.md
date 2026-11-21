@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `last_args` to `memoryContext` - yo now properly remembers it's own last commands (including parameters).
+- New option: `yo.pronouns`. (list of strings)
+
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.14] - 2026-11-19
+
+### Added
+
 - Added option: `yo.scripts.<name>.enable` - set to `false` to effectively disable the script entirely.
 
 ### Changed

@@ -1,7 +1,7 @@
 {
   "services.yo-rs.client.awakeCmd": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -23,16 +23,16 @@
   },
   "services.yo-rs.client.awakeSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/ding.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/ding.wav\""
     },
     "description": "Path to a custom WAV file played on wake detection (client‑side).",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/ding.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/ding.wav\""
     },
     "loc": [
       "services",
@@ -45,7 +45,7 @@
   },
   "services.yo-rs.client.debug": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -67,7 +67,7 @@
   },
   "services.yo-rs.client.doneCmd": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -89,16 +89,16 @@
   },
   "services.yo-rs.client.doneSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/done.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/done.wav\""
     },
     "description": "Path to a custom WAV file played on successful command execution (client‑side).",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/done.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/done.wav\""
     },
     "loc": [
       "services",
@@ -111,7 +111,7 @@
   },
   "services.yo-rs.client.enable": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -133,7 +133,7 @@
   },
   "services.yo-rs.client.extraArgs": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -151,7 +151,7 @@
   },
   "services.yo-rs.client.failCmd": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -173,16 +173,16 @@
   },
   "services.yo-rs.client.failSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/fail.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/fail.wav\""
     },
     "description": "Path to a custom WAV file played on successful command execution (client‑side).",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/fail.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/fail.wav\""
     },
     "loc": [
       "services",
@@ -195,7 +195,7 @@
   },
   "services.yo-rs.client.gain": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -217,7 +217,7 @@
   },
   "services.yo-rs.client.logFile": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -239,7 +239,7 @@
   },
   "services.yo-rs.client.maxDuration": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -261,7 +261,7 @@
   },
   "services.yo-rs.client.room": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -283,7 +283,7 @@
   },
   "services.yo-rs.client.silenceThreshold": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -305,7 +305,7 @@
   },
   "services.yo-rs.client.silenceTimeout": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -327,7 +327,7 @@
   },
   "services.yo-rs.client.ttsClients": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -349,7 +349,7 @@
   },
   "services.yo-rs.client.uri": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -371,7 +371,7 @@
   },
   "services.yo-rs.enable": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -392,7 +392,7 @@
   },
   "services.yo-rs.openFirewall": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -413,7 +413,7 @@
   },
   "services.yo-rs.package": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -430,7 +430,7 @@
   },
   "services.yo-rs.port": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -451,16 +451,16 @@
   },
   "services.yo-rs.server.awakeSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/ding.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/ding.wav\""
     },
     "description": "Path to a custom WAV file played on wake detection.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/ding.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/ding.wav\""
     },
     "loc": [
       "services",
@@ -473,7 +473,7 @@
   },
   "services.yo-rs.server.beamSize": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -495,7 +495,7 @@
   },
   "services.yo-rs.server.debug": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -517,16 +517,16 @@
   },
   "services.yo-rs.server.doneSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/done.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/done.wav\""
     },
     "description": "Path to a custom WAV file played on successful command execution.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/done.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/done.wav\""
     },
     "loc": [
       "services",
@@ -539,7 +539,7 @@
   },
   "services.yo-rs.server.enable": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -561,7 +561,7 @@
   },
   "services.yo-rs.server.execCommand": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -583,7 +583,7 @@
   },
   "services.yo-rs.server.extraArgs": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -601,7 +601,7 @@
   },
   "services.yo-rs.server.extraPath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -619,16 +619,16 @@
   },
   "services.yo-rs.server.failSound": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/fail.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/fail.wav\""
     },
     "description": "Path to a custom WAV file played on successful command execution.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/fail.wav\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/fail.wav\""
     },
     "loc": [
       "services",
@@ -641,7 +641,7 @@
   },
   "services.yo-rs.server.host": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -663,7 +663,7 @@
   },
   "services.yo-rs.server.language": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -685,7 +685,7 @@
   },
   "services.yo-rs.server.logFile": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -707,16 +707,16 @@
   },
   "services.yo-rs.server.onnxPath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/tts/en_US-amy-medium.onnx\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/tts/en_US-amy-medium.onnx\""
     },
     "description": "Path to the text-to-speech ONNX model.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/tts/en_US-amy-medium.onnx\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/tts/en_US-amy-medium.onnx\""
     },
     "loc": [
       "services",
@@ -729,7 +729,7 @@
   },
   "services.yo-rs.server.shellTranslate": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -751,7 +751,7 @@
   },
   "services.yo-rs.server.temperature": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -773,7 +773,7 @@
   },
   "services.yo-rs.server.threads": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -795,7 +795,7 @@
   },
   "services.yo-rs.server.threshold": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -817,7 +817,7 @@
   },
   "services.yo-rs.server.ttsSavePath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -839,7 +839,7 @@
   },
   "services.yo-rs.server.ttsSpeed": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -861,16 +861,16 @@
   },
   "services.yo-rs.server.vadPath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/vad/silero_vad.onnx\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/vad/silero_vad.onnx\""
     },
     "description": "Voice Activation Detection ONNX model path.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/vad/silero_vad.onnx\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/vad/silero_vad.onnx\""
     },
     "loc": [
       "services",
@@ -883,7 +883,7 @@
   },
   "services.yo-rs.server.wakeWordPath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -905,7 +905,7 @@
   },
   "services.yo-rs.server.whisper": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
@@ -927,16 +927,16 @@
   },
   "services.yo-rs.server.whisperPath": {
     "declarations": [
-      "/nix/store/43hq7idgx2a8f44gq9h3y9p67z3l1875-source/services.nix"
+      "/nix/store/raz25i27vvsws27rigrcxq4z7d82lync-source/services.nix"
     ],
     "default": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/stt/ggml-base.bin\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/stt/ggml-base.bin\""
     },
     "description": "Path to the Whisper GGML model.",
     "example": {
       "_type": "literalExpression",
-      "text": "\"/nix/store/qda58h4b4vwxpsjdvfyzxgzkn3s7msgj-yo-rs-0.2.14/share/yo-rs/models/stt/ggml-base.bin\""
+      "text": "\"/nix/store/09z78yrsr5qs85z82ipxsb44mrnrnxla-yo-rs-0.2.15/share/yo-rs/models/stt/ggml-base.bin\""
     },
     "loc": [
       "services",

@@ -409,6 +409,18 @@ in {
       description = "Words that trigger command chaining. When encountered in a sentence, the input is split and each part is executed separately.";
       example = [ "and" "also" ];
     };
+    pronouns = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      example = [ "it" "that" "den" "det" "denna" "detta" ];
+      description = ''
+        Words that refer to the previously used entity (the value of any
+        `entityFlags` in `last_args`). Each word is matched case-insensitively
+        as a whole word. When this list is empty the feature is disabled and
+        the input is passed through untouched.
+      '';
+    };
+
     legacy = lib.mkOption {
       type = lib.types.bool;
       default = false;
