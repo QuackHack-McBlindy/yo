@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+
+## [0.2.15] - 2026-11-21
+
+### Added
+
 - Added `last_args` to `memoryContext` - yo now properly remembers it's own last commands (including parameters).
 - New option: `yo.pronouns`. (list of strings)
 
@@ -17,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 ### Removed
-
 
 ## [0.2.14] - 2026-11-19
 
