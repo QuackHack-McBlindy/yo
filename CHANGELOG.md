@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Now preserves casing on tokens prefixed with a `$`. (Legacy)
+- Now preserves casing on tokens prefixed with a `$`. (`yo-do`)
+
 ### Fixed
 
 ### Removed
