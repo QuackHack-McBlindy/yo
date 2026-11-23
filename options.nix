@@ -210,6 +210,15 @@
               description = "Fuzzy matching configuration specific to this script.";
             };
 
+            tests = lib.mkOption {
+              type = lib.types.attrsOf lib.types.str;
+              default = {};
+              example = { "turn on the livingfroom lights" = "house --room livingroom"; };
+              description = ''
+                Voice command tests mapping input sentences to expected output. `{script_name} --{param} {value}`
+              '';
+            };
+
             sentences = lib.mkOption {
               type = lib.types.listOf (lib.types.coercedTo
                 lib.types.str

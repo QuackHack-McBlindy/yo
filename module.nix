@@ -73,7 +73,7 @@ let
     dataList = generatedIntents.${scriptName}.data;
   in '' # 🦆 says ⮞ diz iz how i pick da script u want
     match_${scriptName}() { # 🦆 says ⮞ shushin' da caps – lowercase life 4 cleaner dyn regex zen ✨
-      local input="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+      local input="$(echo "$1" | sed -E 's/(\$[^ ]+)/\x01\1\x02/g; y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/; s/\x01([^\x02]*)\x02/\1/g')"
       # 🦆 says ⮞ always show input in debug mode
       # 🦆 says ⮞ watch the fancy stuff live in action
       dt_debug "Trying to match for script: ${scriptName}" >&2
@@ -163,7 +163,7 @@ let
     dataList = generatedIntents.${scriptName}.data;
   in '' # 🦆 says ⮞ fuzz in code, waddle mode
     match_fuzzy_${scriptName}() {
-      local input="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+      local input="$(echo "$1" | sed -E 's/(\$[^ ]+)/\x01\1\x02/g; y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/; s/\x01([^\x02]*)\x02/\1/g')"
       local matched_sentence="$2"
       local prefix="''${3:-}"
       # 🦆 says ⮞ skip regex! dat shit iz crazy - use aligned wordz yo

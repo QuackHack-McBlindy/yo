@@ -405,7 +405,18 @@ impl YoDo {
     }
 
     fn normalize_input(input: &str) -> String {
-        input.replace(['?', '!', '.', ',', '&', '/', '\''], "").to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+        input
+            .replace(['?', '!', '.', ',', '&', '/', '\''], "")
+            .split_whitespace()
+            .map(|word| {
+                if word.starts_with('$') {
+                    word.to_string()
+                } else {
+                    word.to_lowercase()
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     fn is_param_token(word: &str) -> Option<&str> {
@@ -744,6 +755,10 @@ impl YoDo {
     }
 
     fn resolve_entity(&self, script_name: &str, param_name: &str, param_value: &str) -> String {
+        if param_value.starts_with('$') {
+            return param_value.to_string();
+        }
+
         if self.is_wildcard_param(script_name, param_name) {
             return param_value.to_string();
         }
@@ -858,7 +873,7 @@ impl YoDo {
 
                     if next_is_wildcard {
                         r"([^ ]+)".to_string()
-                    } else { r"\b([^ ]+)\b".to_string() }
+                    } else { r"([^ ]+)".to_string() }
                 };
 
                 regex_parts.push(regex_group);
@@ -870,7 +885,7 @@ impl YoDo {
             regex_parts.push(regex::escape(&current));
         }
 
-        let regex_pattern = format!("^{}$", regex_parts.join(""));
+        let regex_pattern = format!("(?i)^{}$", regex_parts.join(""));
 
         let build_time = start_time.elapsed();
         dt_debug(&format!("      Final regex: {}", regex_pattern));
@@ -943,7 +958,7 @@ impl YoDo {
     }
 
     fn apply_real_time_substitutions(&self, script_name: &str, text: &str) -> (String, HashMap<String, String>) {
-        let mut resolved_text = text.to_lowercase();
+        let mut resolved_text = text.to_string();
         let mut substitutions = HashMap::new();
 
         if let Some(intent) = self.intent_data.get(script_name) {
@@ -965,7 +980,6 @@ impl YoDo {
 
     fn exact_match(&self, text: &str) -> Option<MatchResult> {
         let global_start = Instant::now();
-        let text = text.to_lowercase();
         dt_debug(&format!("Starting EXACT match for: '{}'", text));
 
         for (script_index, script_priority) in self.processing_order.iter().enumerate() {
@@ -1020,7 +1034,7 @@ impl YoDo {
                             return Some(MatchResult {
                                 script_name: script_name.clone(),
                                 args,
-                                matched_sentence: text.clone(),
+                                matched_sentence: text.to_string(),
                                 processing_time: global_start.elapsed(),
                                 match_type: "exact".to_string(),
                             });
