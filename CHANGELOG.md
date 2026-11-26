@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added new option: `yo.responses`, injects defined strings into variables (useful when scripting multilingual responses).
+
 ### Changed
 
 ### Fixed

@@ -849,6 +849,11 @@ EOF
             fi
           '') script.parameters)}
 
+          # Assign responses as shell variables
+          ${concatStringsSep "\n" (map (resp: ''
+            export ${sanitizeVarName resp.name}=${lib.escapeShellArg (toString (resp.text or ""))}
+          '') (script.responses or []))}
+
           # Count number of parameters
           ${optionalString (script.parameters != []) ''
             if [ ''${#POSITIONAL[@]} -gt ${toString (length script.parameters)} ]; then
