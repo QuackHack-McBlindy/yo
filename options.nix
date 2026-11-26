@@ -128,6 +128,40 @@
       };
 
 
+      responses = lib.mkOption {
+        type = lib.types.listOf (lib.types.submodule {
+          options = {
+            name = lib.mkOption {
+              type = lib.types.str;
+              description = "Name of the variable storing this response as a string.";
+            };
+            description = lib.mkOption {
+              type        = lib.types.str;
+              default     = "";
+              description = "Optional human-readable description fof this specific response.";
+            };
+            text = lib.mkOption {
+              type = lib.types.str;                     # ✓ plain string
+              default = "";
+              description = "The response as a string used in the script.";
+            };
+            type = lib.mkOption {
+              type = lib.types.enum ["string"];
+              default = "string";
+              description = "Data type of the parameter value. Used for validation and conversion.";
+            };
+          };
+        });
+        default = [];
+        description = "List of variables that the script can use to output variables in text-to-speech, useful for multilingual scripts.";
+        example = [
+          { name = "TIME_TEXT"; description = "Minutes to set"; text = "It is currently $TIME"; }
+          { name = "DATE_TEXT"; description = "Sound file to play"; text = "Today is $DAY, $DATE"; }
+          { name = "WEEK_TEXT"; description = "Sound file to play"; text = "And the Week is $WEEK"; }
+        ];
+      };
+
+
       parameters = lib.mkOption {
         type = lib.types.listOf (lib.types.submodule {
           options = {
@@ -171,6 +205,9 @@
           { name = "sound"; type = "path"; description = "Sound file to play"; optional = true; }
         ];
       };
+
+
+
       voice = lib.mkOption {
         type = lib.types.nullOr (lib.types.submodule {
           options = {
